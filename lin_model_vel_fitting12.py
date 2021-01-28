@@ -11,6 +11,8 @@ import sys
 # args can also be passed to the forward pass of the model
 # if you define a model to take on additional arguments in the forward pass
 # idk how this will work with multiple update steps
+
+
 def L2Loss(params,*args):
         model = args[0]
         # Since jax grad only takes in 1d ndarrays you need to flatten your inputs
