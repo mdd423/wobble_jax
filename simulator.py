@@ -72,7 +72,7 @@ class FreqEnv():
             new_vel = self.generate_new_vel(1)[0]
         else:
             new_vel = vel
-        flux    = np.ones(self.size)
+        flux    = jnp.ones(self.size)
         flux   -= createFrequencyDist(self.mus,self.stds,self.heights,self.lambdas + new_vel)
         # add atmosphere flux
         flux   -= createFrequencyDist(self.mu_atm,self.std_atm,self.height_atm,self.lambdas)

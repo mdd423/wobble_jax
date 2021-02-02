@@ -15,8 +15,6 @@ import loss as wobble_loss
 # if you define a model to take on additional arguments in the forward pass
 # idk how this will work with multiple update steps
 
-
-
 class LossFunc():
     def __init__(self,loss_func,loss_parms=1.0):
         if   type(loss_func) == type('str'):
@@ -37,6 +35,12 @@ class LossFunc():
 
         return LossFunc(loss_func=self.func_list + x.func_list,loss_parms=self.params + x.params)
 
+    def __mul__(self,x):
+        return LossFunc(loss_func=self.func_list,loss_parms=x * self.params)
+
+    def __rmul__(self,x):
+        return LossFunc(loss_func=self.func_list,loss_parms=x * self.params)
+
     def __call__(self,params,*args):
         output = 0.0
         for i,loss in enumerate(self.func_list):
@@ -44,21 +48,29 @@ class LossFunc():
         return output
 
 def getCellArray(x,xs):
+
+    if xs[0]  < x[0]:
+        print('error xs datapoints do not fit within the model')
+        return None
+    if xs[-1] > x[-1]:
+        print('error xs datapoints do not fit within the model')
+        return None
+
     cell_array = np.zeros(len(xs),dtype=int)
-    x_val = x[0]
-    j = 0
+    j     = 1
+    x_val = x[j]
     for i, xss in enumerate(xs):
         while x_val < xss:
-            j += 1
+            j    += 1
             x_val = x[j]
         cell_array[i] = int(j)
     return cell_array
 
-def getPlotSize(model):
-    size_x = np.floor(np.sqrt(model.epoches))
-    size_y = model.epoches//size_x
-    while model.epoches % size_y != 0:
-        size_y = model.epoches//size_x
+def getPlotSize(epoches):
+    size_x = np.floor(np.sqrt(epoches))
+    size_y = epoches//size_x
+    while epoches % size_y != 0:
+        size_y = epoches//size_x
         size_x -= 1
     else:
         size_x += 1
@@ -67,10 +79,15 @@ def getPlotSize(model):
     return size_x, size_y
 
 class LinModel():
-    def __init__(self,num_params,fluxes,lambdas,epoches,vel_shifts,size):
+    def __init__(self,num_params,fluxes,lambdas,epoches,vel_shifts):
         self.epoches = epoches
+        # when defining ones own model, need to include inputs as xs, outputs as ys
+        # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
+        # also assumes epoches of data that is shifted between
         self.xs = lambdas
         self.ys = fluxes
+
+        # self.size = len(lambdas)
 
         self.shifted = vel_shifts
 
@@ -85,44 +102,29 @@ class LinModel():
 
         # given x cells are shifted, the cell arrays contain the information for
         # which data points are in which cells
-        self.cell_array = np.zeros([self.epoches,size],dtype=int)
-        for i in range(self.epoches):
-            # added the shifted to the freq dist so subtract shift from model
-            self.cell_array[i,:] = getCellArray(self.x - self.shifted[i],self.xs)
-        self.y = np.ones(num_params)
+        # self.cell_array = np.zeros([self.epoches,self.size],dtype=int)
+        # for i in range(self.epoches):
+        #     # added the shifted to the freq dist so subtract shift from model
+        #     self.cell_array[i,:] = getCellArray(self.x - self.shifted[i],self.xs)
+        self.params = np.ones(num_params)
 
-    def optimize(self,loss,*args):
-        # Train model
-        res = scipy.optimize.minimize(loss, self.y, args=(self,*args), method='BFGS', jac=jax.grad(loss),
-               options={'disp': True})
-        self.y = res.x
-        return res
-
-    # gives all predicted data from the input data in the model given the parameters
-    def forward(self,params,*args):
-        y = params
-        # TO DO: determine cell array with each forward pass if we are to fit velocity shift
-        ys = jnp.array([])
-        for i in range(self.epoches):
-            # temp_x = self.x+self.shifted[i]
-            # subtracted shift from model
-            cell_array = self.cell_array[i,:] #getCellArray(temp_x,self.xs)
-            # the x values for the model need to be shifted here but only for the intercept
-            m   = (y[cell_array] - y[cell_array-1])/(self.x[cell_array] - self.x[cell_array-1])
-            ys2 = y[cell_array-1] + m * (self.xs - self.x[cell_array-1] + self.shifted[i])
-            ys  = jnp.append(ys,ys2)
-        return ys
-
-    def __call__(self,x):
+    def __call__(self,params,input,epoch_idx,*args):
+        # print(type(self),type(x),type(i))
         # can only be used once model is optimized
-        cell_array = getCellArray(self.x,x)
+        # i = args[0]
+        # cell_array = self.cell_array[epoch_idx,:] #getCellArray(self.x + self.shifted[epoch_idx],input)
+        cell_array = getCellArray(self.x + self.shifted[epoch_idx],input)
+        # if cell_array is None:
+        #     cell_array = getCellArray(self.x,x)
+        x = input + self.shifted[epoch_idx]
+        y = params
         # the x values for the model need to be shifted here but only for the intercept
-        m  = (self.y[cell_array] - self.y[cell_array-1])/(self.x[cell_array] - self.x[cell_array-1])
-        ys = self.y[cell_array-1] + m * (x - self.x[cell_array-1])
-        return ys
+        m  = (y[cell_array] - y[cell_array-1])/(self.x[cell_array] - self.x[cell_array-1])
+        ys = y[cell_array-1] + m * (x - self.x[cell_array-1])
+        return jnp.array(ys)
 
-    def plot(self,noise,env=None):
-        size_x, size_y = getPlotSize(self)
+    def plot(self,noise,env=None,atm_model=None):
+        size_x, size_y = getPlotSize(model.epoches)
 
         fig = plt.figure(figsize=[12.8,9.6])
         # Once again we apply the shift to the xvalues of the model when we plot it
@@ -130,7 +132,10 @@ class LinModel():
             ax = fig.add_subplot(size_x,size_y,i+1)
             ax.set_title('epoch %i: vel %.2f' % (i, self.shifted[i]))
 
-            plt.plot(self.x - self.shifted[i],self.y,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
+            if atm_model is not None:
+                plt.plot(atm_model.x - atm_model.shifted[i],atm_model.params,'.g',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
+
+            plt.plot(self.x - self.shifted[i],self.params,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
 
             plt.errorbar(self.xs,self.ys[i,:],yerr=noise,fmt='.k',zorder=1,alpha=0.9,ms=6)
 
@@ -140,6 +145,48 @@ class LinModel():
             if env is not None:
                 plt.plot(env.lambdas - self.shifted[i],env.get_stellar_flux(),color='red', alpha=0.4)
 
+    def optimize(self,loss,*args):
+        # Train model
+        res = scipy.optimize.minimize(loss, self.params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
+               options={'disp': True})
+        self.params = res.x
+        return res
+
+    # gives all predicted data from the input data in the model given the parameters
+    def forward(self,params,*args):
+        # input = args[0]
+        # organization of params here is the same as in __init__
+        # TO DO: determine cell array with each forward pass if we are to fit velocity shift
+
+        # preds should be of the same shape as the out of __call__
+        # EXCEPT that it has an additional axis per epoch
+        # assume the same input for every epoch (?)
+        input = self.xs
+        preds = jnp.expand_dims(self(params,input,0,*args),axis=0)
+
+        for i in range(1,self.epoches):
+            # temp_x = self.x+self.shifted[i]
+            # subtracted shift from model
+            # cell_array = self.cell_array[i,:] #getCellArray(temp_x,self.xs)
+            # # the x values for the model need to be shifted here but only for the intercept
+            # m   = (y[cell_array] - y[cell_array-1])/(self.x[cell_array] - self.x[cell_array-1])
+            # ys2 = y[cell_array-1] + m * (input - self.x[cell_array-1] + self.shifted[i])
+
+            # decide on official
+            ys    = jnp.expand_dims(self(params,input,i,*args),axis=0)
+            preds = jnp.append(preds,ys,axis=0)
+        return preds
+
+    def predict(self,input,*args):
+        return self(self.params,input,*args)
+
+    # you need to generalize this to whatever function occurs in the forward pass
+    # like you said you shouldn't have to define this function two places
+    # one for parameter running and one for prediction
+    # they should be in the same place
+
+    # not written in v generalizable way,see plt.plot(...,self.params) and not a __call__(sel.fparams)
+
     def cross_correlation(self,flux,lambdas,size=1000):
 
         shifts = np.linspace(-self.padding+0.01,self.padding-0.01,size)
@@ -147,3 +194,26 @@ class LinModel():
         for i,shift in enumerate(shifts):
             ccs[i] = np.dot(self(lambdas + shift),flux)
         return ccs, shifts
+
+# foo = jax.numpy.interp(xs, x - shifts, params)
+# res = scipy.optimize.minimize(lamdba(): (ys - foo(xs))**2, params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
+#        options={'disp': True})
+class JnpLin(LinModel):
+    def __init__(self,num_params,fluxes,lambdas,epoches,vel_shifts):
+        self.epoches = epoches
+        self.xs = lambdas
+        self.ys = fluxes
+
+        self.shifted = vel_shifts
+
+        self.padding = abs(self.shifted).max()
+
+        minimum = self.xs.min()
+        maximum = self.xs.max()
+        self.x = np.linspace(minimum-self.padding,maximum+self.padding,num_params)
+
+        self.params = jnp.ones(num_params)
+
+    def __call__(self,params,input,epoch_idx,*args):
+        ys = jax.numpy.interp(input, self.x - self.shifted[epoch_idx], params)
+        return ys
