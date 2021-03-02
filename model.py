@@ -18,14 +18,14 @@ import loss as wobble_loss
 class LossFunc():
     def __init__(self,loss_func,loss_parms=1.0):
         if   type(loss_func) == type('str'):
-            self.func_list = [loss_func]
-        elif type(loss_func) == type(['list']):
+            self.func_list = np.array([loss_func])
+        elif type(loss_func) == type(np.array([])):
             self.func_list = loss_func
         else:
             sys.exit('loss_func parameter not correct type: str or list')
         if   type(loss_parms) == type(1.0):
-            self.params = [loss_parms]
-        elif type(loss_parms) == type(['list']):
+            self.params = np.array([loss_parms])
+        elif type(loss_parms) == type(np.array([])):
             self.params = loss_parms
             assert len(self.params) == len(self.func_list)
         else:
@@ -33,7 +33,7 @@ class LossFunc():
 
     def __add__(self,x):
 
-        return LossFunc(loss_func=self.func_list + x.func_list,loss_parms=self.params + x.params)
+        return LossFunc(loss_func=np.append(self.func_list, x.func_list ) ,loss_parms=np.append(self.params, x.params ))
 
     def __mul__(self,x):
         return LossFunc(loss_func=self.func_list,loss_parms=x * self.params)
@@ -79,15 +79,16 @@ def getPlotSize(epoches):
     return size_x, size_y
 
 class LinModel():
-    def __init__(self,num_params,fluxes,lambdas,epoches,vel_shifts):
-        self.epoches = epoches
+    def __init__(self,num_params,y,x,vel_shifts):
+        self.epoches = len(vel_shifts)
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
         # also assumes epoches of data that is shifted between
-        self.xs = lambdas
-        self.ys = fluxes
+        self.xs = x
+        self.ys = y
 
-        # self.size = len(lambdas)
+        self.size = x.shape[1]
+        # print(self.size)
 
         self.shifted = vel_shifts
 
@@ -102,10 +103,13 @@ class LinModel():
 
         # given x cells are shifted, the cell arrays contain the information for
         # which data points are in which cells
-        # self.cell_array = np.zeros([self.epoches,self.size],dtype=int)
-        # for i in range(self.epoches):
-        #     # added the shifted to the freq dist so subtract shift from model
-        #     self.cell_array[i,:] = getCellArray(self.x - self.shifted[i],self.xs)
+        self.cell_array = np.zeros([self.epoches,self.size],dtype=int)
+        for i in range(self.epoches):
+            # print((self.x - self.shifted[i]).shape)
+            # print(self.xs.shape)
+            # added the shifted to the freq dist so subtract shift from model
+            # print(type(self.x - self.shifted[i]),type(self.xs[i,:]))
+            self.cell_array[i,:] = getCellArray(self.x - self.shifted[i],self.xs[i,:])
         self.params = np.ones(num_params)
 
     def __call__(self,params,input,epoch_idx,*args):
@@ -113,7 +117,7 @@ class LinModel():
         # can only be used once model is optimized
         # i = args[0]
         # cell_array = self.cell_array[epoch_idx,:] #getCellArray(self.x + self.shifted[epoch_idx],input)
-        cell_array = getCellArray(self.x + self.shifted[epoch_idx],input)
+        cell_array = self.cell_array[epoch_idx,:] #getCellArray(self.x + self.shifted[epoch_idx],input)
         # if cell_array is None:
         #     cell_array = getCellArray(self.x,x)
         x = input + self.shifted[epoch_idx]
@@ -123,8 +127,13 @@ class LinModel():
         ys = y[cell_array-1] + m * (x - self.x[cell_array-1])
         return jnp.array(ys)
 
-    def plot(self,noise,env=None,atm_model=None):
-        size_x, size_y = getPlotSize(model.epoches)
+    def plot_model(self,i):
+        plt.plot(self.x - self.shifted[i],self.params,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
+
+    # def plot_epoch(self,noise,en)
+
+    def plot(self,noise=None,env=None,atm_model=None,xlim=None):
+        size_x, size_y = getPlotSize(self.epoches)
 
         fig = plt.figure(figsize=[12.8,9.6])
         # Once again we apply the shift to the xvalues of the model when we plot it
@@ -135,20 +144,23 @@ class LinModel():
             if atm_model is not None:
                 plt.plot(atm_model.x - atm_model.shifted[i],atm_model.params,'.g',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
 
-            plt.plot(self.x - self.shifted[i],self.params,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
-
-            plt.errorbar(self.xs,self.ys[i,:],yerr=noise,fmt='.k',zorder=1,alpha=0.9,ms=6)
-
-            plt.xlim(min(self.xs),max(self.xs))
-
+            self.plot_model(i)
+            if noise is not None:
+                plt.errorbar(self.xs[i,:],self.ys[i,:],yerr=noise[i,:],fmt='.k',zorder=1,alpha=0.9,ms=6)
+            else:
+                plt.plot(self.xs[i,:],self.ys[i,:],'.k',zorder=1,alpha=0.9,ms=6)
+            if xlim is None:
+                plt.xlim(min(self.xs[i,:]),max(self.xs[i,:]))
+            else:
+                plt.xlim(xlim[0],xlim[1])
             plt.ylim(-0.8,0.2)
             if env is not None:
                 plt.plot(env.lambdas - self.shifted[i],env.get_stellar_flux(),color='red', alpha=0.4)
 
-    def optimize(self,loss,*args):
+    def optimize(self,loss,maxiter,*args):
         # Train model
         res = scipy.optimize.minimize(loss, self.params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
-               options={'disp': True})
+               options={'disp': True, 'maxiter': maxiter})
         self.params = res.x
         return res
 
@@ -161,10 +173,11 @@ class LinModel():
         # preds should be of the same shape as the out of __call__
         # EXCEPT that it has an additional axis per epoch
         # assume the same input for every epoch (?)
-        input = self.xs
+        input = self.xs[0,:]
         preds = jnp.expand_dims(self(params,input,0,*args),axis=0)
 
         for i in range(1,self.epoches):
+            input = self.xs[i,:]
             # temp_x = self.x+self.shifted[i]
             # subtracted shift from model
             # cell_array = self.cell_array[i,:] #getCellArray(temp_x,self.xs)
@@ -198,11 +211,35 @@ class LinModel():
 # foo = jax.numpy.interp(xs, x - shifts, params)
 # res = scipy.optimize.minimize(lamdba(): (ys - foo(xs))**2, params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
 #        options={'disp': True})
+class FourierModel(LinModel):
+    def __init__(self,num_params,y,x,shifts):
+        self.epoches = y.shape[0]
+        self.ys = y
+        self.xs = x
+
+        self.base_freq = (x.min() - x.max())/2
+
+        self.shifted = shifts
+
+        self.params = np.zeros(num_params)
+
+    def __call__(self,params,input,epoch_idx,*args):
+        out = 0
+        for j, param in enumerate(params):
+            if j % 2 == 0:
+                out += param * np.cos((self.base_freq * np.floor(j/2)) * (input + self.shifted[epoch_idx]))
+            if j % 2 == 1:
+                out += param * np.sin((self.base_freq * np.floor(j/2)) * (input + self.shifted[epoch_idx]))
+        return  out
+
+    def plot_model(self,i):
+        plt.plot(self.xs[0,:],self.predict(self.xs[0,:]))
+
 class JnpLin(LinModel):
-    def __init__(self,num_params,fluxes,lambdas,epoches,vel_shifts):
-        self.epoches = epoches
-        self.xs = lambdas
-        self.ys = fluxes
+    def __init__(self,num_params,y,x,vel_shifts):
+        self.epoches = y.shape[0]
+        self.xs = x
+        self.ys = y
 
         self.shifted = vel_shifts
 
@@ -217,3 +254,6 @@ class JnpLin(LinModel):
     def __call__(self,params,input,epoch_idx,*args):
         ys = jax.numpy.interp(input, self.x - self.shifted[epoch_idx], params)
         return ys
+
+    def plot_model(self,i):
+        plt.plot(self.x - self.shifted[i],self.params,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)

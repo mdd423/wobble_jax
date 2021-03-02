@@ -6,7 +6,7 @@ def L2Loss(params,*args):
         # Since jax grad only takes in 1d ndarrays you need to flatten your inputs
         # thus the targets should already be flattened as well
 
-        err = 0.5 * ((model.ys - model.forward(params))**2).sum()
+        err = 0.5 * ((model.ys - model.forward(params,*args))**2).sum()
         # err += 0.5*(( - model.forward(params))**2).sum()
         return err
 
