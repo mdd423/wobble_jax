@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import scipy.optimize
 import sys
 
+import pickle
+
 import simulator as wobble_sim
 import loss as wobble_loss
 
@@ -159,8 +161,20 @@ class LinModel():
 
     def optimize(self,loss,maxiter,*args):
         # Train model
-        res = scipy.optimize.minimize(loss, self.params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
-               options={'disp': True, 'maxiter': maxiter})
+        # def func_grad(loss):
+        #      = jax.value_and_grad(loss, argnums=0)
+        #     return
+        func_grad = jax.value_and_grad(loss, argnums=0)
+        def whatversht(p,*args):
+            val, grad = func_grad(p,*args)
+            return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
+        res = scipy.optimize.minimize(whatversht, self.params, jac=True,
+               method='L-BFGS-B',
+               args=(self,*args),
+               options={'maxiter':maxiter})
+
+        # res = scipy.optimize.minimize(loss, self.params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
+        #        options={'disp': True, 'maxiter': maxiter})
         self.params = res.x
         return res
 
@@ -192,6 +206,14 @@ class LinModel():
 
     def predict(self,input,*args):
         return self(self.params,input,*args)
+
+    def save_model(self, filename):
+        with open(filename, 'wb') as output:  # Overwrites any existing file.
+            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
+
+    def load_model(self, filename):
+        with open(filename, 'wb') as input:  # Overwrites any existing file.
+            self = pickle.load(input)
 
     # you need to generalize this to whatever function occurs in the forward pass
     # like you said you shouldn't have to define this function two places
@@ -249,7 +271,7 @@ class JnpLin(LinModel):
         maximum = self.xs.max()
         self.x = np.linspace(minimum-self.padding,maximum+self.padding,num_params)
 
-        self.params = jnp.ones(num_params)
+        self.params = jnp.zeros(num_params)
 
     def __call__(self,params,input,epoch_idx,*args):
         ys = jax.numpy.interp(input, self.x - self.shifted[epoch_idx], params)
