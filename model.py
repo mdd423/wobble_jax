@@ -112,7 +112,7 @@ class LinModel():
             # added the shifted to the freq dist so subtract shift from model
             # print(type(self.x - self.shifted[i]),type(self.xs[i,:]))
             self.cell_array[i,:] = getCellArray(self.x - self.shifted[i],self.xs[i,:])
-        self.params = np.ones(num_params)
+        self.params = np.zeros(num_params)
 
     def __call__(self,params,input,epoch_idx,*args):
         # print(type(self),type(x),type(i))
@@ -165,10 +165,10 @@ class LinModel():
         #      = jax.value_and_grad(loss, argnums=0)
         #     return
         func_grad = jax.value_and_grad(loss, argnums=0)
-        def whatversht(p,*args):
+        def whatevershit(p,*args):
             val, grad = func_grad(p,*args)
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
-        res = scipy.optimize.minimize(whatversht, self.params, jac=True,
+        res = scipy.optimize.minimize(whatevershit, self.params, jac=True,
                method='L-BFGS-B',
                args=(self,*args),
                options={'maxiter':maxiter})
@@ -258,10 +258,22 @@ class FourierModel(LinModel):
         plt.plot(self.xs[0,:],self.predict(self.xs[0,:]))
 
 class JnpLin(LinModel):
+
+    def __call__(self,params,input,epoch_idx,*args):
+        ys = jax.numpy.interp(input, self.x - self.shifted[epoch_idx], params)
+        return ys
+
+def JnpVelLin(LinModel):
     def __init__(self,num_params,y,x,vel_shifts):
-        self.epoches = y.shape[0]
+        self.epoches = len(vel_shifts)
+        # when defining ones own model, need to include inputs as xs, outputs as ys
+        # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
+        # also assumes epoches of data that is shifted between
         self.xs = x
         self.ys = y
+
+        self.size = x.shape[1]
+        # print(self.size)
 
         self.shifted = vel_shifts
 
@@ -271,11 +283,24 @@ class JnpLin(LinModel):
         maximum = self.xs.max()
         self.x = np.linspace(minimum-self.padding,maximum+self.padding,num_params)
 
-        self.params = jnp.zeros(num_params)
+        # the model x's must be shifted appropriately
+        # this might have to be moved to the forward section if velocity is fit bt evals of ys
+
+        # given x cells are shifted, the cell arrays contain the information for
+        # which data points are in which cells
+        self.cell_array = np.zeros([self.epoches,self.size],dtype=int)
+        for i in range(self.epoches):
+            # print((self.x - self.shifted[i]).shape)
+            # print(self.xs.shape)
+            # added the shifted to the freq dist so subtract shift from model
+            # print(type(self.x - self.shifted[i]),type(self.xs[i,:]))
+            self.cell_array[i,:] = getCellArray(self.x - self.shifted[i],self.xs[i,:])
+        self.params = np.zeros(num_params)
+        self.params = np.concatenate(self.params,self.shifted)
 
     def __call__(self,params,input,epoch_idx,*args):
-        ys = jax.numpy.interp(input, self.x - self.shifted[epoch_idx], params)
+        ys = jax.numpy.interp(input, self.x - params[self.epoches:], params[:-self.epoches])
         return ys
 
-    def plot_model(self,i):
-        plt.plot(self.x - self.shifted[i],self.params,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
+    # def plot_model(self,i):
+    #     plt.plot(self.x - self.shifted[i],self.params,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
