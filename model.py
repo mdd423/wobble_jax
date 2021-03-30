@@ -17,38 +17,6 @@ import loss as wobble_loss
 # if you define a model to take on additional arguments in the forward pass
 # idk how this will work with multiple update steps
 
-class LossFunc():
-    def __init__(self,loss_func,loss_parms=1.0):
-        if   type(loss_func) == type('str'):
-            self.func_list = np.array([loss_func])
-        elif type(loss_func) == type(np.array([])):
-            self.func_list = loss_func
-        else:
-            sys.exit('loss_func parameter not correct type: str or list')
-        if   type(loss_parms) == type(1.0):
-            self.params = np.array([loss_parms])
-        elif type(loss_parms) == type(np.array([])):
-            self.params = loss_parms
-            assert len(self.params) == len(self.func_list)
-        else:
-            sys.exit('loss_func parameter not correct type: float or list')
-
-    def __add__(self,x):
-
-        return LossFunc(loss_func=np.append(self.func_list, x.func_list ) ,loss_parms=np.append(self.params, x.params ))
-
-    def __mul__(self,x):
-        return LossFunc(loss_func=self.func_list,loss_parms=x * self.params)
-
-    def __rmul__(self,x):
-        return LossFunc(loss_func=self.func_list,loss_parms=x * self.params)
-
-    def __call__(self,params,*args):
-        output = 0.0
-        for i,loss in enumerate(self.func_list):
-            output += self.params[i] * wobble_loss.loss_dict[loss](params,*args)
-        return output
-
 def getCellArray(x,xs):
 
     if xs[0]  < x[0]:
@@ -170,7 +138,7 @@ class LinModel():
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
         res = scipy.optimize.minimize(whatevershit, self.params, jac=True,
                method='L-BFGS-B',
-               args=(self,*args),
+               args=(self.y,self.x,self,*args),
                options={'maxiter':maxiter})
 
         # res = scipy.optimize.minimize(loss, self.params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
@@ -179,41 +147,42 @@ class LinModel():
         return res
 
     # gives all predicted data from the input data in the model given the parameters
-    def forward(self,params,*args):
-        # input = args[0]
-        # organization of params here is the same as in __init__
-        # TO DO: determine cell array with each forward pass if we are to fit velocity shift
-
-        # preds should be of the same shape as the out of __call__
-        # EXCEPT that it has an additional axis per epoch
-        # assume the same input for every epoch (?)
-        input = self.xs[0,:]
-        preds = jnp.expand_dims(self(params,input,0,*args),axis=0)
-
-        for i in range(1,self.epoches):
-            input = self.xs[i,:]
-            # temp_x = self.x+self.shifted[i]
-            # subtracted shift from model
-            # cell_array = self.cell_array[i,:] #getCellArray(temp_x,self.xs)
-            # # the x values for the model need to be shifted here but only for the intercept
-            # m   = (y[cell_array] - y[cell_array-1])/(self.x[cell_array] - self.x[cell_array-1])
-            # ys2 = y[cell_array-1] + m * (input - self.x[cell_array-1] + self.shifted[i])
-
-            # decide on official
-            ys    = jnp.expand_dims(self(params,input,i,*args),axis=0)
-            preds = jnp.append(preds,ys,axis=0)
-        return preds
-
-    def predict(self,input,*args):
+    # def forward(self,params,*args):
+    #     # input = args[0]
+    #     # organization of params here is the same as in __init__
+    #     # TO DO: determine cell array with each forward pass if we are to fit velocity shift
+    #
+    #     # preds should be of the same shape as the out of __call__
+    #     # EXCEPT that it has an additional axis per epoch
+    #     # assume the same input for every epoch (?)
+    #     input = self.xs[0,:]
+    #     preds = jnp.expand_dims(self(params,input,0,*args),axis=0)
+    #
+    #     for i in range(1,self.epoches):
+    #         input = self.xs[i,:]
+    #         # temp_x = self.x+self.shifted[i]
+    #         # subtracted shift from model
+    #         # cell_array = self.cell_array[i,:] #getCellArray(temp_x,self.xs)
+    #         # # the x values for the model need to be shifted here but only for the intercept
+    #         # m   = (y[cell_array] - y[cell_array-1])/(self.x[cell_array] - self.x[cell_array-1])
+    #         # ys2 = y[cell_array-1] + m * (input - self.x[cell_array-1] + self.shifted[i])
+    #
+    #         # decide on official
+    #         ys    = jnp.expand_dims(self(params,input,i,*args),axis=0)
+    #         preds = jnp.append(preds,ys,axis=0)
+    #     return preds
+    #
+    # def predict(self,input,*args):
         return self(self.params,input,*args)
 
-    def save_model(self, filename):
-        with open(filename, 'wb') as output:  # Overwrites any existing file.
-            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
+def save_model(filename,model):
+    with open(filename, 'wb') as output:  # Overwrites any existing file.
+        pickle.dump(model, output, pickle.HIGHEST_PROTOCOL)
 
-    def load_model(self, filename):
-        with open(filename, 'wb') as input:  # Overwrites any existing file.
-            self = pickle.load(input)
+def load_model(filename):
+    with open(filename, 'wb') as input:  # Overwrites any existing file.
+        model = pickle.load(input)
+        return model
 
     # you need to generalize this to whatever function occurs in the forward pass
     # like you said you shouldn't have to define this function two places
@@ -259,11 +228,14 @@ class FourierModel(LinModel):
 
 class JnpLin(LinModel):
 
-    def __call__(self,params,input,epoch_idx,*args):
-        ys = jax.numpy.interp(input, self.x - self.shifted[epoch_idx], params)
+    def __call__(self,p,input,i=None,*args):
+        if i == None:
+            ys = jax.numpy.interp(input, self.x, p)
+        else:
+            ys = jax.numpy.interp(input, self.x - self.shifted[i], p)
         return ys
 
-def JnpVelLin(LinModel):
+class JnpVelLin(LinModel):
     def __init__(self,num_params,y,x,vel_shifts):
         self.epoches = len(vel_shifts)
         # when defining ones own model, need to include inputs as xs, outputs as ys
@@ -299,7 +271,7 @@ def JnpVelLin(LinModel):
         self.params = np.concatenate(self.params,self.shifted)
 
     def __call__(self,params,input,epoch_idx,*args):
-        ys = jax.numpy.interp(input, self.x - params[self.epoches:], params[:-self.epoches])
+        ys = jax.numpy.interp(input, self.x - params[-self.epoches+epoch_idx], params[:-self.epoches])
         return ys
 
     # def plot_model(self,i):
