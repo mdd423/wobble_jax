@@ -29,27 +29,36 @@ class LossFunc():
 
     def __call__(self,p,y,x,*args):
         output = 0.0
+        # two modes of calling the loss:
+        # 1) if the output y shape is single dimensional, then the epoch index is set to None
+        # and the shifts or whatever other parameter of epoch cannot be used, ie use when you assume new data
+        # or if running check against known properties of fit dataset
+        # 2) if the output shape is two dimensional, then all epoches are looped through and added together for loss
+        # and epoch passed down to model
+        #
+        # Thus the model must have some way of dealing with None type epoch index if the user
+        # wishs to make prediction on new data
         if (len(y.shape)) == 1:
             for i,loss in enumerate(self.func_list):
                 output += self.constant[i] * loss_dict[loss](p,y,x,None,*args)
         else:
+            # recall ys are packed st that 0: epoches, 1: pixel 
             for epoch in range(y.shape[0]):
                 for i,loss in enumerate(self.func_list):
                     output += self.constant[i] * loss_dict[loss](p,y[epoch,:],x[epoch,:],epoch,*args)
         return output
 
+# I want to design a class for these such that constants of the loss functions
+# can be initialized like for the regularization
 def L2Loss(p, y, x, i, model,*args):
+
     err = 0.5 * ((y - model(p,x,i,*args))**2).sum()
     # Since jax grad only takes in 1d ndarrays you need to flatten your inputs
     # thus the targets should already be flattened as well
-
-    # err = 0.5 * ((model.ys - model.forward(params,*args))**2).sum()
-    # err += 0.5*(( - model.forward(params))**2).sum()
     return err
 
 def L2Reg(p,y,x,i,model,*args):
-    # epoch = args[0]
-    # model = args[1]
+
     try:
         constant = args[0]
     except IndexError:
