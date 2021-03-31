@@ -53,7 +53,7 @@ class LossSequential(LossFunc):
 
     def __call__(self,p,y,x,i,model,*args):
         output = 0.0
-        for i,loss in enumerate(self.loss_funcs):
+        for loss in self.loss_funcs:
             output += loss(p,y,x,i,model,*args)
         return output
 
@@ -81,6 +81,8 @@ class LossSequential(LossFunc):
             loss.coefficient *= x
         return self
 
+# always multiply by coefficient so that when you do mutliplication with the
+# object then it translates to the output
 class L2Loss(LossFunc):
     def __call__(self,p, y, x, i, model,*args):
         err = self.coefficient * 0.5 * ((y - model(p,x,i,*args))**2).sum()

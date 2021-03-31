@@ -10,13 +10,6 @@ import pickle
 import simulator as wobble_sim
 import loss as wobble_loss
 
-# you can pass whatever args you want to your function after the 0th which is the model
-# pass these after the loss function in the optimize call
-
-# args can also be passed to the forward pass of the model
-# if you define a model to take on additional arguments in the forward pass
-# idk how this will work with multiple update steps
-
 def getCellArray(x,xs):
 
     if xs[0]  < x[0]:
@@ -48,7 +41,23 @@ def getPlotSize(epoches):
     size_y = int(size_y)
     return size_x, size_y
 
-class LinModel():
+class Model:
+
+    def optimize(self,loss,maxiter,*args):
+        # Train model
+        func_grad = jax.value_and_grad(loss.train, argnums=0)
+        def whatevershit(p,*args):
+            val, grad = func_grad(p,*args)
+            return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
+        res = scipy.optimize.minimize(whatevershit, self.params, jac=True,
+               method='L-BFGS-B',
+               args=(self.ys,self.xs,self,*args),
+               options={'maxiter':maxiter})
+
+        self.params = res.x
+        return res
+
+class LinModel(Model):
     def __init__(self,num_params,y,x,vel_shifts):
         self.epoches = len(vel_shifts)
         # when defining ones own model, need to include inputs as xs, outputs as ys
@@ -100,8 +109,6 @@ class LinModel():
     def plot_model(self,i):
         plt.plot(self.x - self.shifted[i],self.params,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
 
-    # def plot_epoch(self,noise,en)
-
     def plot(self,noise=None,env=None,atm_model=None,xlim=None):
         size_x, size_y = getPlotSize(self.epoches)
 
@@ -126,54 +133,6 @@ class LinModel():
             plt.ylim(-0.8,0.2)
             if env is not None:
                 plt.plot(env.lambdas - self.shifted[i],env.get_stellar_flux(),color='red', alpha=0.4)
-
-    def optimize(self,loss,maxiter,*args):
-        # Train model
-        # def func_grad(loss):
-        #      = jax.value_and_grad(loss, argnums=0)
-        #     return
-        func_grad = jax.value_and_grad(loss, argnums=0)
-        def whatevershit(p,*args):
-            val, grad = func_grad(p,*args)
-            return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
-        res = scipy.optimize.minimize(whatevershit, self.params, jac=True,
-               method='L-BFGS-B',
-               args=(self.y,self.x,self,*args),
-               options={'maxiter':maxiter})
-
-        # res = scipy.optimize.minimize(loss, self.params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
-        #        options={'disp': True, 'maxiter': maxiter})
-        self.params = res.x
-        return res
-
-    # gives all predicted data from the input data in the model given the parameters
-    # def forward(self,params,*args):
-    #     # input = args[0]
-    #     # organization of params here is the same as in __init__
-    #     # TO DO: determine cell array with each forward pass if we are to fit velocity shift
-    #
-    #     # preds should be of the same shape as the out of __call__
-    #     # EXCEPT that it has an additional axis per epoch
-    #     # assume the same input for every epoch (?)
-    #     input = self.xs[0,:]
-    #     preds = jnp.expand_dims(self(params,input,0,*args),axis=0)
-    #
-    #     for i in range(1,self.epoches):
-    #         input = self.xs[i,:]
-    #         # temp_x = self.x+self.shifted[i]
-    #         # subtracted shift from model
-    #         # cell_array = self.cell_array[i,:] #getCellArray(temp_x,self.xs)
-    #         # # the x values for the model need to be shifted here but only for the intercept
-    #         # m   = (y[cell_array] - y[cell_array-1])/(self.x[cell_array] - self.x[cell_array-1])
-    #         # ys2 = y[cell_array-1] + m * (input - self.x[cell_array-1] + self.shifted[i])
-    #
-    #         # decide on official
-    #         ys    = jnp.expand_dims(self(params,input,i,*args),axis=0)
-    #         preds = jnp.append(preds,ys,axis=0)
-    #     return preds
-    #
-    # def predict(self,input,*args):
-        return self(self.params,input,*args)
 
 def save_model(filename,model):
     with open(filename, 'wb') as output:  # Overwrites any existing file.
@@ -273,6 +232,3 @@ class JnpVelLin(LinModel):
     def __call__(self,params,input,epoch_idx,*args):
         ys = jax.numpy.interp(input, self.x - params[-self.epoches+epoch_idx], params[:-self.epoches])
         return ys
-
-    # def plot_model(self,i):
-    #     plt.plot(self.x - self.shifted[i],self.params,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
