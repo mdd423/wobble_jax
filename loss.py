@@ -1,33 +1,27 @@
 import model as wobble_model
 import numpy as np
 
-class LossFunc():
-    def __init__(self,loss_func,loss_parms=1.0):
-        if   type(loss_func) == type('str'):
-            self.func_list = np.array([loss_func])
-        elif type(loss_func) == type(np.array([])):
-            self.func_list = loss_func
-        else:
-            sys.exit('loss_func parameter not correct type: str or list')
-        if   type(loss_parms) == type(1.0):
-            self.constant = np.array([loss_parms])
-        elif type(loss_parms) == type(np.array([])):
-            self.constant = loss_parms
-            assert len(self.constant) == len(self.func_list)
-        else:
-            sys.exit('loss_func parameter not correct type: float or list')
+# fuck yeah
+class LossFunc: #,loss_func,loss_parms=1.0
+    def __init__(self,coefficient=1.0):
+        self.coefficient = coefficient
 
     def __add__(self,x):
 
-        return LossFunc(loss_func=np.append(self.func_list, x.func_list ) ,loss_parms=np.append(self.constant, x.constant ))
+        return LossSequential(loss_funcs=[self,x])
 
     def __mul__(self,x):
-        return LossFunc(loss_func=self.func_list,loss_parms=x * self.constant)
+        self.coefficient *= x
+        return self
 
     def __rmul__(self,x):
-        return LossFunc(loss_func=self.func_list,loss_parms=x * self.constant)
+        self.coefficient *= x
+        return self
 
-    def __call__(self,p,y,x,*args):
+    def train(self,p,y,x,model,*args):
+        # basically wrapper function that loops through the epoches for the
+        # optimizer so all loss classes only have to consider operating on a single
+        # epoch
         output = 0.0
         # two modes of calling the loss:
         # 1) if the output y shape is single dimensional, then the epoch index is set to None
@@ -38,32 +32,67 @@ class LossFunc():
         #
         # Thus the model must have some way of dealing with None type epoch index if the user
         # wishs to make prediction on new data
+        # this should happen before call in all classes
+        singular = False
         if (len(y.shape)) == 1:
-            for i,loss in enumerate(self.func_list):
-                output += self.constant[i] * loss_dict[loss](p,y,x,None,*args)
-        else:
-            # recall ys are packed st that 0: epoches, 1: pixel 
-            for epoch in range(y.shape[0]):
-                for i,loss in enumerate(self.func_list):
-                    output += self.constant[i] * loss_dict[loss](p,y[epoch,:],x[epoch,:],epoch,*args)
+            singular = True
+            y = np.expand_dims(y,axis=0)
+        # recall ys are packed st that 0: epoches, 1: pixel
+        for epoch in range(y.shape[0]):
+            if singular:
+                EPOCH_INDEX = None
+            else:
+                EPOCH_INDEX = epoch
+            output += self(p,y[epoch,:],x[epoch,:],EPOCH_INDEX,model,*args)
         return output
 
-# I want to design a class for these such that constants of the loss functions
-# can be initialized like for the regularization
-def L2Loss(p, y, x, i, model,*args):
+class LossSequential(LossFunc):
+    def __init__(self,loss_funcs):
+        # super().__init__(self)
+        self.loss_funcs = loss_funcs
 
-    err = 0.5 * ((y - model(p,x,i,*args))**2).sum()
-    # Since jax grad only takes in 1d ndarrays you need to flatten your inputs
-    # thus the targets should already be flattened as well
-    return err
+    def __call__(self,p,y,x,i,model,*args):
+        output = 0.0
+        for i,loss in enumerate(self.loss_funcs):
+            output += loss(p,y,x,i,model,*args)
+        return output
 
-def L2Reg(p,y,x,i,model,*args):
+    def __add__(self,x):
+        if isinstance(x,LossSequential):
+            out = LossSequential(loss_funcs=[*self.loss_funcs,*x])
+        else:
+            out = LossSequential(loss_funcs=[*self.loss_funcs,x])
+        return out
 
-    try:
-        constant = args[0]
-    except IndexError:
-        constant = 0.0
-    return 0.5 * ((p - constant)**2).sum()
+    def __radd__(self,x):
+        if isinstance(x,LossSequential):
+            out = LossSequential(loss_funcs=[*self.loss_funcs,*x])
+        else:
+            out = LossSequential(loss_funcs=[*self.loss_funcs,x])
+        return out
 
-loss_dict = {'L2Loss': L2Loss
-            ,'L2Reg' : L2Reg}
+    def __mul__(self,x):
+        for loss in loss_funcs:
+            loss.coefficient *= x
+        return self
+
+    def __rmul__(self,x):
+        for loss in loss_funcs:
+            loss.coefficient *= x
+        return self
+
+class L2Loss(LossFunc):
+    def __call__(self,p, y, x, i, model,*args):
+        err = self.coefficient * 0.5 * ((y - model(p,x,i,*args))**2).sum()
+        # Since jax grad only takes in 1d ndarrays you need to flatten your inputs
+        # thus the targets should already be flattened as well
+        return err
+
+class L2Reg(LossFunc):
+    def __init__(self,coefficient=1.0,constant=0.0):
+        super(L2Reg,self).__init__(coefficient)
+        self.constant = constant
+
+    def __call__(self,p,y,x,i,model,*args):
+        err = self.coefficient * 0.5 * ((p - self.constant)**2).sum()
+        return err
