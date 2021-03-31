@@ -139,7 +139,7 @@ def save_model(filename,model):
         pickle.dump(model, output, pickle.HIGHEST_PROTOCOL)
 
 def load_model(filename):
-    with open(filename, 'wb') as input:  # Overwrites any existing file.
+    with open(filename, 'rb') as input:  # Overwrites any existing file.
         model = pickle.load(input)
         return model
 

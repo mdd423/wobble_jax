@@ -13,12 +13,15 @@ import jax.numpy as jnp
 def zplusone(vel):
     return np.sqrt((1 + vel/(const.c*u.m/u.s))/(1 - vel/(const.c*u.m/u.s)))
 
+def shifts(vel):
+    return np.log(zplusone(vel))
+
 def getInitXShift(BJD,star_name,observatory_name):
     hatp20_c = coord.SkyCoord.from_name(star_name)
     loc      = coord.EarthLocation.of_site(observatory_name)
     ts       = atime.Time(BJD, format='jd', scale='tdb')
     bc       = hatp20_c.radial_velocity_correction(obstime=ts, location=loc).to(u.km/u.s)
-    x_shifts = np.log(zplusone(bc))
+    x_shifts = shifts(bc)
     return x_shifts
 
 class AstroDataset():

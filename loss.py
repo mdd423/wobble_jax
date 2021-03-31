@@ -1,7 +1,6 @@
 import model as wobble_model
 import numpy as np
 
-# fuck yeah
 class LossFunc: #,loss_func,loss_parms=1.0
     def __init__(self,coefficient=1.0):
         self.coefficient = coefficient
