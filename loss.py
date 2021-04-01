@@ -71,12 +71,12 @@ class LossSequential(LossFunc):
         return out
 
     def __mul__(self,x):
-        for loss in loss_funcs:
+        for loss in self.loss_funcs:
             loss.coefficient *= x
         return self
 
     def __rmul__(self,x):
-        for loss in loss_funcs:
+        for loss in self.loss_funcs:
             loss.coefficient *= x
         return self
 
