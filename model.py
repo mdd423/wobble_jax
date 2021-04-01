@@ -41,23 +41,31 @@ def getPlotSize(epoches):
     size_y = int(size_y)
     return size_x, size_y
 
-class Model:
+def save_model(filename,model):
+    with open(filename, 'wb') as output:  # Overwrites any existing file.
+        pickle.dump(model, output, pickle.HIGHEST_PROTOCOL)
 
-    def optimize(self,loss,maxiter,*args):
-        # Train model
-        func_grad = jax.value_and_grad(loss.train, argnums=0)
-        def whatevershit(p,*args):
-            val, grad = func_grad(p,*args)
-            return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
-        res = scipy.optimize.minimize(whatevershit, self.params, jac=True,
-               method='L-BFGS-B',
-               args=(self.ys,self.xs,self,*args),
-               options={'maxiter':maxiter})
+def load_model(filename):
+    with open(filename, 'rb') as input:  # Overwrites any existing file.
+        model = pickle.load(input)
+        return model
 
-        self.params = res.x
-        return res
+    # you need to generalize this to whatever function occurs in the forward pass
+    # like you said you shouldn't have to define this function two places
+    # one for parameter running and one for prediction
+    # they should be in the same place
 
-class LinModel(Model):
+    # not written in v generalizable way,see plt.plot(...,self.params) and not a __call__(sel.fparams)
+
+    def cross_correlation(self,flux,lambdas,size=1000):
+
+        shifts = np.linspace(-self.padding+0.01,self.padding-0.01,size)
+        ccs = np.zeros(size)
+        for i,shift in enumerate(shifts):
+            ccs[i] = np.dot(self(lambdas + shift),flux)
+        return ccs, shifts
+
+class LinModel:
     def __init__(self,num_params,y,x,vel_shifts):
         self.epoches = len(vel_shifts)
         # when defining ones own model, need to include inputs as xs, outputs as ys
@@ -134,33 +142,74 @@ class LinModel(Model):
             if env is not None:
                 plt.plot(env.lambdas - self.shifted[i],env.get_stellar_flux(),color='red', alpha=0.4)
 
-def save_model(filename,model):
-    with open(filename, 'wb') as output:  # Overwrites any existing file.
-        pickle.dump(model, output, pickle.HIGHEST_PROTOCOL)
+    def optimize(self,loss,maxiter,*args):
+        # Train model
+        func_grad = jax.value_and_grad(loss.train, argnums=0)
+        def whatevershit(p,*args):
+            val, grad = func_grad(p,*args)
+            return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
+        res = scipy.optimize.minimize(whatevershit, self.params, jac=True,
+               method='L-BFGS-B',
+               args=(self.ys,self.xs,self,*args),
+               options={'maxiter':maxiter})
 
-def load_model(filename):
-    with open(filename, 'rb') as input:  # Overwrites any existing file.
-        model = pickle.load(input)
-        return model
-
-    # you need to generalize this to whatever function occurs in the forward pass
-    # like you said you shouldn't have to define this function two places
-    # one for parameter running and one for prediction
-    # they should be in the same place
-
-    # not written in v generalizable way,see plt.plot(...,self.params) and not a __call__(sel.fparams)
-
-    def cross_correlation(self,flux,lambdas,size=1000):
-
-        shifts = np.linspace(-self.padding+0.01,self.padding-0.01,size)
-        ccs = np.zeros(size)
-        for i,shift in enumerate(shifts):
-            ccs[i] = np.dot(self(lambdas + shift),flux)
-        return ccs, shifts
-
+        self.params = res.x
+        return res
 # foo = jax.numpy.interp(xs, x - shifts, params)
 # res = scipy.optimize.minimize(lamdba(): (ys - foo(xs))**2, params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
 #        options={'disp': True})
+
+class JnpLin(LinModel):
+
+    def __call__(self,p,input,i=None,*args):
+        if i == None:
+            ys = jax.numpy.interp(input, self.x, p)
+        else:
+            ys = jax.numpy.interp(input, self.x - self.shifted[i], p)
+        return ys
+
+class JnpVelLin(LinModel):
+    def __init__(self,num_params,y,x,vel_shifts):
+        # self.epoches = len(vel_shifts)
+        # # when defining ones own model, need to include inputs as xs, outputs as ys
+        # # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
+        # # also assumes epoches of data that is shifted between
+        # self.xs = x
+        # self.ys = y
+        #
+        # self.size = x.shape[1]
+        # # print(self.size)
+        #
+        # self.shifted = vel_shifts
+        #
+        # self.padding = abs(self.shifted).max()
+        #
+        # minimum = self.xs.min()
+        # maximum = self.xs.max()
+        # self.x = np.linspace(minimum-self.padding,maximum+self.padding,num_params)
+        #
+        # # the model x's must be shifted appropriately
+        # # this might have to be moved to the forward section if velocity is fit bt evals of ys
+        #
+        # # given x cells are shifted, the cell arrays contain the information for
+        # # which data points are in which cells
+        # self.cell_array = np.zeros([self.epoches,self.size],dtype=int)
+        # for i in range(self.epoches):
+        #     # print((self.x - self.shifted[i]).shape)
+        #     # print(self.xs.shape)
+        #     # added the shifted to the freq dist so subtract shift from model
+        #     # print(type(self.x - self.shifted[i]),type(self.xs[i,:]))
+        #     self.cell_array[i,:] = getCellArray(self.x - self.shifted[i],self.xs[i,:])
+        # self.params = np.zeros(num_params)
+        super(JnpVelLin,self).__init__(num_params,y,x,vel_shifts)
+        self.params = np.concatenate(self.params,self.shifted)
+
+    def __call__(self,params,input,epoch_idx,*args):
+        ys = jax.numpy.interp(input, self.x - params[-self.epoches+epoch_idx], params[:-self.epoches])
+        return ys
+
+
+#for future
 class FourierModel(LinModel):
     def __init__(self,num_params,y,x,shifts):
         self.epoches = y.shape[0]
@@ -184,51 +233,3 @@ class FourierModel(LinModel):
 
     def plot_model(self,i):
         plt.plot(self.xs[0,:],self.predict(self.xs[0,:]))
-
-class JnpLin(LinModel):
-
-    def __call__(self,p,input,i=None,*args):
-        if i == None:
-            ys = jax.numpy.interp(input, self.x, p)
-        else:
-            ys = jax.numpy.interp(input, self.x - self.shifted[i], p)
-        return ys
-
-class JnpVelLin(LinModel):
-    def __init__(self,num_params,y,x,vel_shifts):
-        self.epoches = len(vel_shifts)
-        # when defining ones own model, need to include inputs as xs, outputs as ys
-        # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
-        # also assumes epoches of data that is shifted between
-        self.xs = x
-        self.ys = y
-
-        self.size = x.shape[1]
-        # print(self.size)
-
-        self.shifted = vel_shifts
-
-        self.padding = abs(self.shifted).max()
-
-        minimum = self.xs.min()
-        maximum = self.xs.max()
-        self.x = np.linspace(minimum-self.padding,maximum+self.padding,num_params)
-
-        # the model x's must be shifted appropriately
-        # this might have to be moved to the forward section if velocity is fit bt evals of ys
-
-        # given x cells are shifted, the cell arrays contain the information for
-        # which data points are in which cells
-        self.cell_array = np.zeros([self.epoches,self.size],dtype=int)
-        for i in range(self.epoches):
-            # print((self.x - self.shifted[i]).shape)
-            # print(self.xs.shape)
-            # added the shifted to the freq dist so subtract shift from model
-            # print(type(self.x - self.shifted[i]),type(self.xs[i,:]))
-            self.cell_array[i,:] = getCellArray(self.x - self.shifted[i],self.xs[i,:])
-        self.params = np.zeros(num_params)
-        self.params = np.concatenate(self.params,self.shifted)
-
-    def __call__(self,params,input,epoch_idx,*args):
-        ys = jax.numpy.interp(input, self.x - params[-self.epoches+epoch_idx], params[:-self.epoches])
-        return ys
