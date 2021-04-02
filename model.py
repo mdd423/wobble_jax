@@ -169,44 +169,24 @@ class JnpLin(LinModel):
         return ys
 
 class JnpVelLin(LinModel):
-    def __init__(self,num_params,y,x,vel_shifts):
-        # self.epoches = len(vel_shifts)
-        # # when defining ones own model, need to include inputs as xs, outputs as ys
-        # # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
-        # # also assumes epoches of data that is shifted between
-        # self.xs = x
-        # self.ys = y
-        #
-        # self.size = x.shape[1]
-        # # print(self.size)
-        #
-        # self.shifted = vel_shifts
-        #
-        # self.padding = abs(self.shifted).max()
-        #
-        # minimum = self.xs.min()
-        # maximum = self.xs.max()
-        # self.x = np.linspace(minimum-self.padding,maximum+self.padding,num_params)
-        #
-        # # the model x's must be shifted appropriately
-        # # this might have to be moved to the forward section if velocity is fit bt evals of ys
-        #
-        # # given x cells are shifted, the cell arrays contain the information for
-        # # which data points are in which cells
-        # self.cell_array = np.zeros([self.epoches,self.size],dtype=int)
-        # for i in range(self.epoches):
-        #     # print((self.x - self.shifted[i]).shape)
-        #     # print(self.xs.shape)
-        #     # added the shifted to the freq dist so subtract shift from model
-        #     # print(type(self.x - self.shifted[i]),type(self.xs[i,:]))
-        #     self.cell_array[i,:] = getCellArray(self.x - self.shifted[i],self.xs[i,:])
-        # self.params = np.zeros(num_params)
-        super(JnpVelLin,self).__init__(num_params,y,x,vel_shifts)
-        self.params = np.concatenate(self.params,self.shifted)
+    def __init__(self,num_params,y,x,vel_shifts,pretrained=None):
+        
+        if pretrained is not None:
+            super(JnpVelLin,self).__init__(pretrained.x.shape[0],pretrained.ys,pretrained.xs,vel_shifts)
+            self.params = pretrained.params
+
+        else:
+            super(JnpVelLin,self).__init__(num_params,y,x,vel_shifts)
+        print(self.params.shape,self.shifted.shape)
+        self.params = np.concatenate((self.params,self.shifted))
 
     def __call__(self,params,input,epoch_idx,*args):
         ys = jax.numpy.interp(input, self.x - params[-self.epoches+epoch_idx], params[:-self.epoches])
         return ys
+
+    def plot_model(self,i):
+        plt.plot(self.x - self.params[-self.epoches+i],self.params[:-self.epoches],'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
+
 
 
 #for future
