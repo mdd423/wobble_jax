@@ -117,32 +117,32 @@ class LinModel:
     def plot_model(self,i):
         plt.plot(self.x - self.shifted[i],self.params,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
 
-    def plot(self,noise=None,env=None,atm_model=None,xlim=None):
+    def plot(self,noise=None,xlim=None):
         size_x, size_y = getPlotSize(self.epoches)
 
-        fig = plt.figure(figsize=[12.8,9.6])
+        fig,axs = plt.subplots(size_x,size_y,figsize=[12.8,9.6],sharey=False)
         # Once again we apply the shift to the xvalues of the model when we plot it
-        for i in range(self.epoches):
-            ax = fig.add_subplot(size_x,size_y,i+1)
-            ax.set_title('epoch %i: vel %.2f' % (i, self.shifted[i]))
+        for n in range(self.epoches):
+            
+            i, j = (n%size_x,n//size_x)
+            #ax.set_title('epoch %i: vel %.2f' % (i, self.shifted[i]))
 
-            if atm_model is not None:
-                plt.plot(atm_model.x - atm_model.shifted[i],atm_model.params,'.g',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
-
-            self.plot_model(i)
+            for tick in axs[i][j].xaxis.get_major_ticks():
+                tick.label.set_fontsize(6)
+                tick.label.set_rotation('vertical')
+            x,y = self.plot_model(n)
+            axs[i][j].plot(x,y,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
             if noise is not None:
-                plt.errorbar(self.xs[i,:],self.ys[i,:],yerr=noise[i,:],fmt='.k',zorder=1,alpha=0.9,ms=6)
+                axs[i][j].errorbar(self.xs[n,:],self.ys[n,:],yerr=noise[i,:],fmt='.k',zorder=1,alpha=0.9,ms=6)
             else:
-                plt.plot(self.xs[i,:],self.ys[i,:],'.k',zorder=1,alpha=0.9,ms=6)
+                axs[i][j].plot(self.xs[n,:],self.ys[n,:],'.k',zorder=1,alpha=0.9,ms=6)
             if xlim is None:
-                plt.xlim(min(self.xs[i,:]),max(self.xs[i,:]))
+                axs[i][j].set_xlim(min(self.xs[n,:]),max(self.xs[n,:]))
             else:
-                plt.xlim(xlim[0],xlim[1])
-            plt.ylim(-0.8,0.2)
-            if env is not None:
-                plt.plot(env.lambdas - self.shifted[i],env.get_stellar_flux(),color='red', alpha=0.4)
+                axs[i][j].set_xlim(xlim[0],xlim[1])
+            axs[i][j].set_ylim(-0.8,0.2)
 
-    def optimize(self,loss,maxiter,*args):
+    def optimize(self,loss,maxiter,iprint=0,*args):
         # Train model
         func_grad = jax.value_and_grad(loss.train, argnums=0)
         def whatevershit(p,*args):
@@ -151,7 +151,9 @@ class LinModel:
         res = scipy.optimize.minimize(whatevershit, self.params, jac=True,
                method='L-BFGS-B',
                args=(self.ys,self.xs,self,*args),
-               options={'maxiter':maxiter})
+               options={'maxiter':maxiter,
+                        'iprint':iprint
+               })
 
         self.params = res.x
         return res
@@ -185,7 +187,10 @@ class JnpVelLin(LinModel):
         return ys
 
     def plot_model(self,i):
-        plt.plot(self.x - self.params[-self.epoches+i],self.params[:-self.epoches],'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
+        x = self.x - self.params[-self.epoches+i]
+        y = self.params[:-self.epoches],
+        #plt.plot(,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
+        return x,y[0][:]
 
 
 

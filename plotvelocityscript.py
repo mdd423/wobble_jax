@@ -45,7 +45,7 @@ def getloss(shift_grid,model,loss):
 
 import numpy.polynomial as polynomial
 
-def plotpoly(loss_array,shifts,deg,real_vels):
+def plotpoly(loss_array,shifts,deg,real_vels,second_velocity=None):
     epoches = real_vels.shape[0]
     size_x, size_y = wobble_model.getPlotSize(epoches)
 
@@ -80,7 +80,10 @@ def plotpoly(loss_array,shifts,deg,real_vels):
         minimum = min(yc)
         maximum = max(yc)
 
-        axs[i][j].vlines(real_vels[n],ymin=minimum,ymax=maximum)
+        if second_velocity is not None:
+            axs[i][j].vlines(second_velocity[n],ymin=minimum,ymax=maximum,colors='red')
+        
+        axs[i][j].vlines(real_vels[n],ymin=minimum,ymax=maximum,label='blue')
         vel_min[n] = x_min[0]
     return vel_min
         
@@ -107,17 +110,19 @@ def main():
     model = wobble_model.load_model(model_name)
     loss_array = load_loss(loss_name)#getloss(shifts,model,loss)
     #save_loss(loss_name,loss_array)
-    vel_min = plotpoly(loss_array,shifts,deg=2,real_vels=model.shifted)
-    plt.savefig('/home/mdd423/wobble_jax/out/polyplot_deg2{}.pdf'.format(model_tail))
+    
+    maxiter = 8
     model_2_name = '/home/mdd423/wobble_jax/models/{}_rd2_mI{}.pt'.format(model_tail,maxiter)
-    model_2 = wobble_model.load(model_2_name)
+    model_2 = wobble_model.load_model(model_2_name)
     #model_2 = wobble_model.JnpVelLin(num_params=None,x=None,y=None,pretrained=model,vel_shifts=vel_min)
-    #maxiter= 4
-    #model_2.optimize(loss,maxiter=maxiter)
-    lb, ub = (9.65,9.655)
+    vel_min = plotpoly(loss_array,shifts,deg=2,real_vels=model.shifted,second_velocity=model_2.params[-model_2.epoches:])
+    plt.savefig('/home/mdd423/wobble_jax/out/polyplot_deg2{}.pdf'.format(model_tail))
+    
+    #model_2.optimize(loss,maxiter=maxiter,iprint=99)
+    lb, ub = (9.66,9.6605)
     model_2.plot(xlim=(lb,ub))
-    plt.savefig('/home/mdd423/wobble_jax/out/hatp20min_{}_l{}_r{}.pdf'.format(model_tail,lb,ub))
-    wobble_model.save_model(,model_2)
+    plt.savefig('/home/mdd423/wobble_jax/out/hatp20min2mI{}_{}_l{}_r{}.pdf'.format(maxiter,model_tail,lb,ub))
+    #wobble_model.save_model(model_2_name,model_2)
 
 if __name__ == '__main__':
     main()
