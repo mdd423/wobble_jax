@@ -45,7 +45,8 @@ def get_loss_array(shift_grid,model,loss):
 
 import numpy.polynomial as polynomial
 
-def get_parabolic_min(loss_array,grid,epoches,return_all=False):
+def get_parabolic_min(loss_array,grid,return_all=False):
+    epoches = loss_array.shape[0]
     grid_min = np.empty(epoches)
 
     for n in range(epoches):
@@ -123,35 +124,35 @@ def plotRVtime(velocity_array,dates):
         
         axs[i][j].plot(dates,velocity_array[:,n],'*b')
 
-import os
-import astropy.table as at
-import astropy.time as atime
-def main():
-    tbl = at.QTable.read('/home/mdd423/wobble_jax/data/hat-p-20.fits')
-    dates = atime.Time(tbl['BJD'],format='jd',scale='tdb').value
-    
-    velocities = np.linspace(-300,300,100) * u.km/u.s
-    shifts     = wobble_data.shifts(velocities)
-    epsilon = 0.0001
-    loss  = wobble_loss.L2Loss()
-    model_name  = '/home/mdd423/wobble_jax/models/modeln7000_l0_r6000_mI32f.pt'
-    
-    model_tail = path.split(model_name)[1][:-3]
-    loss_name = '/home/mdd423/wobble_jax/models/lossvelgrid{}.lg'.format(model_tail)
-    #print(path.split(model_name))
-    model = wobble_model.load_model(model_name)
-    loss_array = load_loss(loss_name)#getloss(shifts,model,loss)
+#import os
+#import astropy.table as at
+#import astropy.time as atime
+#def main():
+#    tbl = at.QTable.read('/home/mdd423/wobble_jax/data/hat-p-20.fits')
+#    dates = atime.Time(tbl['BJD'],format='jd',scale='tdb').value
+#    
+#    velocities = np.linspace(-300,300,100) * u.km/u.s
+#    shifts     = wobble_data.shifts(velocities)
+#    epsilon = 0.0001
+#    loss  = wobble_loss.L2Loss()
+#    model_name  = '/home/mdd423/wobble_jax/models/modeln7000_l0_r6000_mI32f.pt'
+#    
+#    model_tail = path.split(model_name)[1][:-3]
+#    loss_name = '/home/mdd423/wobble_jax/models/lossvelgrid{}.lg'.format(model_tail)
+#    #print(path.split(model_name))
+#    model = wobble_model.load_model(model_name)
+#    loss_array = load_loss(loss_name)#getloss(shifts,model,loss)
     #save_loss(loss_name,loss_array)
-    vel_min = plotpoly(loss_array,shifts,deg=2,real_vels=model.shifted)
-    maxiter = 7
-    model_2_name = '/home/mdd423/wobble_jax/models/{}_rd2_mI{}.pt'.format(model_tail,maxiter)
-    model_2_tail = path.split(model_2_name)[1][:-3]
+#    vel_min = plotpoly(loss_array,shifts,deg=2,real_vels=model.shifted)
+#    maxiter = 7
+#    model_2_name = '/home/mdd423/wobble_jax/models/{}_rd2_mI{}.pt'.format(model_tail,maxiter)
+#    model_2_tail = path.split(model_2_name)[1][:-3]
         
-    model_2 = wobble_model.load_model(model_2_name)
-    velocity = model_2.params[-model_2.epoches:]
-    plt.clf()
-    plt.plot(dates,velocity,'*k')
-    plt.savefig('/home/mdd423/wobble_jax/out/velvsts{}.pdf'.format(model_2_tail))
+#    model_2 = wobble_model.load_model(model_2_name)
+#    velocity = model_2.params[-model_2.epoches:]
+#    plt.clf()
+#    plt.plot(dates,velocity,'*k')
+#    plt.savefig('/home/mdd423/wobble_jax/out/velvsts{}.pdf'.format(model_2_tail))
     
-if __name__ == '__main__':
-    main()
+#if __name__ == '__main__':
+#    main()
