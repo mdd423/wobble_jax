@@ -1,7 +1,7 @@
 import numpy as np
 import jax
 import jax.numpy as jnp
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import scipy.optimize
 import sys
 
@@ -29,18 +29,6 @@ def getCellArray(x,xs):
         cell_array[i] = int(j)
     return cell_array
 
-def getPlotSize(epoches):
-    size_x = np.floor(np.sqrt(epoches))
-    size_y = epoches//size_x
-    while epoches % size_y != 0:
-        size_y = epoches//size_x
-        size_x -= 1
-    else:
-        size_x += 1
-    size_x = int(size_x)
-    size_y = int(size_y)
-    return size_x, size_y
-
 def save_model(filename,model):
     with open(filename, 'wb') as output:  # Overwrites any existing file.
         pickle.dump(model, output, pickle.HIGHEST_PROTOCOL)
@@ -57,13 +45,13 @@ def load_model(filename):
 
     # not written in v generalizable way,see plt.plot(...,self.params) and not a __call__(sel.fparams)
 
-    def cross_correlation(self,flux,lambdas,size=1000):
+def cross_correlation(self,flux,lambdas,size=1000):
 
-        shifts = np.linspace(-self.padding+0.01,self.padding-0.01,size)
-        ccs = np.zeros(size)
-        for i,shift in enumerate(shifts):
-            ccs[i] = np.dot(self(lambdas + shift),flux)
-        return ccs, shifts
+    shifts = np.linspace(-self.padding+0.01,self.padding-0.01,size)
+    ccs = np.zeros(size)
+    for i,shift in enumerate(shifts):
+        ccs[i] = np.dot(self(lambdas + shift),flux)
+    return ccs, shifts
 
 class LinModel:
     def __init__(self,num_params,y,x,vel_shifts):
@@ -90,13 +78,13 @@ class LinModel:
 
         # given x cells are shifted, the cell arrays contain the information for
         # which data points are in which cells
-        self.cell_array = np.zeros([self.epoches,self.size],dtype=int)
-        for i in range(self.epoches):
-            # print((self.x - self.shifted[i]).shape)
-            # print(self.xs.shape)
-            # added the shifted to the freq dist so subtract shift from model
-            # print(type(self.x - self.shifted[i]),type(self.xs[i,:]))
-            self.cell_array[i,:] = getCellArray(self.x - self.shifted[i],self.xs[i,:])
+        # self.cell_array = np.zeros([self.epoches,self.size],dtype=int)
+        # for i in range(self.epoches):
+        #     # print((self.x - self.shifted[i]).shape)
+        #     # print(self.xs.shape)
+        #     # added the shifted to the freq dist so subtract shift from model
+        #     # print(type(self.x - self.shifted[i]),type(self.xs[i,:]))
+        #     self.cell_array[i,:] = getCellArray(self.x - self.shifted[i],self.xs[i,:])
         self.params = np.zeros(num_params)
 
     def __call__(self,params,input,epoch_idx,*args):
@@ -113,34 +101,6 @@ class LinModel:
         m  = (y[cell_array] - y[cell_array-1])/(self.x[cell_array] - self.x[cell_array-1])
         ys = y[cell_array-1] + m * (x - self.x[cell_array-1])
         return jnp.array(ys)
-
-    def plot_model(self,i):
-        plt.plot(self.x - self.shifted[i],self.params,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
-
-    def plot(self,noise=None,xlim=None):
-        size_x, size_y = getPlotSize(self.epoches)
-
-        fig,axs = plt.subplots(size_x,size_y,figsize=[12.8,9.6],sharey=False)
-        # Once again we apply the shift to the xvalues of the model when we plot it
-        for n in range(self.epoches):
-            
-            i, j = (n%size_x,n//size_x)
-            #ax.set_title('epoch %i: vel %.2f' % (i, self.shifted[i]))
-
-            for tick in axs[i][j].xaxis.get_major_ticks():
-                tick.label.set_fontsize(6)
-                tick.label.set_rotation('vertical')
-            x,y = self.plot_model(n)
-            axs[i][j].plot(x,y,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
-            if noise is not None:
-                axs[i][j].errorbar(self.xs[n,:],self.ys[n,:],yerr=noise[i,:],fmt='.k',zorder=1,alpha=0.9,ms=6)
-            else:
-                axs[i][j].plot(self.xs[n,:],self.ys[n,:],'.k',zorder=1,alpha=0.9,ms=6)
-            if xlim is None:
-                axs[i][j].set_xlim(min(self.xs[n,:]),max(self.xs[n,:]))
-            else:
-                axs[i][j].set_xlim(xlim[0],xlim[1])
-            axs[i][j].set_ylim(-0.8,0.2)
 
     def optimize(self,loss,maxiter,iprint=0,*args):
         # Train model
@@ -172,7 +132,7 @@ class JnpLin(LinModel):
 
 class JnpVelLin(LinModel):
     def __init__(self,num_params,y,x,vel_shifts,pretrained=None):
-        
+
         if pretrained is not None:
             super(JnpVelLin,self).__init__(pretrained.x.shape[0],pretrained.ys,pretrained.xs,vel_shifts)
             self.params = pretrained.params
@@ -185,14 +145,6 @@ class JnpVelLin(LinModel):
     def __call__(self,params,input,epoch_idx,*args):
         ys = jax.numpy.interp(input, self.x - params[-self.epoches+epoch_idx], params[:-self.epoches])
         return ys
-
-    def plot_model(self,i):
-        x = self.x - self.params[-self.epoches+i]
-        y = self.params[:-self.epoches],
-        #plt.plot(,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
-        return x,y[0][:]
-
-
 
 #for future
 class FourierModel(LinModel):
@@ -216,5 +168,5 @@ class FourierModel(LinModel):
                 out += param * np.sin((self.base_freq * np.floor(j/2)) * (input + self.shifted[epoch_idx]))
         return  out
 
-    def plot_model(self,i):
-        plt.plot(self.xs[0,:],self.predict(self.xs[0,:]))
+    # def plot_model(self,i):
+    #     plt.plot(self.xs[0,:],self.predict(self.xs[0,:]))
