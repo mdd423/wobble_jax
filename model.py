@@ -130,6 +130,18 @@ class JnpLin(LinModel):
             ys = jax.numpy.interp(input, self.x - self.shifted[i], p)
         return ys
 
+class JnpLinErr(LinModel):
+    def __init__(self,num_params,y,x,y_err,vel_shifts):
+        super(JnpLinErr,self).__init__(num_params,y,x,vel_shifts)
+        self.y_err = y_err
+
+    def __call__(self,p,input,i=None,*args):
+        if i == None:
+            ys = jax.numpy.interp(input, self.x, p)
+        else:
+            ys = jax.numpy.interp(input, self.x - self.shifted[i], p)
+        return ys
+
 class JnpVelLin(LinModel):
     def __init__(self,num_params,y,x,vel_shifts,pretrained=None):
 

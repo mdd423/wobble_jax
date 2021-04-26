@@ -21,6 +21,15 @@ def load(filename):
         loss = pickle.load(input)
         return loss
 
+def getDivisor(n):
+    print(n)
+    array = np.arange(int(np.sqrt(n)),0,-1,dtype=int)
+    for x in array:
+        if n % x == 0:
+            break
+    print(x,n//x)
+    return x, n//x
+
 def getPlotSize(epoches):
     size_x = np.floor(np.sqrt(epoches))
     size_y = epoches//size_x
@@ -104,9 +113,14 @@ def plot_RV_time(velocity_array,dates):
 def plot_linear(model,params,shifts,noise=None,xlim=None,epoches_to_plot=None):
     if epoches_to_plot is None:
         epoches = np.arange(model.epoches,dtype=int)
-    size_x, size_y = getPlotSize(epoches.shape[0])
+    else:
+        epoches = np.array(epoches_to_plot)
+    size_x, size_y = getDivisor(epoches.shape[0])
 
     fig,axs = plt.subplots(size_x,size_y,figsize=[12.8,9.6],sharey=False)
+    if len(axs.shape) == 1:
+        axs = np.expand_dims(axs,axis=0)
+    print(axs.shape)
     # Once again we apply the shift to the xvalues of the model when we plot it
     for iteration,n in enumerate(epoches):
 

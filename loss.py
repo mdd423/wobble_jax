@@ -89,6 +89,11 @@ class L2Loss(LossFunc):
         # thus the targets should already be flattened as well
         return err
 
+class ChiSquare(LossFunc):
+    def __call__(self,p,x,i,model,*args):
+        err = self.coefficient * 0.5 * np.divide((y - model(p,x,i,*args))**2, model.y_err).sum()
+        return err
+
 class L2Reg(LossFunc):
     def __init__(self,coefficient=1.0,constant=0.0):
         super(L2Reg,self).__init__(coefficient)
