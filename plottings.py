@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib; matplotlib.use("Agg")
+import matplotlib; #matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import astropy.table as at
 import jax.numpy as jnp
@@ -22,12 +22,12 @@ def load(filename):
         return loss
 
 def getDivisor(n):
-    print(n)
+    # print(n)
     array = np.arange(int(np.sqrt(n)),0,-1,dtype=int)
     for x in array:
         if n % x == 0:
             break
-    print(x,n//x)
+    # print(x,n//x)
     return x, n//x
 
 def getPlotSize(epoches):
@@ -42,6 +42,21 @@ def getPlotSize(epoches):
     size_y = int(size_y)
     return size_x, size_y
 
+def plot_error(x,y_err):
+    size_x, size_y = getDivisor(y_err.shape[0])
+    epoches = range(y_err.shape[0])
+    fig,axs = plt.subplots(size_x,size_y,figsize=[12.8,9.6],sharey=False)
+
+    for iteration,n in enumerate(epoches):
+
+        i, j = (iteration%size_x,iteration//size_x)
+        for tick in axs[i][j].xaxis.get_major_ticks():
+            tick.label.set_fontsize(6)
+            tick.label.set_rotation('vertical')
+        # x,y = self.plot_model(n)
+        axs[i][j].plot(x[n,:],y_err[n,:],'.k',zorder=2,alpha=0.7,ms=6)
+        axs[i][j].set_ylim([0,15])
+
 def plot_loss_array(loss_array,shifts,real_vels,epsilon):
     epoches = real_vels.shape[0]
     size_x, size_y = getPlotSize(epoches)
@@ -55,7 +70,7 @@ def plot_loss_array(loss_array,shifts,real_vels,epsilon):
         for tick in axs[i][j].xaxis.get_major_ticks():
             tick.label.set_fontsize(6)
             tick.label.set_rotation('vertical')
-        axs[i][j].plot(shifts,loss_array[idx,:],'.k',zorder=1,alpha=0.9,ms=6)
+        axs[i][j].plot(shifts,loss_array[idx,:],'*r',zorder=1,alpha=0.9,ms=6)
         minimum = min(loss_array[idx,:])
         maximum = max(loss_array[idx,:])
         #print(i, i % size_x, i // size_x)

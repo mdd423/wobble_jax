@@ -25,6 +25,7 @@ def get_parabolic_min(loss_array,grid,return_all=False):
 
     for n in range(epoches):
         idx = loss_array[n,:].argmin()
+        print("epch {}: min {}".format(n,idx))
         xs = grid[idx-1:idx+2]
         ys = loss_array[n,idx-1:idx+2]
 
@@ -74,66 +75,30 @@ class AstroDataset():
                     cnt = 0
         self.flux = new_flux
 
+    def mask_flux_error(self):
+
+        # new_err = np.copy(self.ferr)
+        self.ferr[self.mask] = np.inf
+
     def gauss_filter(self,sigma):
-        self.sigma = sigma
-        self.filtered_flux = ndimage.gaussian_filter1d(self.flux,sigma)
+        filtered_flux = ndimage.gaussian_filter1d(self.flux,sigma)
+        return filtered_flux
 
-    # def plot_epoch_one(self,x,y,i,y_err=None,xlims=None):
-    #     fig = plt.figure(figsize=[12.8,9.6])
-    #     # plt.legend(['filtered','unfiltered masked','unfiltered unmasked'])
-    #     # fig.axes[0].xaxis.set_visible(False)
-    #     # fig.axes[0].yaxis.set_visible(False)
-    #     plt.xlabel('x (log lambda)')
-    #     plt.ylabel('y (log flux)')
-    #     plt.title('gauss filtered lin interp corrected data w/ sigma {}'.format(self.sigma))
-    #     plt.ylim(-1,0.25)
-    #     if xlims is not None:
-    #         plt.xlim(np.log(xlims[0]),np.log(xlims[1]))
-    #     plt.plot(x[i,self.mask[i,:]] ,y[i,self.mask[i,:]] ,'bo',alpha=0.5)
-    #     if y_err is not None:
-    #         plt.errorbar(x[i,~self.mask[i,:]],y[i,~self.mask[i,:]],yerr=y_err[i,~self.mask[i,:]],fmt='.k',alpha=0.5)
-    #     else:
-    #         plt.plot(x[i,~self.mask[i,:]],y[i,~self.mask[i,:]],'.k',alpha=0.5)
-    #
-    # def plot_epoches(self,x,y,y_err=None,xlims=None):
-    #
-    #     size_x, size_y = wobble_model.getPlotSize(x.shape[0])
-    #
-    #     fig = plt.figure(figsize=[12.8,9.6])
-    #     # plt.legend(['filtered','unfiltered masked','unfiltered unmasked'])
-    #     # fig.axes[0].xaxis.set_visible(False)
-    #     # fig.axes[0].yaxis.set_visible(False)
-    #     plt.xlabel('x (log lambda)')
-    #     plt.ylabel('y (log flux)')
-    #     plt.title('gauss filtered lin interp corrected data w/ sigma {}'.format(self.sigma))
-    #
-    #     for i,x_row in enumerate(x):
-    #         ax = fig.add_subplot(size_x,size_y,i+1)
-    #         ax.axes.xaxis.set_visible(False)
-    #         ax.axes.yaxis.set_visible(False)
-    #         if xlims is not None:
-    #             plt.xlim(np.log(xlims[0]),np.log(xlims[1]))
-    #         plt.ylim(-1,0.25)
-    #         if y_err is not None:
-    #             plt.errorbar(x_row[~self.mask[i,:]],y[i,~self.mask[i,:]],yerr=y_err[i,~self.mask[i,:]],fmt='.k',alpha=0.5)
-    #         else:
-    #             plt.plot(x_row[~self.mask[i,:]],y[i,~self.mask[i,:]],'.k',alpha=0.5)
-    #         plt.plot(x_row[self.mask[i,:]] ,y[i,self.mask[i,:]] ,'bo',alpha=0.5)
+    def get_xy(self,filtered,subset=None):
 
-    def get_xy(self,subset=None):
-        if self.filtered_flux is None:
-            print('please filter data first')
-            return
         if subset is None:
-            y     = np.log(self.flux/self.filtered_flux)
+            y     = np.log(self.flux/filtered)
             x     = np.log(self.lamb)
-            y_err = np.log(self.ferr)
+            y_err = np.log(self.ferr/filtered)
         else:
             start, end = subset
+            print(filtered.shape)
+            print(start,end)
             # hackky and gross
-            self.mask = self.mask[:,start:end]
+            # self.mask = self.mask[:,start:end]
             # print(start,end)
-            y     = np.log(self.flux[:,start:end]/self.filtered_flux[:,start:end])
+            y     = np.log(self.flux[:,start:end]/filtered[:,start:end])
             x     = np.log(self.lamb[:,start:end])
-            y_err = np.log(self.ferr[:,start:end])
+            y_err = (self.ferr[:,start:end]/filtered[:,start:end])
+            y_err /= self.flux[:,start:end]
         return jnp.array(x,dtype=np.float32), jnp.array(y,dtype=np.float32), jnp.array(y_err,dtype=np.float32)

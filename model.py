@@ -158,6 +158,11 @@ class JnpVelLin(LinModel):
         ys = jax.numpy.interp(input, self.x - params[-self.epoches+epoch_idx], params[:-self.epoches])
         return ys
 
+class JnpVelLinErr(JnpVelLin):
+    def __init__(self,num_params,y,x,y_err,vel_shifts,pretrained=None):
+        super(JnpVelLin,self).__init__(num_params,y,x,vel_shifts,pretrained=None)
+        self.y_err = y_err
+
 #for future
 class FourierModel(LinModel):
     def __init__(self,num_params,y,x,shifts):

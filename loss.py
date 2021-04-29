@@ -83,15 +83,15 @@ class LossSequential(LossFunc):
 # always multiply by coefficient so that when you do mutliplication with the
 # object then it translates to the output
 class L2Loss(LossFunc):
-    def __call__(self,p, y, x, i, model,*args):
+    def __call__(self, p, y, x, i, model,*args):
         err = self.coefficient * 0.5 * ((y - model(p,x,i,*args))**2).sum()
         # Since jax grad only takes in 1d ndarrays you need to flatten your inputs
         # thus the targets should already be flattened as well
         return err
 
 class ChiSquare(LossFunc):
-    def __call__(self,p,x,i,model,*args):
-        err = self.coefficient * 0.5 * np.divide((y - model(p,x,i,*args))**2, model.y_err).sum()
+    def __call__(self, p, y, x, i, model,*args):
+        err = self.coefficient * 0.5 * (((y - model(p,x,i,*args))**2)/ model.y_err**2).sum()
         return err
 
 class L2Reg(LossFunc):
@@ -99,6 +99,6 @@ class L2Reg(LossFunc):
         super(L2Reg,self).__init__(coefficient)
         self.constant = constant
 
-    def __call__(self,p,y,x,i,model,*args):
+    def __call__(self, p, y, x, i, model, *args):
         err = self.coefficient * 0.5 * ((p - self.constant)**2).sum()
         return err
