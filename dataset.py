@@ -75,30 +75,24 @@ class AstroDataset():
                     cnt = 0
         self.flux = new_flux
 
-    def mask_flux_error(self):
-
+    def mask_y_err(self,y,err):
         # new_err = np.copy(self.ferr)
-        self.ferr[self.mask] = np.inf
+
+        return y, err
 
     def gauss_filter(self,sigma):
         filtered_flux = ndimage.gaussian_filter1d(self.flux,sigma)
         return filtered_flux
 
-    def get_xy(self,filtered,subset=None):
+    def get_xy(self,filtered,y_const=0.0,err_const=10):
+        # start, end = subset
 
-        if subset is None:
-            y     = np.log(self.flux/filtered)
-            x     = np.log(self.lamb)
-            y_err = np.log(self.ferr/filtered)
-        else:
-            start, end = subset
-            print(filtered.shape)
-            print(start,end)
-            # hackky and gross
-            # self.mask = self.mask[:,start:end]
-            # print(start,end)
-            y     = np.log(self.flux[:,start:end]/filtered[:,start:end])
-            x     = np.log(self.lamb[:,start:end])
-            y_err = (self.ferr[:,start:end]/filtered[:,start:end])
-            y_err /= self.flux[:,start:end]
+        y     = np.log(self.flux/filtered)
+        x     = np.log(self.lamb)
+        y_err = (self.ferr/filtered)
+        y_err /= self.flux
+
+        y[self.mask]   = y_const
+        y_err[self.mask] = err_const
+
         return jnp.array(x,dtype=np.float32), jnp.array(y,dtype=np.float32), jnp.array(y_err,dtype=np.float32)

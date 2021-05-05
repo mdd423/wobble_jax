@@ -157,22 +157,34 @@ def plot_linear(model,params,shifts,noise=None,xlim=None,epoches_to_plot=None):
             axs[i][j].set_xlim(xlim[0],xlim[1])
         axs[i][j].set_ylim(-0.8,0.2)
 
-def plot_data(dataset,xlims=None,ylims=None):
-    size_x, size_y = getPlotSize(dataset.lamb.shape[0])
+def plot_data(lamb,flux,filtered,error,xlims=(20000,21000),ylims=(0,100000)):
+    size_x, size_y = getPlotSize(lamb.shape[0])
 
-    fig = plt.figure(figsize=[12.8,9.6])
-    plt.legend(['filtered','unfiltered masked','unfiltered unmasked'])
-    plt.xlabel('wavelength (A)')
-    plt.ylabel('flux')
-    plt.title('gauss filtered lin interp corrected data w/ sigma {}'.format(self.sigma))
+    fig,axs = plt.subplots(size_x,size_y,figsize=[12.8,9.6],sharey=False)
+    if len(axs.shape) == 1:
+        axs = np.expand_dims(axs,axis=0)
+    # fig = plt.figure(figsize=[12.8,9.6])
+    # plt.legend(['filtered','unfiltered masked','unfiltered unmasked'])
+    # plt.xlabel('wavelength (A)')
+    # plt.ylabel('flux')
+    # plt.title('gauss filtered lin interp corrected data w/ sigma {}'.format(self.sigma))
 
-    for i,wavelength in enumerate(dataset.lamb):
-        ax = fig.add_subplot(size_x,size_y,i+1)
-        if xlims is not None:
-            plt.xlim(xlims[0],xlims[1])
-        if ylims is not None:
-            plt.ylim(100,2500)
-        if dataset.filtered_flux is not None:
-            plt.plot(wavelength,dataset.filtered_flux[i,:],color='red',alpha=0.5)
-        plt.errorbar(wavelength[~dataset.mask[i,:]],dataset.flux[i,~dataset.mask[i,:]],yerr=dataset.ferr[i,~dataset.mask[i,:]],fmt='.k',alpha=0.5)
-        plt.plot(wavelength[dataset.mask[i,:]]     ,dataset.flux[i,dataset.mask[i,:]] ,'bo',alpha=0.5)
+    for iteration,wavelength in enumerate(lamb):
+
+        i, j = (iteration%size_x,iteration//size_x)
+        #ax.set_title('epoch %i: vel %.2f' % (i, self.shifted[i]))
+
+        for tick in axs[i][j].xaxis.get_major_ticks():
+            tick.label.set_fontsize(6)
+            tick.label.set_rotation('vertical')
+
+        # ax = fig.add_subplot(size_x,size_y,i+1)
+        # if xlims is not None:
+        axs[i][j].set_xlim(wavelength[3200],wavelength[3300])
+        axs[i][j].set_ylim(ylims[0],ylims[1])
+        # if ylims is not None:
+        #     plt.ylim(100,2500)
+        # if dataset.filtered_flux is not None:
+        #     plt.plot(wavelength,dataset.filtered_flux[i,:],color='red',alpha=0.5)
+        axs[i][j].errorbar(wavelength,flux[iteration,:],error[iteration,:],fmt='.k',alpha=0.5)
+        axs[i][j].plot(wavelength,filtered[iteration,:] ,color='red',alpha=0.5)

@@ -25,8 +25,8 @@ args   = parser.parse_args()
 def main():
     xlim = (0,256)
     boundaries = (9.736,9.7365)
-    fig1_name = "out/hatp20{}_{}_n{}_l{}_r{}_mI{}.png".format(xlim[0],xlim[1],args.n,args.l,args.r,args.maxiter)
-    fig2_name = "out/hatp20{}_{}_n{}_l{}_r{}_mI{}_rd2mI{}.png".format(xlim[0],xlim[1],args.n,args.l,args.r,args.maxiter,args.maxiter2)
+    fig1_name = "out/hatp20{}_{}_n{}_l{}_r{}_mI{}.png".format(boundaries[0],boundaries[1],args.n,args.l,args.r,args.maxiter)
+    fig2_name = "out/hatp20{}_{}_n{}_l{}_r{}_mI{}_rd2mI{}.png".format(boundaries[0],boundaries[1],args.n,args.l,args.r,args.maxiter,args.maxiter2)
 
     tbl     = at.QTable.read('data/hat-p-20.fits')
     dataset = wobble_data.AstroDataset(tbl['flux'],tbl['wavelength'],tbl['mask'],tbl['flux_err'])
