@@ -38,6 +38,12 @@ def load_model(filename):
         model = pickle.load(input)
         return model
 
+class Callback:
+    def __init__(self):
+        self.funcevals = []
+    def __call__(self,x,state):
+        self.funcevals.append(state.fun)
+
     # you need to generalize this to whatever function occurs in the forward pass
     # like you said you shouldn't have to define this function two places
     # one for parameter running and one for prediction
@@ -105,11 +111,13 @@ class LinModel:
     def optimize(self,loss,maxiter,iprint=0,*args):
         # Train model
         func_grad = jax.value_and_grad(loss.train, argnums=0)
+        callback = Callback
         def whatevershit(p,*args):
             val, grad = func_grad(p,*args)
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
         res = scipy.optimize.minimize(whatevershit, self.params, jac=True,
                method='L-BFGS-B',
+               callback=callback,
                args=(self.ys,self.xs,self,*args),
                options={'maxiter':maxiter,
                         'iprint':iprint

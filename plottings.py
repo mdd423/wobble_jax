@@ -42,7 +42,7 @@ def getPlotSize(epoches):
     size_y = int(size_y)
     return size_x, size_y
 
-def plot_error(x,y_err):
+def plot_error(x,y_err,mask):
     size_x, size_y = getDivisor(y_err.shape[0])
     epoches = range(y_err.shape[0])
     fig,axs = plt.subplots(size_x,size_y,figsize=[12.8,9.6],sharey=False)
@@ -54,8 +54,9 @@ def plot_error(x,y_err):
             tick.label.set_fontsize(6)
             tick.label.set_rotation('vertical')
         # x,y = self.plot_model(n)
-        axs[i][j].plot(x[n,:],y_err[n,:],'.k',zorder=2,alpha=0.7,ms=6)
-        axs[i][j].set_ylim([0,15])
+        axs[i][j].plot(x[n,~mask[n,:]],y_err[n,~mask[n,:]],'.k',zorder=2,alpha=0.7,ms=6)
+        axs[i][j].plot(x[n,mask[n,:]],y_err[n,mask[n,:]],'.r',zorder=2,alpha=0.7,ms=6)
+        axs[i][j].set_ylim([0,5e-2])
 
 def plot_loss_array(loss_array,shifts,real_vels,epsilon):
     epoches = real_vels.shape[0]
@@ -157,7 +158,7 @@ def plot_linear(model,params,shifts,noise=None,xlim=None,epoches_to_plot=None):
             axs[i][j].set_xlim(xlim[0],xlim[1])
         axs[i][j].set_ylim(-0.8,0.2)
 
-def plot_data(lamb,flux,filtered,error,xlims=(20000,21000),ylims=(0,100000)):
+def plot_data(lamb,flux,error,filtered=None,xinds=(3200,3300),ypadding=0.1):
     size_x, size_y = getPlotSize(lamb.shape[0])
 
     fig,axs = plt.subplots(size_x,size_y,figsize=[12.8,9.6],sharey=False)
@@ -168,6 +169,10 @@ def plot_data(lamb,flux,filtered,error,xlims=(20000,21000),ylims=(0,100000)):
     # plt.xlabel('wavelength (A)')
     # plt.ylabel('flux')
     # plt.title('gauss filtered lin interp corrected data w/ sigma {}'.format(self.sigma))
+
+    xmin = lamb[0,xinds[0]]
+    xmax = lamb[0,xinds[1]]
+
 
     for iteration,wavelength in enumerate(lamb):
 
@@ -180,11 +185,14 @@ def plot_data(lamb,flux,filtered,error,xlims=(20000,21000),ylims=(0,100000)):
 
         # ax = fig.add_subplot(size_x,size_y,i+1)
         # if xlims is not None:
-        axs[i][j].set_xlim(wavelength[3200],wavelength[3300])
-        axs[i][j].set_ylim(ylims[0],ylims[1])
+        ymin = np.amin(flux[iteration,:])
+        ymax = np.amax(flux[iteration,:])
+        axs[i][j].set_xlim(xmin,xmax)
+        axs[i][j].set_ylim(ymin-ypadding,ymax+ypadding)
         # if ylims is not None:
         #     plt.ylim(100,2500)
         # if dataset.filtered_flux is not None:
         #     plt.plot(wavelength,dataset.filtered_flux[i,:],color='red',alpha=0.5)
         axs[i][j].errorbar(wavelength,flux[iteration,:],error[iteration,:],fmt='.k',alpha=0.5)
-        axs[i][j].plot(wavelength,filtered[iteration,:] ,color='red',alpha=0.5)
+        if filtered is not None:
+            axs[i][j].plot(wavelength,filtered[iteration,:] ,color='red',alpha=0.5)

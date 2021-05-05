@@ -58,7 +58,7 @@ def getInitXShift(BJD,star_name,observatory_name):
 class AstroDataset():
     def __init__(self,flux,lamb,mask,ferr):
         self.flux = flux
-        self.lamb = lamb/u.Angstrom
+        self.lamb = lamb#/u.Angstrom
         self.mask = mask
         self.ferr = ferr
 
