@@ -41,8 +41,9 @@ def load_model(filename):
 class Callback:
     def __init__(self):
         self.funcevals = []
-    def __call__(self,x,state):
-        self.funcevals.append(state.fun)
+
+    def __call__(self,x):
+        self.funcevals.append(loss.train())
 
     # you need to generalize this to whatever function occurs in the forward pass
     # like you said you shouldn't have to define this function two places
@@ -59,25 +60,27 @@ def cross_correlation(self,flux,lambdas,size=1000):
         ccs[i] = np.dot(self(lambdas + shift),flux)
     return ccs, shifts
 
+def get_lin_spaced_grid(xs,shifts,n):
+    padding = abs(shifts).max()
+    minimum = xs.min()
+    maximum = xs.max()
+    return np.linspace(minimum-padding,maximum+padding,n)
+
 class LinModel:
-    def __init__(self,num_params,y,x,vel_shifts):
-        self.epoches = len(vel_shifts)
+    def __init__(self,n,x_grid,shifts):
+        self.epoches = len(shifts)
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
         # also assumes epoches of data that is shifted between
-        self.xs = x
-        self.ys = y
+        # self.xs = x
+        # self.ys = y
 
-        self.size = x.shape[1]
-        # print(self.size)
+        self.params = np.zeros(n)
+        self.shifted = shifts
 
-        self.shifted = vel_shifts
+        self.x = x_grid
 
-        self.padding = abs(self.shifted).max()
-
-        minimum = self.xs.min()
-        maximum = self.xs.max()
-        self.x = np.linspace(minimum-self.padding,maximum+self.padding,num_params)
+        self.func_evals = []
 
         # the model x's must be shifted appropriately
         # this might have to be moved to the forward section if velocity is fit bt evals of ys
@@ -91,7 +94,7 @@ class LinModel:
         #     # added the shifted to the freq dist so subtract shift from model
         #     # print(type(self.x - self.shifted[i]),type(self.xs[i,:]))
         #     self.cell_array[i,:] = getCellArray(self.x - self.shifted[i],self.xs[i,:])
-        self.params = np.zeros(num_params)
+
 
     def __call__(self,params,input,epoch_idx,*args):
         # print(type(self),type(x),type(i))
@@ -108,23 +111,28 @@ class LinModel:
         ys = y[cell_array-1] + m * (x - self.x[cell_array-1])
         return jnp.array(ys)
 
-    def optimize(self,loss,maxiter,iprint=0,*args):
+    def optimize(self,loss,xs,ys,maxiter,iprint=0,*args):
         # Train model
         func_grad = jax.value_and_grad(loss.train, argnums=0)
-        callback = Callback
+        # callback = Callback()
+        def callback(x):
+            func_eval = loss.train(x,ys,xs,self,*args)
+            self.func_evals.append(func_eval)
+            print(func_eval)
+
         def whatevershit(p,*args):
             val, grad = func_grad(p,*args)
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
         res = scipy.optimize.minimize(whatevershit, self.params, jac=True,
                method='L-BFGS-B',
                callback=callback,
-               args=(self.ys,self.xs,self,*args),
+               args=(ys,xs,self,*args),
                options={'maxiter':maxiter,
                         'iprint':iprint
                })
 
         self.params = res.x
-        return res
+        return res, callback
 # foo = jax.numpy.interp(xs, x - shifts, params)
 # res = scipy.optimize.minimize(lamdba(): (ys - foo(xs))**2, params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
 #        options={'disp': True})
@@ -138,51 +146,29 @@ class JnpLin(LinModel):
             ys = jax.numpy.interp(input, self.x - self.shifted[i], p)
         return ys
 
-class JnpLinErr(LinModel):
-    def __init__(self,num_params,y,x,y_err,vel_shifts):
-        super(JnpLinErr,self).__init__(num_params,y,x,vel_shifts)
-        self.y_err = y_err
-
-    def __call__(self,p,input,i=None,*args):
-        if i == None:
-            ys = jax.numpy.interp(input, self.x, p)
-        else:
-            ys = jax.numpy.interp(input, self.x - self.shifted[i], p)
-        return ys
-
 class JnpVelLin(LinModel):
-    def __init__(self,num_params,y,x,vel_shifts,pretrained=None):
-
-        if pretrained is not None:
-            super(JnpVelLin,self).__init__(pretrained.x.shape[0],pretrained.ys,pretrained.xs,vel_shifts)
-            self.params = pretrained.params
-
-        else:
-            super(JnpVelLin,self).__init__(num_params,y,x,vel_shifts)
-        print(self.params.shape,self.shifted.shape)
+    def __init__(self,n,x_grid,shifts,params=None):
+        super(JnpVelLin,self).__init__(n,x_grid,shifts)
+        if params is not None:
+            self.params = params
         self.params = np.concatenate((self.params,self.shifted))
 
-    def __call__(self,params,input,epoch_idx,*args):
-        ys = jax.numpy.interp(input, self.x - params[-self.epoches+epoch_idx], params[:-self.epoches])
+    def __call__(self,p,input,i,*args):
+        ys = jax.numpy.interp(input, self.x - p[-self.epoches+i], p[:-self.epoches])
         return ys
-
-class JnpVelLinErr(JnpVelLin):
-    def __init__(self,num_params,y,x,y_err,vel_shifts,pretrained=None):
-        super(JnpVelLin,self).__init__(num_params,y,x,vel_shifts,pretrained=None)
-        self.y_err = y_err
 
 #for future
 class FourierModel(LinModel):
-    def __init__(self,num_params,y,x,shifts):
+    def __init__(self,n,y,x,shifts):
         self.epoches = y.shape[0]
         self.ys = y
-        self.xs = x
+        # self.xs = x
 
         self.base_freq = (x.min() - x.max())/2
 
         self.shifted = shifts
 
-        self.params = np.zeros(num_params)
+        self.params = np.zeros(n)
 
     def __call__(self,params,input,epoch_idx,*args):
         out = 0
