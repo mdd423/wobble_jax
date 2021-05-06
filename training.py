@@ -48,18 +48,18 @@ def main():
 
     loss = wobble_loss.ChiSquare()
 
-    x_grid = wobble_model.get_lin_spaced_grid(x,x_shifts,args.n)
+    x_grid = wobble_model.get_lin_spaced_grid(x[:,args.l:args.r],x_shifts,args.n)
     # y[args.l:args.r],x[args.l:args.r],y_err[args.l:args.r]
     model  = wobble_model.JnpLin(args.n,x_grid,x_shifts)
-    res, callback = model.optimize(loss,x,y,args.maxiter,0,y_err)
+    res, callback = model.optimize(loss,x[:,args.l:args.r],y[:,args.l:args.r],args.maxiter,0,y_err[:,args.l:args.r])
 
-    wobble_plot.plot_linear_model(model.x,model.params,model.shifted,x,y,y_err)
+    wobble_plot.plot_linear_model(model.x,model.params,model.shifted,x[:,args.l:args.r],y[:,args.l:args.r],y_err[:,args.l:args.r])
     plt.savefig(fig_1_name)
     wobble_model.save_model(model_name,model)
 
     velocity_grid = np.linspace(-300,300,100) * u.km/u.s
     shift_grid    = wobble_data.shifts(velocity_grid)
-    loss_array    = wobble_data.get_loss_array(shift_grid,model,x,y,loss,y_err)
+    loss_array    = wobble_data.get_loss_array(shift_grid,model,x[:,args.l:args.r],y[:,args.l:args.r],loss,y_err[:,args.l:args.r])
     x_min   = wobble_data.get_parabolic_min(loss_array,shift_grid)
 
     model_2 = wobble_model.JnpVelLin(args.n,x_grid,x_min,model.params)
