@@ -12,11 +12,13 @@ import numpy.polynomial as polynomial
 import model as wobble_model
 import jax.numpy as jnp
 
-def get_loss_array(shift_grid,model,loss):
-    loss_arr = np.empty((model.epoches,shift_grid.shape[0]))
-    for i in range(model.epoches):
+def get_loss_array(shift_grid,model,xs,ys,loss,*args):
+    if len(xs.shape) == 1:
+        xs = np.expand_dims(xs,axis=0)
+    loss_arr = np.empty((xs.shape[0],shift_grid.shape[0]))
+    for i in range(xs.shape[0]):
         for j,shift in enumerate(shift_grid):
-            loss_arr[i,j] = loss(model.params,model.ys[i,:],model.xs[i,:]+shift,None,model)
+            loss_arr[i,j] = loss(model.params,ys[i,:],xs[i,:]+shift,None,model,*args)
     return loss_arr
 
 def get_parabolic_min(loss_array,grid,return_all=False):
@@ -25,7 +27,7 @@ def get_parabolic_min(loss_array,grid,return_all=False):
 
     for n in range(epoches):
         idx = loss_array[n,:].argmin()
-        print("epch {}: min {}".format(n,idx))
+        # print("epch {}: min {}".format(n,idx))
         xs = grid[idx-1:idx+2]
         ys = loss_array[n,idx-1:idx+2]
 
@@ -74,11 +76,6 @@ class AstroDataset():
                     new_flux[j,i-cnt:i] = np.linspace(self.flux[j,i-cnt-1],self.flux[j,i],cnt+2)[1:-1]
                     cnt = 0
         self.flux = new_flux
-
-    def mask_y_err(self,y,err):
-        # new_err = np.copy(self.ferr)
-
-        return y, err
 
     def gauss_filter(self,sigma):
         filtered_flux = ndimage.gaussian_filter1d(self.flux,sigma)

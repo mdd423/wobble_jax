@@ -126,9 +126,10 @@ def plot_RV_time(velocity_array,dates):
 
         axs[i][j].plot(dates,velocity_array[:,n],'*b')
 
-def plot_linear(model,params,shifts,noise=None,xlim=None,epoches_to_plot=None):
+def plot_linear_model(x,y,shifts,xs,ys,yerr=None,xinds=[0,-1],ylims=[-0.8,0.2],epoches_to_plot=None):
+    epoch_size = xs.shape[0]
     if epoches_to_plot is None:
-        epoches = np.arange(model.epoches,dtype=int)
+        epoches = np.arange(epoch_size,dtype=int)
     else:
         epoches = np.array(epoches_to_plot)
     size_x, size_y = getDivisor(epoches.shape[0])
@@ -136,7 +137,9 @@ def plot_linear(model,params,shifts,noise=None,xlim=None,epoches_to_plot=None):
     fig,axs = plt.subplots(size_x,size_y,figsize=[12.8,9.6],sharey=False)
     if len(axs.shape) == 1:
         axs = np.expand_dims(axs,axis=0)
-    print(axs.shape)
+
+    xmin = xs[0,xinds[0]]
+    xmax = xs[0,xinds[1]]
     # Once again we apply the shift to the xvalues of the model when we plot it
     for iteration,n in enumerate(epoches):
 
@@ -147,16 +150,14 @@ def plot_linear(model,params,shifts,noise=None,xlim=None,epoches_to_plot=None):
             tick.label.set_fontsize(6)
             tick.label.set_rotation('vertical')
         # x,y = self.plot_model(n)
-        axs[i][j].plot(model.x-shifts[n],params,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
-        if noise is not None:
-            axs[i][j].errorbar(model.xs[n,:],model.ys[n,:],yerr=noise[n,:],fmt='.k',zorder=1,alpha=0.9,ms=6)
+        axs[i][j].plot(x-shifts[n],y,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
+        if yerr is not None:
+            axs[i][j].errorbar(xs[n,:],ys[n,:],yerr[n,:],fmt='.k',zorder=1,alpha=0.9,ms=6)
         else:
-            axs[i][j].plot(model.xs[n,:],model.ys[n,:],'.k',zorder=1,alpha=0.9,ms=6)
-        if xlim is None:
-            axs[i][j].set_xlim(min(model.xs[n,:]),max(model.xs[n,:]))
-        else:
-            axs[i][j].set_xlim(xlim[0],xlim[1])
-        axs[i][j].set_ylim(-0.8,0.2)
+            axs[i][j].plot(xs[n,:],ys[n,:],'.k',zorder=1,alpha=0.9,ms=6)
+
+        axs[i][j].set_ylim(ylims[0],ylims[1])
+        axs[i][j].set_xlim(xmin,xmax)
 
 def plot_data(lamb,flux,error,filtered=None,xinds=(3200,3300),ypadding=0.1):
     size_x, size_y = getPlotSize(lamb.shape[0])
@@ -172,7 +173,6 @@ def plot_data(lamb,flux,error,filtered=None,xinds=(3200,3300),ypadding=0.1):
 
     xmin = lamb[0,xinds[0]]
     xmax = lamb[0,xinds[1]]
-
 
     for iteration,wavelength in enumerate(lamb):
 
