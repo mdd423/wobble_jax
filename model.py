@@ -111,7 +111,7 @@ class LinModel:
         ys = y[cell_array-1] + m * (x - self.x[cell_array-1])
         return jnp.array(ys)
 
-    def optimize(self,loss,xs,ys,maxiter,iprint=0,*args):
+    def optimize(self,loss,xs,ys,yerr,maxiter,iprint=0,*args):
         # Train model
         func_grad = jax.value_and_grad(loss.train, argnums=0)
         # callback = Callback()
@@ -126,7 +126,7 @@ class LinModel:
         res = scipy.optimize.minimize(whatevershit, self.params, jac=True,
                method='L-BFGS-B',
                callback=callback,
-               args=(ys,xs,self,*args),
+               args=(ys,yerr,xs,self,*args),
                options={'maxiter':maxiter,
                         'iprint':iprint
                })

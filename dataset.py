@@ -12,13 +12,13 @@ import numpy.polynomial as polynomial
 import model as wobble_model
 import jax.numpy as jnp
 
-def get_loss_array(shift_grid,model,xs,ys,loss,*args):
+def get_loss_array(shift_grid,model,xs,ys,yerr,loss,*args):
     if len(xs.shape) == 1:
         xs = np.expand_dims(xs,axis=0)
     loss_arr = np.empty((xs.shape[0],shift_grid.shape[0]))
     for i in range(xs.shape[0]):
         for j,shift in enumerate(shift_grid):
-            loss_arr[i,j] = loss(model.params,ys[i,:],xs[i,:]+shift,None,model,*args)
+            loss_arr[i,j] = loss(model.params,ys[i,:],yerr[i,:],xs[i,:]+shift,None,model,*args)
     return loss_arr
 
 def get_parabolic_min(loss_array,grid,return_all=False):
