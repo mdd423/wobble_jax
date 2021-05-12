@@ -87,7 +87,7 @@ class AstroDataset():
         y     = np.log(self.flux/filtered)
         x     = np.log(self.lamb)
         y_err = (self.ferr)
-        y_err /= filtered
+        y_err /= self.flux
 
         y[self.mask]   = y_const
         y_err[self.mask] = err_const
