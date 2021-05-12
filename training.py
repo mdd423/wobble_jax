@@ -23,14 +23,16 @@ parser.add_argument('-n',action='store',default=256,type=int)
 parser.add_argument('--sigma',action='store',default=80.0,type=float)
 parser.add_argument('--maxiter',action='store',default=4,type=int)
 parser.add_argument('--maxiter2',action='store',default=4,type=int)
-parser.add_argument('-f',action='store',required=True)
+# parser.add_argument('-f',action='store',required=True)
 # parser.add_argument('--dir',action='store',required=True)
 args   = parser.parse_args()
 
 # @profile
 def main():
+    filename  = 'data/2M03322788-0658199.fits'
+    starname = '2MASS J03322788-0658199'
 
-    file_tail    = path.split(args.f)[1][:-4]
+    file_tail    = path.split(filename)[1][:-4]
     model_name   = 'out/model{}n{}_l{}_r{}f_mI{}.pt'.format(file_tail,args.n,args.l,args.r,args.maxiter)
     model_2_name = 'out/model{}n{}_l{}_r{}f_mI{}_2mI{}.pt'.format(file_tail,args.n,args.l,args.r,args.maxiter,args.maxiter2)
     fig_1_name   = 'out/fig1n{}_l{}_r{}f_mI{}.png'.format(file_tail,args.n,args.l,args.r,args.maxiter)
@@ -38,13 +40,13 @@ def main():
 
     model_tail = path.split(model_name)[1][:-3]
 
-    tbl         = at.QTable.read(args.f)
+    tbl         = at.QTable.read(filename)
     dataset     = wobble_data.AstroDataset(tbl['flux'],tbl['wavelength']/u.Angstrom,tbl['mask'],tbl['flux_err'])
     dataset.interpolate_mask()
     filtered    = dataset.gauss_filter(sigma=args.sigma)
     x, y, y_err = dataset.get_xy(filtered)
 
-    x_shifts = wobble_data.getInitXShift(tbl['BJD'],'HAT-P-20','APO')
+    x_shifts = wobble_data.getInitXShift(tbl['BJD'],star_name,'APO')
 
     loss = wobble_loss.ChiSquare()
 
