@@ -91,7 +91,6 @@ class L2Loss(LossFunc):
 
 class ChiSquare(LossFunc):
     def __call__(self, p, y, yerr, x, i, model, *args):
-        y_err = args[0]
         err = self.coefficient * 0.5 * (((y - model(p,x,i,*args))**2)/ yerr**2).sum()
         return err
 
