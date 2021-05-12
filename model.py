@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import scipy.optimize
 import sys
 
-import pickle
+import pickle5 as pickle
 
 import simulator as wobble_sim
 import loss as wobble_loss

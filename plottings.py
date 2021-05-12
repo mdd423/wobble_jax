@@ -150,7 +150,7 @@ def plot_linear_model(x,y,shifts,xs,ys,yerr=None,xinds=[0,-1],ylims=[-0.8,0.2],e
             tick.label.set_fontsize(6)
             tick.label.set_rotation('vertical')
         # x,y = self.plot_model(n)
-        axs[i][j].plot(x-shifts[n],y,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.5,ms=6)
+        axs[i][j].plot(x-shifts[n],y,'.r',linestyle='solid',linewidth=.8,zorder=2,alpha=0.2,ms=6)
         if yerr is not None:
             axs[i][j].errorbar(xs[n,:],ys[n,:],yerr[n,:],fmt='.k',zorder=1,alpha=0.9,ms=6)
         else:
@@ -159,7 +159,7 @@ def plot_linear_model(x,y,shifts,xs,ys,yerr=None,xinds=[0,-1],ylims=[-0.8,0.2],e
         axs[i][j].set_ylim(ylims[0],ylims[1])
         axs[i][j].set_xlim(xmin,xmax)
 
-def plot_data(lamb,flux,error,filtered=None,xinds=(3200,3300),ypadding=0.1):
+def plot_data(lamb,flux,error=None,filtered=None,xinds=(3200,3300),ypadding=0.1):
     size_x, size_y = getPlotSize(lamb.shape[0])
 
     fig,axs = plt.subplots(size_x,size_y,figsize=[12.8,9.6],sharey=False)
@@ -193,6 +193,9 @@ def plot_data(lamb,flux,error,filtered=None,xinds=(3200,3300),ypadding=0.1):
         #     plt.ylim(100,2500)
         # if dataset.filtered_flux is not None:
         #     plt.plot(wavelength,dataset.filtered_flux[i,:],color='red',alpha=0.5)
-        axs[i][j].errorbar(wavelength,flux[iteration,:],error[iteration,:],fmt='.k',alpha=0.5)
+        if error is None:
+            axs[i][j].plot(wavelength,flux[iteration,:],'.k',alpha=0.5)
+        else:
+            axs[i][j].errorbar(wavelength,flux[iteration,:],error[iteration,:],fmt='.k',zorder=1,alpha=0.1)
         if filtered is not None:
-            axs[i][j].plot(wavelength,filtered[iteration,:] ,color='red',alpha=0.5)
+            axs[i][j].plot(wavelength,filtered[iteration,:] ,color='red',alpha=0.5,zorder=0)

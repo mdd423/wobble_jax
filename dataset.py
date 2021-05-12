@@ -49,8 +49,8 @@ def zplusone(vel):
 def shifts(vel):
     return np.log(zplusone(vel))
 
-def getInitXShift(BJD,star_name,observatory_name):
-    hatp20_c = coord.SkyCoord.from_name(star_name)
+def getInitXShift(BJD,star_name,observatory_name,parse=False):
+    hatp20_c = coord.SkyCoord.from_name(star_name,parse=parse)
     loc      = coord.EarthLocation.of_site(observatory_name)
     ts       = atime.Time(BJD, format='jd', scale='tdb')
     bc       = hatp20_c.radial_velocity_correction(obstime=ts, location=loc).to(u.km/u.s)
@@ -86,8 +86,8 @@ class AstroDataset():
 
         y     = np.log(self.flux/filtered)
         x     = np.log(self.lamb)
-        y_err = (self.ferr/filtered)
-        y_err /= self.flux
+        y_err = (self.ferr)
+        y_err /= filtered
 
         y[self.mask]   = y_const
         y_err[self.mask] = err_const
