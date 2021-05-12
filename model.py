@@ -116,7 +116,7 @@ class LinModel:
         func_grad = jax.value_and_grad(loss.train, argnums=0)
         # callback = Callback()
         def callback(x):
-            func_eval = loss.train(x,ys,xs,self,*args)
+            func_eval = loss.train(x,ys,yerr,xs,self,*args)
             self.func_evals.append(func_eval)
             print(func_eval)
 
