@@ -115,8 +115,8 @@ class LinModel:
         # Train model
         func_grad = jax.value_and_grad(loss.train, argnums=0)
         # callback = Callback()
-        def callback(x):
-            func_eval = loss.train(x,ys,yerr,xs,self,*args)
+        def callback(p):
+            func_eval = loss.train(p,ys,yerr,xs,self,*args)
             self.func_evals.append(func_eval)
             print(func_eval)
 
@@ -131,6 +131,7 @@ class LinModel:
                         'iprint':iprint
                })
 
+        self.results = res
         self.params = res.x
         return res, callback
 # foo = jax.numpy.interp(xs, x - shifts, params)

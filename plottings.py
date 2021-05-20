@@ -84,7 +84,7 @@ def plot_parabola(loss_array,grid,real_vels,second_velocity=None):
     size_x, size_y = getPlotSize(epoches)
 
 
-    vel_min,xs,ys,poly = get_parabolic_min(loss_array,grid,epoches,return_all=True)
+    vel_min,xs,ys,poly = wobble_data.get_parabolic_min(loss_array,grid,return_all=True)
     fig,axs = plt.subplots(size_x,size_y,figsize=[12.8,9.6],sharey=False)
     for n in range(epoches):
 
@@ -107,7 +107,7 @@ def plot_parabola(loss_array,grid,real_vels,second_velocity=None):
             axs[i][j].vlines(second_velocity[n],ymin=minimum,ymax=maximum,colors='red')
 
         axs[i][j].vlines(real_vels[n],ymin=minimum,ymax=maximum,label='blue')
-        vel_min[n] = x_min[0]
+        # vel_min[n] = x_min[0]
     return vel_min
 
 def plot_RV_time(velocity_array,dates):
