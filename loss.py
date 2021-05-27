@@ -50,7 +50,7 @@ class LossSequential(LossFunc):
         # super().__init__(self)
         self.loss_funcs = loss_funcs
 
-    def __call__(self,p,y,x,i,model,*args):
+    def __call__(self,p,y,yerr,x,i,model,*args):
         output = 0.0
         for loss in self.loss_funcs:
             output += loss(p,y,x,i,model,*args)
@@ -95,10 +95,11 @@ class ChiSquare(LossFunc):
         return err
 
 class L2Reg(LossFunc):
-    def __init__(self,coefficient=1.0,constant=0.0):
+    def __init__(self,coefficient=1.0,constant=0.0,indices=True):
         super(L2Reg,self).__init__(coefficient)
         self.constant = constant
+        self.indices  = indices
 
     def __call__(self, p, y, yerr, x, i, model, *args):
-        err = self.coefficient * 0.5 * ((p - self.constant)**2).sum()
+        err = self.coefficient * 0.5 * ((p[self.indices] - self.constant)**2).sum()
         return err
