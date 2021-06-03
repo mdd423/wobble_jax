@@ -15,23 +15,38 @@ import jax.numpy as jnp
 def get_loss_array(shift_grid,model,xs,ys,yerr,loss,*args):
     if len(xs.shape) == 1:
         xs = np.expand_dims(xs,axis=0)
-    loss_arr = np.empty((xs.shape[0],shift_grid.shape[0]))
-    for i in range(xs.shape[0]):
-        for j,shift in enumerate(shift_grid):
-            loss_arr[i,j] = loss(model.params,ys[i,:],yerr[i,:],xs[i,:]+shift,None,model,*args)
+
+    if len(shift_grid.shape) == 1:
+        loss_arr = np.empty((xs.shape[0],shift_grid.shape[0]))
+        for i in range(xs.shape[0]):
+            for j,shift in enumerate(shift_grid):
+                loss_arr[i,j] = loss(model.params,ys[i,:],yerr[i,:],xs[i,:]+shift,None,model,*args)
+    if len(shift_grid.shape) == 2:
+        loss_arr = np.empty((xs.shape[0],shift_grid.shape[1]))
+        for i in range(xs.shape[0]):
+            for j,shift in enumerate(shift_grid[i,:]):
+                loss_arr[i,j] = loss(model.params,ys[i,:],yerr[i,:],xs[i,:]+shift,None,model,*args)
+
     return loss_arr
 
 def get_parabolic_min(loss_array,grid,return_all=False):
     epoches = loss_array.shape[0]
     grid_min = np.empty(epoches)
 
+    xss = np.empty((epoches,3))
+    yss = np.empty((epoches,3))
+    polys = []
+
     for n in range(epoches):
         idx = loss_array[n,:].argmin()
         # print("epch {}: min {}".format(n,idx))
-        xs = grid[idx-1:idx+2]
+        xs = grid[n,idx-1:idx+2]
+        xss[n,:] = xs
         ys = loss_array[n,idx-1:idx+2]
+        yss[n,:] = ys
 
         poly = np.polyfit(xs,ys,deg=2)
+        polys.append(poly)
         deriv = np.polyder(poly)
 
         x_min = np.roots(deriv)
@@ -39,7 +54,7 @@ def get_parabolic_min(loss_array,grid,return_all=False):
         y_min = np.polyval(poly,x_min)
         grid_min[n] = x_min
     if (return_all):
-        return grid_min, xs, ys, poly
+        return grid_min, xss, yss, polys
     else:
         return grid_min
 
@@ -86,8 +101,7 @@ class AstroDataset():
 
         y     = np.log(self.flux/filtered)
         x     = np.log(self.lamb)
-        y_err = (self.ferr)
-        y_err /= self.flux
+        y_err = (self.ferr)/self.flux
 
         y[self.mask]   = y_const
         y_err[self.mask] = err_const
