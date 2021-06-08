@@ -12,6 +12,16 @@ import numpy.polynomial as polynomial
 import model as wobble_model
 import jax.numpy as jnp
 
+def find_nearest(array,value):
+    array = np.asarray(array)
+    idx   = (np.abs(array-value)).argmin()
+    return idx
+
+def velocityfromshift(shifts):
+    expon = np.exp(2*shifts)
+    vel = const.c * (expon-1)/(1 + expon)
+    return vel
+
 def get_loss_array(shift_grid,model,xs,ys,yerr,loss,*args):
     if len(xs.shape) == 1:
         xs = np.expand_dims(xs,axis=0)
@@ -39,6 +49,8 @@ def get_parabolic_min(loss_array,grid,return_all=False):
 
     for n in range(epoches):
         idx = loss_array[n,:].argmin()
+        if idx == 0:
+            idx = 1
         # print("epch {}: min {}".format(n,idx))
         xs = grid[n,idx-1:idx+2]
         xss[n,:] = xs
@@ -103,7 +115,7 @@ class AstroDataset():
         x     = np.log(self.lamb)
         y_err = (self.ferr)/self.flux
 
-        y[self.mask]   = y_const
+        y[self.mask]     = y_const
         y_err[self.mask] = err_const
 
         return jnp.array(x,dtype=np.float32), jnp.array(y,dtype=np.float32), jnp.array(y_err,dtype=np.float32)
