@@ -3,7 +3,7 @@ import numpy as np
 import astropy.table as at
 import astropy.units as u
 import astropy.coordinates as coord
-import scipy.constants as const
+import astropy.constants as const
 import astropy.time as atime
 import scipy.ndimage as ndimage
 
