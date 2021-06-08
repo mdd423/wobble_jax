@@ -71,7 +71,7 @@ def get_parabolic_min(loss_array,grid,return_all=False):
         return grid_min
 
 def zplusone(vel):
-    return np.sqrt((1 + vel/(const.c*u.m/u.s))/(1 - vel/(const.c*u.m/u.s)))
+    return np.sqrt((1 + vel/(const.c))/(1 - vel/(const.c)))
 
 def shifts(vel):
     return np.log(zplusone(vel))
