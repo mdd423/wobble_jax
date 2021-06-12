@@ -209,7 +209,7 @@ class JnpLin(LinearModel):
         if i == None:
             ys = jax.numpy.interp(input, self.x, p)
         else:
-            ys = jax.numpy.interp(input, self.x + self.shifted[i], p)
+            ys = jax.numpy.interp(input, self.x - self.shifted[i], p)
         return ys
 
     def evaluate(self,p,x):
