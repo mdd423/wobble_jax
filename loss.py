@@ -17,7 +17,7 @@ class LossFunc: #,loss_func,loss_parms=1.0
         self.coefficient *= x
         return self
 
-    def train(self,p,y,yerr,x,model,*args):
+    def train(self,p,x,y,yerr,model,*args):
         # basically wrapper function that loops through the epoches for the
         # optimizer so all loss classes only have to consider operating on a single
         # epoch
@@ -50,7 +50,7 @@ class LossSequential(LossFunc):
         # super().__init__(self)
         self.loss_funcs = loss_funcs
 
-    def __call__(self,p,y,yerr,x,i,model,*args):
+    def __call__(self,p,x,y,yerr,i,model,*args):
         output = 0.0
         for loss in self.loss_funcs:
             output += loss(p,y,yerr,x,i,model,*args)
@@ -83,14 +83,14 @@ class LossSequential(LossFunc):
 # always multiply by coefficient so that when you do mutliplication with the
 # object then it translates to the output
 class L2Loss(LossFunc):
-    def __call__(self, p, y, yerr, x, i, model,*args):
+    def __call__(self, p, x, y, yerr, i, model,*args):
         err = self.coefficient * 0.5 * ((y - model(p,x,i,*args))**2).sum()
         # Since jax grad only takes in 1d ndarrays you need to flatten your inputs
         # thus the targets should already be flattened as well
         return err
 
 class ChiSquare(LossFunc):
-    def __call__(self, p, y, yerr, x, i, model, *args):
+    def __call__(self, p, x, y, yerr, i, model, *args):
         err = self.coefficient * (((y - model(p,x,i,*args))**2)/ yerr**2).sum()
         return err
 
@@ -100,6 +100,6 @@ class L2Reg(LossFunc):
         self.constant = constant
         self.indices  = indices
 
-    def __call__(self, p, y, yerr, x, i, model, *args):
+    def __call__(self, p, x, y, yerr, i, model, *args):
         err = self.coefficient * 0.5 * ((p[self.indices] - self.constant)**2).sum()
         return err

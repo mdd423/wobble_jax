@@ -65,7 +65,7 @@ class Model:
         func_grad = jax.value_and_grad(loss.train, argnums=0)
         # callback = Callback()
         def callback(p):
-            func_eval = loss.train(p,ys,yerr,xs,self,*args)
+            func_eval = loss.train(p,xs,ys,yerr,self,*args)
             self.func_evals.append(func_eval)
             print(func_eval)
 
@@ -75,7 +75,7 @@ class Model:
         res = scipy.optimize.minimize(whatevershit, self.params, jac=True,
                method='L-BFGS-B',
                callback=callback,
-               args=(ys,yerr,xs,self,*args),
+               args=(xs,ys,yerr,self,*args),
                options={'maxiter':maxiter,
                         'iprint':iprint
                })
