@@ -34,7 +34,7 @@ class LossFunc: #,loss_func,loss_parms=1.0
         # this should happen before call in all classes
         # recall ys are packed st that 0: epoches, 1: pixel
         for i in range(y.shape[0]):
-            output += self(p,y[i,:],yerr[i,:],x[i,:],i,model,*args)
+            output += self(p,x[i,:],y[i,:],yerr[i,:],i,model,*args)
         return output
 
 class LossSequential(LossFunc):
