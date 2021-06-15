@@ -112,7 +112,7 @@ class AstroDataset():
         y_err[self.mask] = err_const
         return y, y_err
 
-    def get_xy(self,filtered,y_const=0.0,err_const=10):
+    def get_xy(self,filtered):
 
         y     = np.log(self.flux/filtered)
         x     = np.log(self.lamb)
