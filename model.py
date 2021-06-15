@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import scipy.optimize
 import sys
 
-import pickle
+import pickle5 as pickle
 
 import simulator as wobble_sim
 import loss as wobble_loss
@@ -72,6 +72,7 @@ class Model:
         def whatevershit(p,*args):
             val, grad = func_grad(p,*args)
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
+
         res = scipy.optimize.minimize(whatevershit, self.p, jac=True,
                method=method,
                callback=callback,
@@ -81,7 +82,7 @@ class Model:
                })
 
         self.results = res
-        self.params = res.x
+        self.p = res.x
         return res, callback
 
     def __add__(self,x):
@@ -138,7 +139,7 @@ class LinearModel(Model):
         # self.xs = x
         # self.ys = y
         self.omega = np.zeros(n)
-        self.p      = self.omega
+        self.p     = self.omega
         self.delta = delta
 
         self.x = x_grid
