@@ -76,13 +76,12 @@ def zplusone(vel):
 def shifts(vel):
     return np.log(zplusone(vel))
 
-def getInitXShift(BJD,star_name,observatory_name,parse=False):
+def get_star_velocity(BJD,star_name,observatory_name,parse=False):
     hatp20_c = coord.SkyCoord.from_name(star_name,parse=parse)
     loc      = coord.EarthLocation.of_site(observatory_name)
     ts       = atime.Time(BJD, format='jd', scale='tdb')
     bc       = hatp20_c.radial_velocity_correction(obstime=ts, location=loc).to(u.km/u.s)
-    x_shifts = shifts(bc)
-    return x_shifts
+    return bc
 
 class AstroDataset():
     def __init__(self,flux,lamb,mask,ferr):
@@ -104,18 +103,19 @@ class AstroDataset():
                     cnt = 0
         self.flux = new_flux
 
-    def gauss_filter(self,sigma):
+    def get_gauss_filter(self,sigma):
         filtered_flux = ndimage.gaussian_filter1d(self.flux,sigma)
         return filtered_flux
 
+    def set_masked_equal_to(self,y,y_err,y_const,err_const):
+        y[self.mask]     = y_const
+        y_err[self.mask] = err_const
+        return y, y_err
+
     def get_xy(self,filtered,y_const=0.0,err_const=10):
-        # start, end = subset
 
         y     = np.log(self.flux/filtered)
         x     = np.log(self.lamb)
         y_err = (self.ferr)/self.flux
-
-        y[self.mask]     = y_const
-        y_err[self.mask] = err_const
 
         return jnp.array(x,dtype=np.float32), jnp.array(y,dtype=np.float32), jnp.array(y_err,dtype=np.float32)

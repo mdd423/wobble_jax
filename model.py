@@ -60,7 +60,7 @@ def get_lin_spaced_grid(xs,shifts,n):
     return np.linspace(minimum-padding,maximum+padding,n)
 
 class Model:
-    def optimize(self,loss,xs,ys,yerr,maxiter,iprint=0,*args):
+    def optimize(self,loss,xs,ys,yerr,maxiter,iprint=0,method='L-BFGS-B',*args):
         # Train model
         func_grad = jax.value_and_grad(loss.train, argnums=0)
         # callback = Callback()
@@ -72,8 +72,8 @@ class Model:
         def whatevershit(p,*args):
             val, grad = func_grad(p,*args)
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
-        res = scipy.optimize.minimize(whatevershit, self.params, jac=True,
-               method='L-BFGS-B',
+        res = scipy.optimize.minimize(whatevershit, self.p, jac=True,
+               method=method,
                callback=callback,
                args=(xs,ys,yerr,self,*args),
                options={'maxiter':maxiter,
@@ -98,7 +98,7 @@ class CompostieModel(Model):
         self.models = []
         self.parameters_per_model = []
 
-    def __call__(self,params,input,epoch_idx,*args):
+    def __call__(self,p,x,i,*args):
 
         for model in self.models:
             input = model(self.params,input,epoch_idx,*args)
@@ -110,11 +110,11 @@ class AdditiveModel(Model):
         self.models = models
         self.parameters_per_model = parameters_per_model
 
-    def __call__(self,params,input,epoch_idx,*args):
+    def __call__(self,p,x,i,*args):
         output = 0.0
         for i,model in enumerate(self.models):
-            indices = np.arange(np.sum(self.parameters_per_model[:i]),np.sum(self.parameters_per_model[:i+1]))
-            output += model(params[indices],input,epoch_idx,*args)
+            indices = np.arange(np.sum(self.parameters_per_model[:i]),np.sum(self.parameters_per_model[:i+1]),dtype=int)
+            output += model(p[indices],x,i,*args)
         return output
 
     def __add__(self,x):
@@ -130,31 +130,31 @@ class AdditiveModel(Model):
             return AdditiveModel(models=[*self.models,x],parameters_per_model=[*self.parameters_per_model,x.params.shape[0]])
 
 class LinearModel(Model):
-    def __init__(self,n,x_grid,shifts):
+    def __init__(self,n,x_grid,delta):
         self.epoches = len(shifts)
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
         # also assumes epoches of data that is shifted between
         # self.xs = x
         # self.ys = y
-
-        self.params = np.zeros(n)
-        self.shifted = shifts
+        self.omega = np.zeros(n)
+        self.p      = self.omega
+        self.delta = delta
 
         self.x = x_grid
 
         self.func_evals = []
 
-    def __call__(self,params,input,epoch_idx,*args):
+    def __call__(self,p,x,i,*args):
         # print(type(self),type(x),type(i))
         # can only be used once model is optimized
         # i = args[0]
         # cell_array = self.cell_array[epoch_idx,:] #getCellArray(self.x + self.shifted[epoch_idx],input)
-        cell_array = self.cell_array[epoch_idx,:] #getCellArray(self.x + self.shifted[epoch_idx],input)
+        cell_array = self.cell_array[i,:] #getCellArray(self.x + self.shifted[epoch_idx],input)
         # if cell_array is None:
         #     cell_array = getCellArray(self.x,x)
-        x = input + self.shifted[epoch_idx]
-        y = params
+        x = x + self.delta[i]
+        y = p
         # the x values for the model need to be shifted here but only for the intercept
         m  = (y[cell_array] - y[cell_array-1])/(self.x[cell_array] - self.x[cell_array-1])
         ys = y[cell_array-1] + m * (x - self.x[cell_array-1])
@@ -166,11 +166,10 @@ class DataCalibration(Model):
         self.params = np.ones(n)
 
     def __call__(self,p,x,i,*args):
-        x_out = 0.0
+        y = 0.0
         for i in range(self.n):
-            x_out = self.params[i]*x**i
-        return x_out
-
+            y = self.params[i]*x**i
+        return y
 
 # foo = jax.numpy.interp(xs, x - shifts, params)
 # res = scipy.optimize.minimize(lamdba(): (ys - foo(xs))**2, params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
@@ -180,12 +179,12 @@ class TelluricModel(Model):
     def __init__(self,n,x_grid,airmass):
         self.n = n
         self.x = x_grid
-        self.params = np.zeros(n)
+        self.p = np.zeros(n)
         self.airmass = airmass
 
-    def __call__(self,p,input,epoch_idx,*args):
-        output = self.airmass[epoch_idx] * jax.numpy.interp(input, self.x, p)
-        return output
+    def __call__(self,p,x,i,*args):
+        y = self.airmass[i] * jax.numpy.interp(x, self.x, p)
+        return y
 
 class GasCellModel(Model):
     def __init__(self,lines):
@@ -196,41 +195,41 @@ class GasCellModel(Model):
 
         self.p      = np.concatenate((self.amplitude))
 
-    def __call__(self,p,input,epoch_idx,*args):
+    def __call__(self,p,x,i,*args):
 
-        output = 0.0
+        y = 0.0
         for i,amp in enumerate(p):
-            output += amp * np.exp(-np.power(input - self.lines[i], 2.) / (2 * np.power(self.widths[i], 2.)))
-        return output
+            y += amp * np.exp(-np.power(x - self.lines[i], 2.) / (2 * np.power(self.widths[i], 2.)))
+        return y
 
-class JnpLin(LinearModel):
+class JaxLinear(LinearModel):
 
-    def __call__(self,p,input,i=None,*args):
+    def __call__(self,p,x,i=None,*args):
         if i == None:
-            ys = jax.numpy.interp(input, self.x, p)
+            y = jax.numpy.interp(x, self.x, p)
         else:
-            ys = jax.numpy.interp(input, self.x - self.shifted[i], p)
-        return ys
+            y = jax.numpy.interp(x, self.x - self.delta[i], p)
+        return y
 
     def evaluate(self,p,x):
-        return jax.numpy.interp(x,self.x,self.params)
+        return jax.numpy.interp(x,self.x,p)
 
-class JnpVelLin(LinearModel):
-    def __init__(self,n,x_grid,shifts,params=None):
-        super(JnpVelLin,self).__init__(n,x_grid,shifts)
+class JaxVelLinear(LinearModel):
+    def __init__(self,n,x_grid,delta,p=None):
+        super(JnpVelLin,self).__init__(n,x_grid,delta)
         if params is not None:
-            self.params = params
-        self.params = np.concatenate((self.params,self.shifted))
+            self.p = p
+        self.p = np.concatenate((self.p,self.delta))
 
-    def __call__(self,p,input,i,*args):
+    def __call__(self,p,x,i=None,*args):
         if i is None:
-            ys = jax.numpy.interp(input, self.x, p[:-self.epoches])
+            y = jax.numpy.interp(x, self.x, p[:-self.epoches])
         else:
-            ys = jax.numpy.interp(input, self.x - p[-self.epoches+i], p[:-self.epoches])
-        return ys
+            y = jax.numpy.interp(x, self.x - p[-self.epoches+i], p[:-self.epoches])
+        return y
 
     def evaluate(self,p,x):
-        return jax.numpy.interp(x,self.x,self.params[:-self.epoches])
+        return jax.numpy.interp(x,self.x,self.p[:-self.epoches])
 
 #for future
 class FourierModel(Model):

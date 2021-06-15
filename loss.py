@@ -17,7 +17,7 @@ class LossFunc: #,loss_func,loss_parms=1.0
         self.coefficient *= x
         return self
 
-    def train(self,p,x,y,yerr,model,*args):
+    def loop(self,p,x,y,yerr,model,*args):
         # basically wrapper function that loops through the epoches for the
         # optimizer so all loss classes only have to consider operating on a single
         # epoch
@@ -32,17 +32,9 @@ class LossFunc: #,loss_func,loss_parms=1.0
         # Thus the model must have some way of dealing with None type epoch index if the user
         # wishs to make prediction on new data
         # this should happen before call in all classes
-        singular = False
-        if (len(y.shape)) == 1:
-            singular = True
-            y = np.expand_dims(y,axis=0)
         # recall ys are packed st that 0: epoches, 1: pixel
-        for epoch in range(y.shape[0]):
-            if singular:
-                EPOCH_INDEX = None
-            else:
-                EPOCH_INDEX = epoch
-            output += self(p,y[epoch,:],yerr[epoch,:],x[epoch,:],EPOCH_INDEX,model,*args)
+        for i in range(y.shape[0]):
+            output += self(p,y[i,:],yerr[i,:],x[i,:],i,model,*args)
         return output
 
 class LossSequential(LossFunc):
