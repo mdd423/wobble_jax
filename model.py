@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import scipy.optimize
 import sys
 
-import pickle5 as pickle
+import pickle
 
 import simulator as wobble_sim
 import loss as wobble_loss
@@ -62,10 +62,10 @@ def get_lin_spaced_grid(xs,shifts,n):
 class Model:
     def optimize(self,loss,xs,ys,yerr,maxiter,iprint=0,method='L-BFGS-B',*args):
         # Train model
-        func_grad = jax.value_and_grad(loss.train, argnums=0)
+        func_grad = jax.value_and_grad(loss.loop, argnums=0)
         # callback = Callback()
         def callback(p):
-            func_eval = loss.train(p,xs,ys,yerr,self,*args)
+            func_eval = loss.loop(p,xs,ys,yerr,self,*args)
             self.func_evals.append(func_eval)
             print(func_eval)
 
@@ -131,7 +131,7 @@ class AdditiveModel(Model):
 
 class LinearModel(Model):
     def __init__(self,n,x_grid,delta):
-        self.epoches = len(shifts)
+        self.epoches = len(delta)
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
         # also assumes epoches of data that is shifted between
@@ -216,8 +216,8 @@ class JaxLinear(LinearModel):
 
 class JaxVelLinear(LinearModel):
     def __init__(self,n,x_grid,delta,p=None):
-        super(JnpVelLin,self).__init__(n,x_grid,delta)
-        if params is not None:
+        super(JaxVelLinear,self).__init__(n,x_grid,delta)
+        if p is not None:
             self.p = p
         self.p = np.concatenate((self.p,self.delta))
 

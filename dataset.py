@@ -47,11 +47,14 @@ def get_parabolic_min(loss_array,grid,return_all=False):
     yss = np.empty((epoches,3))
     polys = []
 
+    print(loss_array.shape,grid.shape)
     for n in range(epoches):
         idx = loss_array[n,:].argmin()
         if idx == 0:
             idx = 1
-        # print("epch {}: min {}".format(n,idx))
+        if idx == grid.shape[1]-1:
+            idx -= 1
+        print("epch {}: min {}".format(n,idx))
         xs = grid[n,idx-1:idx+2]
         xss[n,:] = xs
         ys = loss_array[n,idx-1:idx+2]
@@ -107,15 +110,16 @@ class AstroDataset():
         filtered_flux = ndimage.gaussian_filter1d(self.flux,sigma)
         return filtered_flux
 
-    def set_masked_equal_to(self,y,y_err,y_const,err_const):
-        y[self.mask]     = y_const
-        y_err[self.mask] = err_const
-        return y, y_err
+    def set_masked_equal_to(self,y,y_err,y_const=0.0,err_const=10.0):
+       return 0.0
 
-    def get_xy(self,filtered):
+    def get_xy(self,filtered,y_const=0.0,err_const=10.0):
 
         y     = np.log(self.flux/filtered)
         x     = np.log(self.lamb)
         y_err = (self.ferr)/self.flux
 
+        y[self.mask]     = y_const
+        y_err[self.mask] = err_const
+        
         return jnp.array(x,dtype=np.float32), jnp.array(y,dtype=np.float32), jnp.array(y_err,dtype=np.float32)
