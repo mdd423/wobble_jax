@@ -3,6 +3,7 @@ import jax
 import jax.numpy as jnp
 # import matplotlib.pyplot as plt
 import scipy.optimize
+import scipy.signal as signal
 import sys
 
 import pickle5 as pickle
@@ -38,14 +39,7 @@ def load(filename):
         model = pickle.load(input)
         return model
 
-    # you need to generalize this to whatever function occurs in the forward pass
-    # like you said you shouldn't have to define this function two places
-    # one for parameter running and one for prediction
-    # they should be in the same place
-
-    # not written in v generalizable way,see plt.plot(...,self.params) and not a __call__(sel.fparams)
-
-def cross_correlation(self,flux,lambdas,size=1000):
+# def cross_correlation(self,flux,lambdas,size=1000):
 
     shifts = np.linspace(-self.padding+0.01,self.padding-0.01,size)
     ccs = np.zeros(size)
@@ -63,7 +57,7 @@ class Model:
     def optimize(self,loss,xs,ys,yerr,maxiter,iprint=0,method='L-BFGS-B',*args):
         # Train model
         func_grad = jax.value_and_grad(loss.loop, argnums=0)
-        # callback = Callback()
+
         def callback(p):
             func_eval = loss.loop(p,xs,ys,yerr,self,*args)
             self.func_evals.append(func_eval)
@@ -82,53 +76,168 @@ class Model:
                })
 
         self.results = res
+        # parameters need to be replaced in all submodels
+        # so that they can be plot using variable names
+        # not some indices of p, unpack function is for user
+        # to know how to plot parameters being fit
+        # either way the models parameters are put back into 1d p
+        try:
+            self.unpack(res.x)
+        except NameError:
+            print('cannot unpack, setting ps tho')
+            pass
         self.p = res.x
         return res, callback
 
     def __add__(self,x):
-        return AdditiveModel(models=[self,x],parameters_per_model=[self.params.shape[0],x.params.shape])
+        return AdditiveModel(models=[self,x])
 
     def __radd__(self,x):
-        return AdditiveModel(models=[self,x],parameters_per_model=[self.params.shape[0],x.params.shape])
+        return AdditiveModel(models=[self,x])
 
     def composite(self,x):
-        return CompositeModel(models=[self,x],parameters_per_model=[self.params.shape[0],x.params.shape[0]])
+        return CompositeModel(models=[self,x])
 
-class CompostieModel(Model):
-    def __init__(self,models,parameters_per_model):
-        self.models = []
-        self.parameters_per_model = []
+    def evaluate(self,x):
+        return self(self.p,x,i=None)
+
+class CompositeModel(Model):
+    def __init__(self,models):
+        self.models = models
+        self.parameters_per_model = np.array([model.p.shape[0] for model in models])
+        self.p = np.concatenate([model.p for model in models])
+        self.func_evals = []
 
     def __call__(self,p,x,i,*args):
 
-        for model in self.models:
-            input = model(self.params,input,epoch_idx,*args)
+        for k,model in enumerate(self.models):
+            indices = np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)
+            input = model(p[indices],x,i,*args)
         return input
+
+    def composite(self,x):
+        if isinstance(x,CompositeModel):
+            return CompositeModel(models=[*self.models,*x.models])
+        else:
+            return CompositeModel(models=[*self.models,x])
+
+    def unpack(self,p):
+
+        for model in models:
+            indices = np.arange(np.sum(self.parameters_per_model[:i]),np.sum(self.parameters_per_model[:i+1]),dtype=int)
+            try:
+                model.unpack(p[indices])
+            except NameError:
+                pass
+            model.p = p[indices]
 
 class AdditiveModel(Model):
 
-    def __init__(self,models,parameters_per_model):
+    def __init__(self,models):
         self.models = models
-        self.parameters_per_model = parameters_per_model
+        self.parameters_per_model = np.array([model.p.shape[0] for model in models])
+        self.p = np.concatenate([model.p for model in models])
+        self.func_evals = []
 
     def __call__(self,p,x,i,*args):
         output = 0.0
-        for i,model in enumerate(self.models):
-            indices = np.arange(np.sum(self.parameters_per_model[:i]),np.sum(self.parameters_per_model[:i+1]),dtype=int)
+        for k,model in enumerate(self.models):
+            indices = np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)
             output += model(p[indices],x,i,*args)
         return output
 
     def __add__(self,x):
-        if isinstance(x,CompositeModel):
-            return AdditiveModel(models=[*self.models,*x.models],parameters_per_model=[*self.parameters_per_model,*x.parameters_per_model])
+        if isinstance(x,AdditiveModel):
+            return AdditiveModel(models=[*self.models,*x.models])
         else:
-            return AdditiveModel(models=[*self.models,x],parameters_per_model=[*self.parameters_per_model,x.params.shape[0]])
+            return AdditiveModel(models=[*self.models,x])
 
     def __radd__(self,x):
         if isinstance(x,CompositeModel):
             return AdditiveModel(models=[*self.models,*x.models],parameters_per_model=[*self.parameters_per_model,*x.parameters_per_model])
         else:
-            return AdditiveModel(models=[*self.models,x],parameters_per_model=[*self.parameters_per_model,x.params.shape[0]])
+            return AdditiveModel(models=[*self.models,x],parameters_per_model=[*self.parameters_per_model,x.p.shape[0]])
+
+    def unpack(self,p):
+
+        for model in models:
+            indices = np.arange(np.sum(self.parameters_per_model[:i]),np.sum(self.parameters_per_model[:i+1]),dtype=int)
+            try:
+                model.unpack(p[indices])
+            except NameError:
+                pass
+            model.p = p[indices]
+
+class DataCalibration(Model):
+    def __init__(self,n):
+        self.n   = n
+        self.delta = np.zeros(n)
+        self.func_evals = []
+
+        self.p   = self.delta
+
+    def __call__(self,p,x,i,*args):
+
+        y = x + p[i]
+        return y
+
+    def unpack(self,p):
+        self.delta = p
+
+class ConvolutionalModel(Model):
+    def __init__(self,n):
+        self.omega = np.ones(n)
+        self.p     = self.omega
+
+        self.func_evals = []
+
+    def __call__(self,p,x,i):
+        y = signal.convolve(x,p,mode='same')
+        return y
+
+    def unpack(self,p):
+        self.omega = p
+
+# foo = jax.numpy.interp(xs, x - shifts, params)
+# res = scipy.optimize.minimize(lamdba(): (ys - foo(xs))**2, params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
+#        options={'disp': True})
+
+class TelluricModel(Model):
+    def __init__(self,n,x_grid,airmass):
+        self.n = n
+        self.x = x_grid
+        self.omega = np.zeros(n)
+        self.airmass = airmass
+
+        self.p = self.omega
+        self.func_evals = []
+
+    def __call__(self,p,x,i,*args):
+        y = self.airmass[i] * jax.numpy.interp(x, self.x, p)
+        return y
+
+    def unpack(self,p):
+        self.omega = p
+
+class GasCellModel(Model):
+    def __init__(self,lines,widths):
+        self.n      = lines.shape[0]
+        self.lines  = lines
+        self.widths = widths
+        self.b      = np.ones(self.n)
+
+        self.func_evals = []
+        self.p = self.b
+
+    def __call__(self,p,x,i,*args):
+
+        y = np.zeros(x.shape)
+        for k,amp in enumerate(p):
+            y -= amp * np.exp(-np.power(x - self.lines[k], 2.) / (2 * np.power(self.widths[k], 2.)))
+        return y
+
+    def unpack(self,p):
+        self.b = p
 
 class LinearModel(Model):
     def __init__(self,n,x_grid,delta):
@@ -136,15 +245,12 @@ class LinearModel(Model):
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
         # also assumes epoches of data that is shifted between
-        # self.xs = x
-        # self.ys = y
         self.omega = np.zeros(n)
-        self.p     = self.omega
         self.delta = delta
-
-        self.x = x_grid
-
+        self.x     = x_grid
         self.func_evals = []
+
+        self.p     = self.omega
 
     def __call__(self,p,x,i,*args):
         # print(type(self),type(x),type(i))
@@ -161,47 +267,8 @@ class LinearModel(Model):
         ys = y[cell_array-1] + m * (x - self.x[cell_array-1])
         return jnp.array(ys)
 
-class DataCalibration(Model):
-    def __init__(self,n):
-        self.n = n
-        self.params = np.ones(n)
-
-    def __call__(self,p,x,i,*args):
-        y = 0.0
-        for i in range(self.n):
-            y = self.params[i]*x**i
-        return y
-
-# foo = jax.numpy.interp(xs, x - shifts, params)
-# res = scipy.optimize.minimize(lamdba(): (ys - foo(xs))**2, params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
-#        options={'disp': True})
-
-class TelluricModel(Model):
-    def __init__(self,n,x_grid,airmass):
-        self.n = n
-        self.x = x_grid
-        self.p = np.zeros(n)
-        self.airmass = airmass
-
-    def __call__(self,p,x,i,*args):
-        y = self.airmass[i] * jax.numpy.interp(x, self.x, p)
-        return y
-
-class GasCellModel(Model):
-    def __init__(self,lines):
-        self.n          = lines.shape[0]
-        self.lines      = lines
-        self.widths     = np.ones(self.n)
-        self.amplitudes = np.ones(self.n)
-
-        self.p      = np.concatenate((self.amplitude))
-
-    def __call__(self,p,x,i,*args):
-
-        y = 0.0
-        for i,amp in enumerate(p):
-            y += amp * np.exp(-np.power(x - self.lines[i], 2.) / (2 * np.power(self.widths[i], 2.)))
-        return y
+    def unpack(self,p):
+        self.omega = p
 
 class JaxLinear(LinearModel):
 
@@ -211,9 +278,6 @@ class JaxLinear(LinearModel):
         else:
             y = jax.numpy.interp(x, self.x - self.delta[i], p)
         return y
-
-    def evaluate(self,p,x):
-        return jax.numpy.interp(x,self.x,p)
 
 class JaxVelLinear(LinearModel):
     def __init__(self,n,x_grid,delta,p=None):
@@ -229,8 +293,9 @@ class JaxVelLinear(LinearModel):
             y = jax.numpy.interp(x, self.x - p[-self.epoches+i], p[:-self.epoches])
         return y
 
-    def evaluate(self,p,x):
-        return jax.numpy.interp(x,self.x,self.p[:-self.epoches])
+    def unpack(self,p):
+        self.omega = p[:-self.epoches]
+        self.delta = p[-self.epoches:]
 
 #for future
 class FourierModel(Model):
@@ -243,16 +308,13 @@ class FourierModel(Model):
 
         self.shifted = shifts
 
-        self.params = np.zeros(n)
+        self.p = np.zeros(n)
 
-    def __call__(self,params,input,epoch_idx,*args):
+    def __call__(self,p,input,epoch_idx,*args):
         out = 0
-        for j, param in enumerate(params):
+        for j, param in enumerate(p):
             if j % 2 == 0:
                 out += param * np.cos((self.base_freq * np.floor(j/2)) * (input + self.shifted[epoch_idx]))
             if j % 2 == 1:
                 out += param * np.sin((self.base_freq * np.floor(j/2)) * (input + self.shifted[epoch_idx]))
         return  out
-
-    # def plot_model(self,i):
-    #     plt.plot(self.xs[0,:],self.predict(self.xs[0,:]))

@@ -30,12 +30,12 @@ def get_loss_array(shift_grid,model,xs,ys,yerr,loss,*args):
         loss_arr = np.empty((xs.shape[0],shift_grid.shape[0]))
         for i in range(xs.shape[0]):
             for j,shift in enumerate(shift_grid):
-                loss_arr[i,j] = loss(model.params,ys[i,:],yerr[i,:],xs[i,:]+shift,None,model,*args)
+                loss_arr[i,j] = loss(model.p,xs[i,:]+shift,ys[i,:],yerr[i,:],None,model,*args)
     if len(shift_grid.shape) == 2:
         loss_arr = np.empty((xs.shape[0],shift_grid.shape[1]))
         for i in range(xs.shape[0]):
             for j,shift in enumerate(shift_grid[i,:]):
-                loss_arr[i,j] = loss(model.params,ys[i,:],yerr[i,:],xs[i,:]+shift,None,model,*args)
+                loss_arr[i,j] = loss(model.p,xs[i,:]+shift,ys[i,:],yerr[i,:],None,model,*args)
 
     return loss_arr
 
@@ -121,5 +121,5 @@ class AstroDataset():
 
         y[self.mask]     = y_const
         y_err[self.mask] = err_const
-        
+
         return jnp.array(x,dtype=np.float32), jnp.array(y,dtype=np.float32), jnp.array(y_err,dtype=np.float32)
