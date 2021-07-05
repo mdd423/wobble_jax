@@ -47,14 +47,17 @@ def get_parabolic_min(loss_array,grid,return_all=False):
     yss = np.empty((epoches,3))
     polys = []
 
-    print(loss_array.shape,grid.shape)
     for n in range(epoches):
         idx = loss_array[n,:].argmin()
+        print("epch {}: min {}".format(n,idx))
         if idx == 0:
+            print("minimum likely out of range")
             idx = 1
         if idx == grid.shape[1]-1:
+            print("minimum likely out of range")
             idx -= 1
-        print("epch {}: min {}".format(n,idx))
+        # else:
+
         xs = grid[n,idx-1:idx+2]
         xss[n,:] = xs
         ys = loss_array[n,idx-1:idx+2]
@@ -67,7 +70,9 @@ def get_parabolic_min(loss_array,grid,return_all=False):
         x_min = np.roots(deriv)
         x_min = x_min[x_min.imag==0].real
         y_min = np.polyval(poly,x_min)
+
         grid_min[n] = x_min
+
     if (return_all):
         return grid_min, xss, yss, polys
     else:
@@ -86,40 +91,71 @@ def get_star_velocity(BJD,star_name,observatory_name,parse=False):
     bc       = hatp20_c.radial_velocity_correction(obstime=ts, location=loc).to(u.km/u.s)
     return bc
 
-class AstroDataset():
-    def __init__(self,flux,lamb,mask,ferr):
-        self.flux = flux
-        self.lamb = lamb#/u.Angstrom
-        self.mask = mask
-        self.ferr = ferr
+def interpolate_mask(flux,mask):
+    new_flux = np.zeros(flux.shape)
+    new_flux = flux
+    for j,mask_row in enumerate(mask):
+        cnt = 0
+        for i, mask_ele in enumerate(mask_row):
+            if mask_ele != 0:
+                cnt += 1
+            if mask_ele == 0 and cnt != 0:
+                new_flux[j,i-cnt:i] = np.linspace(flux[j,i-cnt-1],flux[j,i],cnt+2)[1:-1]
+                cnt = 0
+    return new_flux
 
-    def interpolate_mask(self):
-        new_flux = np.zeros(self.flux.shape)
-        new_flux = self.flux
-        for j,mask_row in enumerate(self.mask):
-            cnt = 0
-            for i, mask_ele in enumerate(mask_row):
-                if mask_ele != 0:
-                    cnt += 1
-                if mask_ele == 0 and cnt != 0:
-                    new_flux[j,i-cnt:i] = np.linspace(self.flux[j,i-cnt-1],self.flux[j,i],cnt+2)[1:-1]
-                    cnt = 0
-        self.flux = new_flux
+def gauss_filter(flux,sigma):
+    filtered_flux = ndimage.gaussian_filter1d(flux,sigma)
+    return filtered_flux
 
-    def get_gauss_filter(self,sigma):
-        filtered_flux = ndimage.gaussian_filter1d(self.flux,sigma)
-        return filtered_flux
+def normalize_flux(flux,sigma):
+    return flux/gauss_filter(flux,sigma)
 
-    def set_masked_equal_to(self,y,y_err,y_const=0.0,err_const=10.0):
-       return 0.0
+def convert_xy(lamb,flux,ferr):
+    y    = np.log(flux)
+    x    = np.log(lamb)
+    yerr = ferr/flux
+    return x, y, yerr
 
-    def get_xy(self,filtered,y_const=0.0,err_const=10.0):
+def set_masked(y,yerr,mask,y_const=0.0,err_const=10.0):
+    y[mask]    = y_const
+    yerr[mask] = err_const
+    return y, yerr
 
-        y     = np.log(self.flux/filtered)
-        x     = np.log(self.lamb)
-        y_err = (self.ferr)/self.flux
+# class AstroDataset():
+    # def __init__(self,flux,lamb,mask,ferr):
+    #     self.flux = flux
+    #     self.lamb = lamb#/u.Angstrom
+    #     self.mask = mask
+    #     self.ferr = ferr
+    #
+    # def interpolate_mask(self):
+    #     new_flux = np.zeros(self.flux.shape)
+    #     new_flux = self.flux
+    #     for j,mask_row in enumerate(self.mask):
+    #         cnt = 0
+    #         for i, mask_ele in enumerate(mask_row):
+    #             if mask_ele != 0:
+    #                 cnt += 1
+    #             if mask_ele == 0 and cnt != 0:
+    #                 new_flux[j,i-cnt:i] = np.linspace(self.flux[j,i-cnt-1],self.flux[j,i],cnt+2)[1:-1]
+    #                 cnt = 0
+    #     self.flux = new_flux
+    #
+    # def get_gauss_filter(self,sigma):
+    #     filtered_flux = ndimage.gaussian_filter1d(self.flux,sigma)
+    #     return filtered_flux
+    #
+    # def set_masked_equal_to(self,y,y_err,y_const=0.0,err_const=10.0):
+    #    return 0.0
 
-        y[self.mask]     = y_const
-        y_err[self.mask] = err_const
-
-        return jnp.array(x,dtype=np.float32), jnp.array(y,dtype=np.float32), jnp.array(y_err,dtype=np.float32)
+    # def get_xy(self,filtered,y_const=0.0,err_const=10.0):
+    #
+    #     y     = np.log(self.flux/filtered)
+    #     x     = np.log(self.lamb)
+    #     y_err = (self.ferr)/self.flux
+    #
+    #     y[self.mask]     = y_const
+    #     y_err[self.mask] = err_const
+    #
+    #     return jnp.array(x,dtype=np.float32), jnp.array(y,dtype=np.float32), jnp.array(y_err,dtype=np.float32)
