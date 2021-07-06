@@ -11,6 +11,9 @@ import pickle5 as pickle
 import simulator as wobble_sim
 import loss as wobble_loss
 
+def spacing_from_res(R):
+    return np.log(1+1/R)
+
 def getCellArray(x,xs):
 
     if xs[0]  < x[0]:
@@ -47,11 +50,13 @@ def load(filename):
         ccs[i] = np.dot(self(lambdas + shift),flux)
     return ccs, shifts
 
-def get_lin_spaced_grid(xs,shifts,n):
-    padding = abs(shifts).max()
+# make function like this but in terms of resolution not n
+# plus padding
+def get_lin_spaced_grid(xs,padding,step):
+    # padding = abs(shifts).max()
     minimum = xs.min()
     maximum = xs.max()
-    return np.linspace(minimum-padding,maximum+padding,n)
+    return np.arange(minimum-padding,maximum+padding,step=step)
 
 class Model:
     def optimize(self,loss,xs,ys,yerr,maxiter,iprint=0,method='L-BFGS-B',*args):
@@ -123,8 +128,8 @@ class CompositeModel(Model):
 
     def unpack(self,p):
 
-        for model in models:
-            indices = np.arange(np.sum(self.parameters_per_model[:i]),np.sum(self.parameters_per_model[:i+1]),dtype=int)
+        for k,model in enumerate(self.models):
+            indices = np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)
             try:
                 model.unpack(p[indices])
             except NameError:
@@ -141,6 +146,7 @@ class AdditiveModel(Model):
 
     def __call__(self,p,x,i,*args):
         output = 0.0
+        # PARALLELIZABLE
         for k,model in enumerate(self.models):
             indices = np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)
             output += model(p[indices],x,i,*args)
@@ -160,8 +166,8 @@ class AdditiveModel(Model):
 
     def unpack(self,p):
 
-        for model in models:
-            indices = np.arange(np.sum(self.parameters_per_model[:i]),np.sum(self.parameters_per_model[:i+1]),dtype=int)
+        for k,model in enumerate(self.models):
+            indices = np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)
             try:
                 model.unpack(p[indices])
             except NameError:
@@ -203,10 +209,10 @@ class ConvolutionalModel(Model):
 #        options={'disp': True})
 
 class TelluricModel(Model):
-    def __init__(self,n,x_grid,airmass):
-        self.n = n
+    def __init__(self,x_grid,airmass):
+        self.n = x_grid.shape[0]
         self.x = x_grid
-        self.omega = np.zeros(n)
+        self.omega = np.zeros(self.n)
         self.airmass = airmass
 
         self.p = self.omega
@@ -240,12 +246,13 @@ class GasCellModel(Model):
         self.b = p
 
 class LinearModel(Model):
-    def __init__(self,n,x_grid,delta):
+    def __init__(self,x_grid,delta):
         self.epoches = len(delta)
+        self.n = len(x_grid)
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
         # also assumes epoches of data that is shifted between
-        self.omega = np.zeros(n)
+        self.omega = np.zeros(self.n)
         self.delta = delta
         self.x     = x_grid
         self.func_evals = []
@@ -279,9 +286,12 @@ class JaxLinear(LinearModel):
             y = jax.numpy.interp(x, self.x - self.delta[i], p)
         return y
 
+    def unpack(self,p):
+        self.omega = p
+
 class JaxVelLinear(LinearModel):
-    def __init__(self,n,x_grid,delta,p=None):
-        super(JaxVelLinear,self).__init__(n,x_grid,delta)
+    def __init__(self,x_grid,delta,p=None):
+        super(JaxVelLinear,self).__init__(x_grid,delta)
         if p is not None:
             self.p = p
         self.p = np.concatenate((self.p,self.delta))
