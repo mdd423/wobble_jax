@@ -241,7 +241,8 @@ class ConvolutionalModel(Model):
         return y
 
     def unpack(self,p):
-        self.omega = p
+        if self.bool:
+            self.omega = p
 
 class ShiftingModel(Model):
     def __init__(self,deltas):
@@ -257,7 +258,8 @@ class ShiftingModel(Model):
             return self.deltas[i] + x
 
     def unpack(self,p):
-        self.m = p
+        if self.bool:
+            self.deltas = p
 
 class StretchingModel(Model):
     def __init__(self,m=None,epoches=0):
@@ -276,7 +278,8 @@ class StretchingModel(Model):
             return self.m[i] * x
 
     def unpack(self,p):
-        self.m = p
+        if self.bool:
+            self.m = p
 
 class JaxLinear(Model):
     def __init__(self,xs):
@@ -299,7 +302,8 @@ class JaxLinear(Model):
         return y
 
     def unpack(self,p):
-        self.theta = p
+        if self.bool:
+            self.theta = p
 
 # foo = jax.numpy.interp(xs, x - shifts, params)
 # res = scipy.optimize.minimize(lamdba(): (ys - foo(xs))**2, params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
