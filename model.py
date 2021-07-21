@@ -114,9 +114,7 @@ class Model:
         self.bool = True
         if self.p.shape[0] == 0:
             self.p = parameters
-        else:
-            self.p = np.concatenate((self.p,parameters))
-
+    
 class CompositeModel(Model):
     def __init__(self,models):
         self.models = models
