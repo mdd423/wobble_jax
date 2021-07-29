@@ -82,7 +82,7 @@ def main():
 
     x_grid = wobble_model.get_lin_spaced_grid(x[:,args.l:args.r],padding=wobble_data.shifts(vel_padding),step=wobble_data.shifts(const.c.to(u.km/u.s)/resolving_constant))
     stellar_model = wobble_model.CompositeModel([wobble_model.ShiftingModel(x_shifts),wobble_model.JaxLinear(x_grid)])
-    stellar_model.fit_parameters(1,stellar_model[1].theta)
+    stellar_model[1].fit()
 
     # model.fix_parameters(indices=range(-epoches,0))
     res, callback = stellar_model.optimize(loss,x[:,args.l:args.r],y[:,args.l:args.r],yerr[:,args.l:args.r],args.maxiter)
@@ -103,7 +103,7 @@ def main():
     # Second Round of Training
     ############################################################################################
     # model_2 = wobble_model.JaxVelLinear(x_grid,x_min,model.p)
-    stellar_model.fit_parameters(0,stellar_model[0].deltas)
+    stellar_model[0].fit()
     results = stellar_model.optimize(loss,x[:,args.l:args.r],y[:,args.l:args.r],yerr[:,args.l:args.r],args.maxiter2)
     wobble_model.save(model_2_name,stellar_model)
 

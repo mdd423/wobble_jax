@@ -58,13 +58,18 @@ def get_lin_spaced_grid(xs,padding,step):
     maximum = xs.max()
     return np.arange(minimum-padding,maximum+padding,step=step)
 
+
 class Model:
+    def __init__(self):
+        self.fitting = jnp.array([])
+        self.func_evals = []
+
     def optimize(self,loss,xs,ys,yerr,maxiter,iprint=0,method='L-BFGS-B',*args):
         # Train model
         func_grad = jax.value_and_grad(loss.loop, argnums=0)
 
         def callback(p):
-            func_eval = loss.loop(p,xs,ys,yerr,self,*args)
+            func_eval = loss.loop(p,xs,ys,yerr,self.wrapping_caller,*args)
             self.func_evals.append(func_eval)
             print(func_eval)
 
@@ -72,10 +77,10 @@ class Model:
             val, grad = func_grad(p,*args)
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
 
-        res = scipy.optimize.minimize(whatevershit, self.p, jac=True,
+        res = scipy.optimize.minimize(whatevershit, self.get_parameters(), jac=True,
                method=method,
                callback=callback,
-               args=(xs,ys,yerr,self,*args),
+               args=(xs,ys,yerr,self.wrapping_caller,*args),
                options={'maxiter':maxiter,
                         'iprint':iprint
                })
@@ -91,7 +96,7 @@ class Model:
         except NameError:
             print('cannot unpack, setting ps tho')
             pass
-        self.p = res.x
+        # self.p = res.x
         return res, callback
 
     def __add__(self,x):
@@ -100,33 +105,48 @@ class Model:
     def __radd__(self,x):
         return AdditiveModel(models=[self,x])
 
+    def wrapping_caller(self,p,*args):
+        # print(p)
+        # print("length: ",len(p))
+        if len(p) == 0:
+            return self(self.p,*args)
+        else:
+            return self(p,*args)
+
     def composite(self,x):
         return CompositeModel(models=[self,x])
 
     def evaluate(self,x):
         return self(self.p,x,i=None)
 
-    def fix_parameters(self):
-        self.p = np.empty(shape=(0))
-        self.bool = False
+    def fix(self):
+        self.fitting = jnp.array([])
 
-    def fit_parameters(self,parameters):
-        self.bool = True
-        if self.p.shape[0] == 0:
-            self.p = parameters
-    
+    def fit(self):
+        # self.bool = True
+        # if self.p.shape[0] == 0:
+        self.fitting = self.p
+
+    def get_parameters(self):
+        return self.fitting
+
+    def unpack(self,p):
+        if len(p) != 0:
+            self.p = p
+
+
 class CompositeModel(Model):
     def __init__(self,models):
+        super(CompositeModel,self).__init__()
         self.models = models
-        self.parameters_per_model = np.array([model.p.shape[0] for model in models])
-        self.p = np.concatenate([model.p for model in models])
-        self.func_evals = []
+        self.parameters_per_model = np.array([])
 
     def __call__(self,p,x,i,*args):
-
+        # print(self.parameters_per_model)
         for k,model in enumerate(self.models):
             indices = np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)
-            input = model(p[indices],x,i,*args)
+            # print(indices)
+            input   = model.wrapping_caller(p[indices],x,i,*args)
         return input
 
     def __getitem__(self,idx):
@@ -142,36 +162,27 @@ class CompositeModel(Model):
 
         for k,model in enumerate(self.models):
             indices = np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)
-            try:
-                model.unpack(p[indices])
-            except NameError:
-                pass
-            model.p = p[indices]
+            model.unpack(p[indices])
 
-    def fix_parameters(self,model_index):
-        self.models[model_index].fix_parameters()
-        self.p = np.concatenate([model.p for model in self.models])
-        self.parameters_per_model[model_index] = 0
+    def get_parameters(self):
+        for i,model in enumerate(self.models):
+            self.fitting = jnp.concatenate((self.fitting,model.get_parameters()))
+            self.parameters_per_model = np.concatenate((self.parameters_per_model,model.fitting.shape))
 
-    def fit_parameters(self,model_index,parameters):
-        self.models[model_index].fit_parameters(parameters)
-        self.p = np.concatenate([model.p for model in self.models])
-        self.parameters_per_model[model_index] = parameters.shape[0]
+        return self.fitting
 
 class AdditiveModel(Model):
-
     def __init__(self,models):
+        super(AdditiveModel,self).__init__()
         self.models = models
-        self.parameters_per_model = np.array([model.p.shape[0] for model in models])
-        self.p = np.concatenate([model.p for model in models])
-        self.func_evals = []
+        self.parameters_per_model = np.empty(shape=[1])
 
     def __call__(self,p,x,i,*args):
         output = 0.0
         # PARALLELIZABLE
         for k,model in enumerate(self.models):
             indices = np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)
-            output += model(p[indices],x,i,*args)
+            output += model.wrapping_caller(p[indices],x,i,*args)
         return output
 
     def __add__(self,x):
@@ -193,115 +204,65 @@ class AdditiveModel(Model):
 
         for k,model in enumerate(self.models):
             indices = np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)
-            try:
-                model.unpack(p[indices])
-            except NameError:
-                pass
-            model.p = p[indices]
+            # try:
+            model.unpack(p[indices])
 
-    def fix_parameters(self,model_index):
-        self.models[model_index].fix_parameters()
-        self.parameters_per_model[model_index] = 0
+    def get_parameters(self):
 
-    def fit_parameters(self,model_index,parameters):
-        self.models[model_index].fit_parameters(parameters)
-        self.parameters_per_model[model_index] = parameters.shape[0]
+        for i,model in enumerate(self.models):
+            self.fitting = jnp.concatenate((self.fitting,model.get_parameters()))
 
-# class DataCalibration(Model):
-    def __init__(self,n):
-        self.n   = n
-        self.delta = np.zeros(n)
-        self.func_evals = []
+        return self.fitting
 
-        self.bool = False
-
-    def __call__(self,p,x,i,*args):
-        p[~self.bool] = self.p[~self.bool]
-        y = x + p[i]
-        return y
-
-    def unpack(self,p):
-        self.delta = p
 
 class ConvolutionalModel(Model):
     def __init__(self,n):
-        self.omega = np.ones(n)
-        self.bool = False
-        self.p = np.empty(shape=(0))
-
-        self.func_evals = []
+        super(ConvolutionalModel,self).__init__()
+        self.p          = np.array([0,1,0])
 
     def __call__(self,p,x,i):
-        if self.bool:
-            y = signal.convolve(x,p,mode='same')
-        else:
-            y = signal.convolve(x,self.omega,mode='same')
+        y = signal.convolve(x,p,mode='same')
         return y
-
-    def unpack(self,p):
-        if self.bool:
-            self.omega = p
 
 class ShiftingModel(Model):
     def __init__(self,deltas):
+        super(ShiftingModel,self).__init__()
         self.epoches = deltas.shape[0]
-        self.deltas = deltas
-        self.bool = False
-        self.p = np.empty(shape=(0))
+        self.p       = deltas
 
     def __call__(self,p,x,i):
-        if self.bool:
-            return p[i] + x
-        else:
-            return self.deltas[i] + x
 
-    def unpack(self,p):
-        if self.bool:
-            self.deltas = p
+        return p[i] + x
 
 class StretchingModel(Model):
     def __init__(self,m=None,epoches=0):
+        super(StretchingModel,self).__init__()
         self.epoches = stretches.shape[0]
         if m is None:
-            self.m = np.ones((epoches))
+            self.p = np.ones((epoches))
         else:
-            self.m = m
-        self.bool = False
-        self.p = np.empty(shape=(0))
+            self.p = m
 
     def __call__(self,p,x,i):
-        if self.bool:
-            return p[i] * x
-        else:
-            return self.m[i] * x
 
-    def unpack(self,p):
-        if self.bool:
-            self.m = p
+        return p[i] * x
+
 
 class JaxLinear(Model):
     def __init__(self,xs):
+        super(JaxLinear,self).__init__()
         self.n       = len(xs)
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
         # also assumes epoches of data that is shifted between
-        self.theta = np.zeros(self.n)
         self.xs    = xs
-
-        self.func_evals = []
-        self.bool = False
-        self.p = np.empty(shape=(0))
+        self.p = np.zeros(self.n)
 
     def __call__(self,p,x,i):
-        if self.bool:
-            y = jax.numpy.interp(x, self.xs, p)
-        else:
-            y = jax.numpy.interp(x, self.xs, self.theta)
+        # print()
+        # print(p.shape)
+        y = jax.numpy.interp(x, self.xs, p)
         return y
-
-    def unpack(self,p):
-        if self.bool:
-            self.theta = p
 
 # foo = jax.numpy.interp(xs, x - shifts, params)
 # res = scipy.optimize.minimize(lamdba(): (ys - foo(xs))**2, params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
