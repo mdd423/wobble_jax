@@ -106,8 +106,7 @@ class Model:
         return AdditiveModel(models=[self,x])
 
     def wrapping_caller(self,p,*args):
-        # print(p)
-        # print("length: ",len(p))
+
         if len(p) == 0:
             return self(self.p,*args)
         else:
@@ -144,7 +143,8 @@ class CompositeModel(Model):
     def __call__(self,p,x,i,*args):
         # print(self.parameters_per_model)
         for k,model in enumerate(self.models):
-            indices = np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)
+            indices = np.arange(np.sum(self.parameters_per_model[:k]),
+                                np.sum(self.parameters_per_model[:k+1]),dtype=int)
             # print(indices)
             input   = model.wrapping_caller(p[indices],x,i,*args)
         return input
@@ -161,15 +161,20 @@ class CompositeModel(Model):
     def unpack(self,p):
 
         for k,model in enumerate(self.models):
-            indices = np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)
+            indices = np.arange(np.sum(self.parameters_per_model[:k]),
+                                np.sum(self.parameters_per_model[:k+1]),dtype=int)
             model.unpack(p[indices])
 
     def get_parameters(self):
+        x = jnp.array([])
+        self.parameters_per_model = np.array([])
         for i,model in enumerate(self.models):
-            self.fitting = jnp.concatenate((self.fitting,model.get_parameters()))
-            self.parameters_per_model = np.concatenate((self.parameters_per_model,model.fitting.shape))
+            parameters = model.get_parameters()
+            x = jnp.concatenate((x,parameters))
+            self.parameters_per_model = np.concatenate((self.parameters_per_model,parameters.shape))
 
-        return self.fitting
+        return x
+
 
 class AdditiveModel(Model):
     def __init__(self,models):
@@ -181,7 +186,8 @@ class AdditiveModel(Model):
         output = 0.0
         # PARALLELIZABLE
         for k,model in enumerate(self.models):
-            indices = np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)
+            indices = np.arange(np.sum(self.parameters_per_model[:k]),
+                                np.sum(self.parameters_per_model[:k+1]),dtype=int)
             output += model.wrapping_caller(p[indices],x,i,*args)
         return output
 
@@ -203,16 +209,20 @@ class AdditiveModel(Model):
     def unpack(self,p):
 
         for k,model in enumerate(self.models):
-            indices = np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)
+            indices = np.arange(np.sum(self.parameters_per_model[:k]),
+                                np.sum(self.parameters_per_model[:k+1]),dtype=int)
             # try:
             model.unpack(p[indices])
 
     def get_parameters(self):
-
+        x = jnp.array([])
+        self.parameters_per_model = np.array([])
         for i,model in enumerate(self.models):
-            self.fitting = jnp.concatenate((self.fitting,model.get_parameters()))
+            parameters = model.get_parameters()
+            x = jnp.concatenate((x,parameters))
+            self.parameters_per_model = np.concatenate((self.parameters_per_model,parameters.shape))
 
-        return self.fitting
+        return x
 
 
 class ConvolutionalModel(Model):
@@ -224,6 +234,7 @@ class ConvolutionalModel(Model):
         y = signal.convolve(x,p,mode='same')
         return y
 
+
 class ShiftingModel(Model):
     def __init__(self,deltas):
         super(ShiftingModel,self).__init__()
@@ -233,6 +244,7 @@ class ShiftingModel(Model):
     def __call__(self,p,x,i):
 
         return p[i] + x
+
 
 class StretchingModel(Model):
     def __init__(self,m=None,epoches=0):
