@@ -175,6 +175,12 @@ class CompositeModel(Model):
 
         return x
 
+    def fit(self,i,*args):
+        self[i].fit(*args)
+
+    def fix(self,i,*args):
+        self[i].fix(*args)
+
 
 class AdditiveModel(Model):
     def __init__(self,models):
@@ -224,6 +230,11 @@ class AdditiveModel(Model):
 
         return x
 
+    def fit(self,i,*args):
+        self[i].fit(*args)
+
+    def fix(self,i,*args):
+        self[i].fix(*args)
 
 class ConvolutionalModel(Model):
     def __init__(self,n):
