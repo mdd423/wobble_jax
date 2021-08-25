@@ -30,12 +30,12 @@ def get_loss_array(shift_grid,model,xs,ys,yerr,loss,*args):
         loss_arr = np.empty((xs.shape[0],shift_grid.shape[0]))
         for i in range(xs.shape[0]):
             for j,shift in enumerate(shift_grid):
-                loss_arr[i,j] = loss(model.p,xs[i,:]+shift,ys[i,:],yerr[i,:],None,model,*args)
+                loss_arr[i,j] = loss(model.p,xs[i,:]+shift,ys[i,:],yerr[i,:],i,model,*args)
     if len(shift_grid.shape) == 2:
         loss_arr = np.empty((xs.shape[0],shift_grid.shape[1]))
         for i in range(xs.shape[0]):
             for j,shift in enumerate(shift_grid[i,:]):
-                loss_arr[i,j] = loss(model.p,xs[i,:]+shift,ys[i,:],yerr[i,:],None,model,*args)
+                loss_arr[i,j] = loss(model.p,xs[i,:]+shift,ys[i,:],yerr[i,:],i,model,*args)
 
     return loss_arr
 
@@ -121,41 +121,3 @@ def set_masked(y,yerr,mask,y_const=0.0,err_const=10.0):
     y[mask]    = y_const
     yerr[mask] = err_const
     return y, yerr
-
-# class AstroDataset():
-    # def __init__(self,flux,lamb,mask,ferr):
-    #     self.flux = flux
-    #     self.lamb = lamb#/u.Angstrom
-    #     self.mask = mask
-    #     self.ferr = ferr
-    #
-    # def interpolate_mask(self):
-    #     new_flux = np.zeros(self.flux.shape)
-    #     new_flux = self.flux
-    #     for j,mask_row in enumerate(self.mask):
-    #         cnt = 0
-    #         for i, mask_ele in enumerate(mask_row):
-    #             if mask_ele != 0:
-    #                 cnt += 1
-    #             if mask_ele == 0 and cnt != 0:
-    #                 new_flux[j,i-cnt:i] = np.linspace(self.flux[j,i-cnt-1],self.flux[j,i],cnt+2)[1:-1]
-    #                 cnt = 0
-    #     self.flux = new_flux
-    #
-    # def get_gauss_filter(self,sigma):
-    #     filtered_flux = ndimage.gaussian_filter1d(self.flux,sigma)
-    #     return filtered_flux
-    #
-    # def set_masked_equal_to(self,y,y_err,y_const=0.0,err_const=10.0):
-    #    return 0.0
-
-    # def get_xy(self,filtered,y_const=0.0,err_const=10.0):
-    #
-    #     y     = np.log(self.flux/filtered)
-    #     x     = np.log(self.lamb)
-    #     y_err = (self.ferr)/self.flux
-    #
-    #     y[self.mask]     = y_const
-    #     y_err[self.mask] = err_const
-    #
-    #     return jnp.array(x,dtype=np.float32), jnp.array(y,dtype=np.float32), jnp.array(y_err,dtype=np.float32)
