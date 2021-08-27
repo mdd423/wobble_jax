@@ -138,7 +138,7 @@ class ContainerModel(Model):
     def __init__(self,models):
         super(ContainerModel,self).__init__()
         self.models = models
-        self.parameters_per_model = np.array([])
+        self.parameters_per_model = np.empty((len(models)))
 
     def __getitem__(self,idx):
         return self.models[idx]
