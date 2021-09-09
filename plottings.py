@@ -199,3 +199,59 @@ def plot_data(lamb,flux,error=None,filtered=None,xinds=(3200,3300),ypadding=0.1)
             axs[i][j].errorbar(wavelength,flux[iteration,:],error[iteration,:],fmt='.k',zorder=1,alpha=0.1)
         if filtered is not None:
             axs[i][j].plot(wavelength,filtered[iteration,:] ,color='red',alpha=0.5,zorder=0)
+# new plotting functions
+def plot_epoch(epoch_idx,lamb,f,ferr,lamb_theory=None,f_star=None,f_tell=None,f_gas=None):
+    plt.figure(figsize=(20,8))
+    plt.title('wobble toy data')
+    plt.xlabel('$\lambda_{%i}$' % epoch_idx)
+    plt.ylabel('$f_{%i}$' % epoch_idx)
+    if f_star is not None:
+        plt.plot(lamb_theory,f_star[epoch_idx,:],'red',alpha=0.5,label='star')
+    if f_tell is not None:
+        plt.plot(lamb_theory,f_tell[epoch_idx,:],'blue',alpha=0.5,label='telluric')
+    if f_gas is not None:
+        plt.plot(lamb_theory,f_gas,'green',alpha=0.5,label='gas cell')
+    plt.errorbar(lamb,f[epoch_idx,:],ferr[epoch_idx,:],fmt='.k',elinewidth=0.7,zorder=1,alpha=0.4,ms=6,label='data')
+
+def plot_residual(x,y,i,model,ax=None):
+    if ax is None:
+        ax = plt.gca()
+#     fig = ax.fig
+    residuals = (y[i,:] - model(model.get_parameters(),x[i,:],i)) / yerr[i,:]
+    rms_chi = np.sqrt(np.mean(residuals ** 2))
+    ax.step(x[i,:],residuals,where='mid',color='b',alpha=0.7)
+    hline_1 = ax.hlines(rms_chi,np.min(x[i,:]),np.max(x[i,:]))
+    ax.legend([hline_1],[rms_chi])
+    ax.set_ylim(-3,3)
+
+def plot_jax_linear(x,y,i,linear_model,shifts,ax=None):
+    if ax is None:
+        ax = plt.gca()
+#     fig = ax.fig
+    ax.set_xlabel('ln($\lambda$)')
+    ax.set_ylabel('y')
+    ax.errorbar(x[i,:],y[i,:],yerr[i,:],fmt='.k',elinewidth=0.7,zorder=1,alpha=0.5,ms=6)
+    ax.plot(linear_model.xs-shifts[i],linear_model.p,'r',linestyle='solid',linewidth=1.1,zorder=2,alpha=0.9,ms=6)
+    ax.set_ylim(-0.8,0.3)
+
+def plot_radial_velocity(t,rv,period,ax=None,units=u.km/u.s):
+    if ax is None:
+        ax = plt.gca()
+    fig   = plt.figure(figsize=(20,4))
+    ax.plot(dates.value % period,rv.to(units).value - bc.to(units).value,'*b')
+    ax.set_xlabel('time mod {} (days)'.format(period))
+    ax.set_ylabel('velocity ({})'.format(units))
+#     ax.set_title('{} initial velocities'.format(star_name))
+    return fig
+
+def plot_parabola(x_vals,y_vals,polynomials,i):
+    epoch_idx = 15
+    x_space = np.linspace(np.min(x_vals[i,:]),np.max(x_vals[i,:]))
+    y_space = np.polyval(polynomials[i],x_space)
+    plt.plot(x_space,y_space,'r',alpha=0.5)
+    plt.plot(x_vals[i,:],y_vals[i,:],'*k',alpha=0.7)
+    plt.vlines(x_min[i],np.min(y_space),np.max(y_space))
+
+    plt.title('Minimum Velocity Shift')
+    plt.ylabel('$\chi^2$')
+    plt.xlabel('$\Delta$')
