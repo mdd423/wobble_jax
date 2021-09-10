@@ -1,4 +1,4 @@
-import numpy as np
+_callimport numpy as np
 import jax
 import jax.numpy as jnp
 # import matplotlib.pyplot as plt
@@ -42,17 +42,11 @@ def load(filename):
         model = pickle.load(input)
         return model
 
-# def cross_correlation(self,flux,lambdas,size=1000):
-#
-#     shifts = np.linspace(-self.padding+0.01,self.padding-0.01,size)
-#     ccs = np.zeros(size)
-#     for i,shift in enumerate(shifts):
-#         ccs[i] = np.dot(self(lambdas + shift),flux)
-#     return ccs, shifts
-
 # make function like this but in terms of resolution not n
 # plus padding
 def get_lin_spaced_grid(xs,padding,step):
+    '''Generates grid of x points for JaxLinear model, using the minimum of the
+    observations, some padding amount, and the step size'''
     # padding = abs(shifts).max()
     minimum = xs.min()
     maximum = xs.max()
@@ -60,27 +54,36 @@ def get_lin_spaced_grid(xs,padding,step):
 
 
 class Model:
+    '''General model class of Jabble:
+    contains methods for optimizing, calling'''
     def __init__(self):
         self.fitting = jnp.array([])
         self.func_evals = []
 
-    def optimize(self,loss,xs,ys,yerr,maxiter,iprint=0,method='L-BFGS-B',*args):
+    def _call(self,p,*args):
+
+        if len(p) == 0:
+            return self(self.p,*args)
+        else:
+            return self(p,*args)
+
+    def optimize(self,loss,data,maxiter,iprint=0,method='L-BFGS-B',*args):
         # Train model
         func_grad = jax.value_and_grad(loss.loop, argnums=0)
 
         def callback(p):
-            func_eval = loss.loop(p,xs,ys,yerr,self.wrapping_caller,*args)
+            func_eval = loss.loop(p,data.xs,data.ys,data.yerr,self._call,*args)
             self.func_evals.append(func_eval)
             print(func_eval)
 
-        def whatevershit(p,*args):
+        def val_gradient_function(p,*args):
             val, grad = func_grad(p,*args)
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
 
-        res = scipy.optimize.minimize(whatevershit, self.get_parameters(), jac=True,
+        res = scipy.optimize.minimize(val_gradient_function, self.get_parameters(), jac=True,
                method=method,
                callback=callback,
-               args=(xs,ys,yerr,self.wrapping_caller,*args),
+               args=(data.xs,data.ys,data.yerr,self._call,*args),
                options={'maxiter':maxiter,
                         'iprint':iprint
                })
@@ -105,13 +108,6 @@ class Model:
     def __radd__(self,x):
         return AdditiveModel(models=[self,x])
 
-    def wrapping_caller(self,p,*args):
-
-        if len(p) == 0:
-            return self(self.p,*args)
-        else:
-            return self(p,*args)
-
     def composite(self,x):
         return CompositeModel(models=[self,x])
 
@@ -131,6 +127,7 @@ class Model:
 
     def unpack(self,p):
         if len(p) != 0:
+            self.fitting = p
             self.p = p
 
 
@@ -138,7 +135,7 @@ class ContainerModel(Model):
     def __init__(self,models):
         super(ContainerModel,self).__init__()
         self.models = models
-        self.parameters_per_model = np.empty((len(models)))
+        self.parameters_per_model = np.zeros((len(models)))
 
     def __getitem__(self,idx):
         return self.models[idx]
@@ -152,19 +149,16 @@ class ContainerModel(Model):
 
     def get_parameters(self):
         x = jnp.array([])
-        self.parameters_per_model = np.array([])
+        # self.parameters_per_model = np.array([])
         for i,model in enumerate(self.models):
             # adding parameters_per_model should be done when put in fitting mode
-            parameters = model.get_parameters()
-            x = jnp.concatenate((x,parameters))
-            self.parameters_per_model = np.concatenate((self.parameters_per_model,parameters.shape))
+            x = jnp.concatenate((x,model.get_parameters()))
 
         return x
 
     def fit(self,i,*args):
         self[i].fit(*args)
-        parameters = self[i].get_parameters()
-        self.parameters_per_model[i] = parameters.shape[0]
+        self.parameters_per_model[i] = self[i].get_parameters().shape[0]
 
     def fix(self,i,*args):
         self[i].fix(*args)
@@ -178,7 +172,7 @@ class CompositeModel(ContainerModel):
             indices = np.arange(np.sum(self.parameters_per_model[:k]),
                                 np.sum(self.parameters_per_model[:k+1]),dtype=int)
             # print(indices)
-            x = model.wrapping_caller(p[indices],x,i,*args)
+            x = model._call(p[indices],x,i,*args)
         return x
 
     def composite(self,x):
@@ -195,7 +189,7 @@ class AdditiveModel(ContainerModel):
         for k,model in enumerate(self.models):
             indices = np.arange(np.sum(self.parameters_per_model[:k]),
                                 np.sum(self.parameters_per_model[:k+1]),dtype=int)
-            output += model.wrapping_caller(p[indices],x,i,*args)
+            output += model._call(p[indices],x,i,*args)
         return output
 
     def __add__(self,x):
@@ -254,6 +248,7 @@ class ShiftingModel(Model):
             for j in range(loss_arr.shape[1]):
                 loss_arr[i,j] = loss(shift_grid[:,j],xs[i,:],ys[i,:],yerr[i,:],i,model)
         return loss_arr
+
 
 class StretchingModel(Model):
     def __init__(self,m=None,epoches=0):
