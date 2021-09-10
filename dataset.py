@@ -127,5 +127,5 @@ class WobbleDataset:
         flux       = interpolate_mask(flux,mask)
         flux_norm  = normalize_flux(flux,sigma)
         self.xs, self.ys, self.yerr = np.log(wavelength/u.Angstrom), np.log(flux_norm), flux_error/flux
-        self.ys, self.yerr    = wobble_data.set_masked(data.ys,data.yerr,mask)
-        self.epoches    = y.shape[0]
+        self.ys, self.yerr    = set_masked(self.ys,self.yerr,mask)
+        self.epoches    = self.ys.shape[0]
