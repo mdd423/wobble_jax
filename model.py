@@ -57,7 +57,7 @@ class Model:
     '''General model class of Jabble:
     contains methods for optimizing, calling'''
     def __init__(self):
-        self.fitting = jnp.array([])
+        self.fitting    = False
         self.func_evals = []
 
     def _call(self,p,*args):
@@ -116,18 +116,20 @@ class Model:
 
     def fix(self):
 
-        self.fitting = jnp.array([])
+        self.fitting = False
 
     def fit(self):
 
-        self.fitting = self.p
+        self.fitting = True
 
     def get_parameters(self):
-        return self.fitting
+        if self.fitting:
+            return jnp.array(self.p)
+        else:
+            return jnp.array([])
 
     def unpack(self,p):
         if len(p) != 0:
-            self.fitting = p
             self.p = p
 
 
