@@ -121,3 +121,11 @@ def set_masked(y,yerr,mask,y_const=0.0,err_const=10.0):
     y[mask]    = y_const
     yerr[mask] = err_const
     return y, yerr
+
+class WobbleDataset:
+    def __init__(self,wavelength,flux,flux_error,mask,sigma=80):
+        flux       = interpolate_mask(flux,mask)
+        flux_norm  = normalize_flux(flux,sigma)
+        data.xs, data.ys, data.yerr = np.log(wavelength/u.Angstrom), np.log(flux_norm), flux_error/flux
+        data.ys, data.yerr    = wobble_data.set_masked(data.ys,data.yerr,mask)
+        data.epoches    = y.shape[0]
