@@ -9,7 +9,7 @@ import scipy.ndimage as ndimage
 
 import numpy.polynomial as polynomial
 
-import model as wobble_model
+# import jabble.model as wobble_model
 import jax.numpy as jnp
 
 def find_nearest(array,value):
@@ -23,6 +23,7 @@ def velocityfromshift(shifts):
     return vel
 
 def get_loss_array(shift_grid,model,xs,ys,yerr,loss,*args):
+    # so so so shit
     if len(xs.shape) == 1:
         xs = np.expand_dims(xs,axis=0)
 
