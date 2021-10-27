@@ -7,6 +7,7 @@ import scipy.signal as signal
 import sys
 
 import astropy.constants as const
+import logging
 
 import pickle5 as pickle
 import jabble.dataset
@@ -82,7 +83,7 @@ class Model:
         def val_gradient_function(p,*args):
             val, grad = func_grad(p,*args)
             self.func_evals.append(val)
-            print('\r[ Value: {:3.2e} ]'.format(val))
+            print('\r[ Value: {:+3.2e} Grad: {:+3.2e} ]'.format(val,np.inner(grad,grad)))
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
 
         res = scipy.optimize.minimize(val_gradient_function, self.get_parameters(), jac=True,
@@ -134,15 +135,35 @@ class Model:
         if len(p) != 0:
             self.p = p
 
+    def display(self,string=''):
+        out = string+'-'+self.__class__.__name__+'-'
+        out += '-----------------------------------'
+        params = str(len(self.get_parameters()))
+        while len(out + params) % 17 != 0:
+            # print(len())
+            out += '-'
+
+        out += params
+        print(out)
+
 
 class ContainerModel(Model):
     def __init__(self,models):
         super(ContainerModel,self).__init__()
         self.models = models
-        self.parameters_per_model = np.zeros((len(models)))
+        self.parameters_per_model = np.empty((len(models)))
+        for i,model in enumerate(models):
+            self.parameters_per_model[i] = len(model.get_parameters())
 
-    def __getitem__(self,idx):
-        return self.models[idx]
+    def _call(self,p,*args):
+        # if there are no parameters coming in, then use the stored parameters
+        if len(p) == 0:
+            return self(np.array([]),*args)
+        else:
+            return self(p,*args)
+
+    def __getitem__(self,i):
+        return self.models[i]
 
     def unpack(self,p):
 
@@ -155,23 +176,54 @@ class ContainerModel(Model):
         x = jnp.array([])
         # self.parameters_per_model = np.array([])
         for i,model in enumerate(self.models):
+            params = model.get_parameters()
+            self.parameters_per_model[i] = params.shape[0]
             # adding parameters_per_model should be done when put in fitting mode
-            x = jnp.concatenate((x,model.get_parameters()))
+            x = jnp.concatenate((x,params))
 
         return x
 
-    def fit(self,i,*args):
-        self[i].fit(*args)
-        self.parameters_per_model[i] = self[i].get_parameters().shape[0]
+    def fit(self,i=None,*args):
+        if i is None:
+            for j,model in enumerate(self.models):
+                model.fit()
+                self.parameters_per_model[j] = model.get_parameters().shape[0]
+        else:
+            self[i].fit(*args)
+            self.parameters_per_model[i] = self[i].get_parameters().shape[0]
 
-    def fix(self,i,*args):
-        self[i].fix(*args)
-        self.parameters_per_model[i] = 0
+    def fix(self,i=None,*args):
+        if i is None:
+            for j,model in enumerate(self.models):
+                model.fix()
+                self.parameters_per_model[j] = 0
+        else:
+            self[i].fix(*args)
+            self.parameters_per_model[i] = 0
+
+    def p():
+        doc = "The p property."
+        def fget(self):
+            out = np.array([])
+            for model in self.models:
+                out = np.concatenate((out,model.p))
+            return out
+        return locals()
+    p = property(*p())
+
+    def display(self,string=''):
+        super(ContainerModel,self).display(string)
+        for i,model in enumerate(self.models):
+            # print(model)
+            tab = '  {}'.format(i)
+            string += tab
+            model.display(string)
+            string = string[:-len(tab)]
 
 
 class CompositeModel(ContainerModel):
     def __call__(self,p,x,i,*args):
-        # print(self.parameters_per_model)
+        # prstringt(self.parameters_per_model)
         for k,model in enumerate(self.models):
             indices = np.arange(np.sum(self.parameters_per_model[:k]),
                                 np.sum(self.parameters_per_model[:k+1]),dtype=int)
@@ -209,8 +261,64 @@ class AdditiveModel(ContainerModel):
             return AdditiveModel(models=[*self.models,x])
 
 
+class EnvelopModel(Model):
+    def __init__(self,model):
+        super(EnvelopModel,self).__init__()
+        self.model = model
+
+    def _call(self,p,*args):
+        # if there are no parameters coming in, then use the stored parameters
+        if len(p) == 0:
+            return self(np.array([]),*args)
+        else:
+            return self(p,*args)
+
+    def __getitem__(self,i):
+        return self.model[i]
+
+    def fit(self,*args):
+        self.model.fit(*args)
+
+    def fix(self,*args):
+        self.model.fix(*args)
+
+    def unpack(self,p):
+        self.model.unpack(p)
+
+    def get_parameters(self):
+        return self.model.get_parameters()
+
+    def display(self,string=''):
+        super(EnvelopModel,self).display(string)
+        tab = '  '
+        string += tab
+        self.model.display(string)
+        string = string[:-len(tab)]
+
+
+class JaxEnvLinearModel(EnvelopModel):
+    def __init__(self,xs,model,p=None):
+        super(JaxEnvLinearModel,self).__init__(model)
+        # when defining ones own model, need to include inputs as xs, outputs as ys
+        # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
+        # also assumes epoches of data that is shifted between
+        self.xs = xs
+        if p is not None:
+            if p.shape == self.xs.shape:
+                self.p = p
+            else:
+                logging.error('p {} must be the same shape as x_grid {}'.format(p.shape,xs.shape))
+        else:
+            self.p = np.zeros(xs.shape)
+
+    def __call__(self,p,x,i,*args):
+        ys = self.model(p,self.xs,i,*args)
+        y = jax.numpy.interp(x, self.xs, ys)
+        return y
+
+
 class ConvolutionalModel(Model):
-    def __init__(self,n,p=None):
+    def __init__(self,p=None):
         super(ConvolutionalModel,self).__init__()
         if p is None:
             self.p = np.array([0,1,0])
@@ -218,50 +326,54 @@ class ConvolutionalModel(Model):
             self.p = p
 
     def __call__(self,p,x,i):
-        y = signal.convolve(x,p,mode='same')
+        y = jnp.convolve(x,p,mode='same')
         return y
 
 
 class ShiftingModel(Model):
-    def __init__(self,deltas):
+    def __init__(self,p=None,epoches=0):
         super(ShiftingModel,self).__init__()
-        self.epoches = deltas.shape[0]
-        self.p       = deltas
+        if p is None:
+            self.epoches = epoches
+            self.p = np.zeros(epoches)
+        else:
+            self.epoches = p.shape[0]
+            self.p = p
 
     def __call__(self,p,x,i):
 
         return p[i] + x
 
-    # cant do this generically because unlike most parameters in models
-    # these are independent of one another and loss of each combination epoch is just the sum
-    # each of the individuals
     def grid_search(self,shift_grid,loss,model,data):
         # put all submodels in fixed mode except the shiftingmodel
         # to be searched then take loss of each epoch
         # that we hand the loss a slice of the shift array
         # since at __call__ itll on take the shift_grid[i,j] element
-        model.fix(True)
+        model.fix()
         # index is the index of the submodel to grid search this is redundant
         self.fit()
+        if isinstance(model,ContainerModel):
+            model.get_parameters()
         # this is called because this resets the parameters per model
         # array
         # I want to have this be done when a submodel is put into fix or fix mode
-        # model.get_parameters()
         loss_arr = np.empty(shift_grid.shape)
-        for i in range(loss_arr.shape[0]):
-            for j in range(loss_arr.shape[1]):
-                loss_arr[i,j] = loss(np.array([shift_grid[i,j]]),data,i,model)
+        for i in range(shift_grid.shape[0]):
+            for j in range(shift_grid.shape[1]):
+                # print(shift_grid[:,j].shape)
+                loss_arr[i,j] = loss(shift_grid[:,j],data,i,model)
         return loss_arr
 
 
 class StretchingModel(Model):
-    def __init__(self,m=None,epoches=0):
+    def __init__(self,p=None,epoches=0):
         super(StretchingModel,self).__init__()
-        self.epoches = stretches.shape[0]
-        if m is None:
+        if p is None:
+            self.epoches = epoches
             self.p = np.ones((epoches))
         else:
-            self.p = m
+            self.epoches = p.shape[0]
+            self.p = p
 
     def __call__(self,p,x,i):
 
@@ -269,14 +381,19 @@ class StretchingModel(Model):
 
 
 class JaxLinear(Model):
-    def __init__(self,xs):
+    def __init__(self,xs,p=None):
         super(JaxLinear,self).__init__()
-        self.n       = len(xs)
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
         # also assumes epoches of data that is shifted between
-        self.xs    = xs
-        self.p = np.zeros(self.n)
+        self.xs = xs
+        if p is not None:
+            if p.shape == self.xs.shape:
+                self.p = p
+            else:
+                logging.error('p {} must be the same shape as x_grid {}'.format(p.shape,xs.shape))
+        else:
+            self.p = np.zeros(xs.shape)
 
     def __call__(self,p,x,i):
         # print()
