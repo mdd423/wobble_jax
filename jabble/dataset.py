@@ -105,12 +105,12 @@ def interpolate_mask(flux,mask):
                 cnt = 0
     return new_flux
 
-def gauss_filter(flux,sigma):
-    filtered_flux = ndimage.gaussian_filter1d(flux,sigma)
-    return filtered_flux
+# def gauss_filter(flux,sigma):
+#     filtered_flux = ndimage.gaussian_filter1d(flux,sigma)
+#     return filtered_flux
 
-def normalize_flux(flux,sigma):
-    return flux/gauss_filter(flux,sigma)
+# def normalize_flux(flux,sigma):
+#     return flux/gauss_filter(flux,sigma)
 
 def convert_xy(lamb,flux,ferr):
     y    = np.log(flux)
@@ -124,12 +124,15 @@ def set_masked(y,yerr,mask,y_const=0.0,err_const=10.0):
     return y, yerr
 
 class WobbleDataset:
-    def __init__(self,wave,flux,flux_error,mask,sigma=80):
+    def __init__(self,wave,flux,flux_error,mask,normalize,nargs,):
         self.mask = mask
         self.flux = flux
         self.wave = wave
         flux       = interpolate_mask(flux,mask)
-        flux_norm  = normalize_flux(flux,sigma)
-        self.xs, self.ys, self.yerr = np.log(wave/u.Angstrom), np.log(flux_norm), flux_error/flux
-        self.ys, self.yerr    = set_masked(self.ys,self.yerr,mask)
-        self.epoches    = self.ys.shape[0]
+        flux_norm  = normalize(flux,*nargs)
+        self.xs, self.ys, self.yerr = np.log(wave.to(u.Angstrom).value), np.log(flux_norm), flux_error/flux
+
+        self.epoches  = self.ys.shape[0]
+
+    def set_masks(y_const,yerr_const):
+        self.ys[mask], self.yerr[mask] = y_const, yerr_const
