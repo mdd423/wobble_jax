@@ -1,6 +1,7 @@
 # import jabble.model as wobble_model
 import numpy as np
 
+
 class LossFunc: #,loss_func,loss_parms=1.0
     def __init__(self,coefficient=1.0):
         self.coefficient = coefficient
@@ -24,6 +25,7 @@ class LossFunc: #,loss_func,loss_parms=1.0
             output += self(p,data,i,model,*args)
         return output
 
+
 class LossSequential(LossFunc):
     def __init__(self,loss_funcs):
         # super().__init__(self)
@@ -32,7 +34,7 @@ class LossSequential(LossFunc):
     def __call__(self,p,data,i,model,*args):
         output = 0.0
         for loss in self.loss_funcs:
-            output += loss(p,data,model,*args)
+            output += loss(p,data,i,model,*args)
         return output
 
     def __add__(self,x):
@@ -63,7 +65,7 @@ class LossSequential(LossFunc):
 # object then it translates to the output
 class L2Loss(LossFunc):
     def __call__(self, p, data, i, model,*args):
-        err = self.coefficient * 0.5 * ((data.ys[i,:] - model(p,data.xs,i,*args))**2).sum()
+        err = self.coefficient * 0.5 * ((data.ys[i,~data.mask[i,:]] - model(p,data.xs[i,~data.mask[i,:]],i,*args))**2).sum()
         # Since jax grad only takes in 1d ndarrays you need to flatten your inputs
         # thus the targets should already be flattened as well
         return err
@@ -83,4 +85,18 @@ class L2Reg(LossFunc):
 
     def __call__(self, p, data, i, model, *args):
         err = self.coefficient * 0.5 * ((p[self.indices] - self.constant)**2).sum()
+        return err
+
+
+class L2Smooth(LossFunc):
+    def __init__(self,coefficient=1.,constant=0.0,submodel_ind=None):
+        super(L2Smooth,self).__init__(coefficient)
+        self.submodel_ind = submodel_ind
+        self.constant = constant
+
+    def __call__(self,p,data,i,model,*args):
+        ps = model.split_p(p)
+        for ind in self.submodel_ind:
+            ps = ps[ind]
+        err = self.coefficient * 0.5 * ((ps[1:] - ps[:-1])**2).sum()
         return err

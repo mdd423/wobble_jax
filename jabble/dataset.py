@@ -124,9 +124,12 @@ def set_masked(y,yerr,mask,y_const=0.0,err_const=10.0):
     return y, yerr
 
 class WobbleDataset:
-    def __init__(self,wavelength,flux,flux_error,mask,sigma=80):
+    def __init__(self,wave,flux,flux_error,mask,sigma=80):
+        self.mask = mask
+        self.flux = flux
+        self.wave = wave
         flux       = interpolate_mask(flux,mask)
         flux_norm  = normalize_flux(flux,sigma)
-        self.xs, self.ys, self.yerr = np.log(wavelength/u.Angstrom), np.log(flux_norm), flux_error/flux
+        self.xs, self.ys, self.yerr = np.log(wave/u.Angstrom), np.log(flux_norm), flux_error/flux
         self.ys, self.yerr    = set_masked(self.ys,self.yerr,mask)
         self.epoches    = self.ys.shape[0]

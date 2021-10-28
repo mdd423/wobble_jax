@@ -70,12 +70,12 @@ class Model:
         self._fit    = False
         self.func_evals = []
 
-    def _call(self,p,*args):
+    def __call__(self,p,*args):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
-            return self(self.p,*args)
+            return self.call(self.p,*args)
         else:
-            return self(p,*args)
+            return self.call(p,*args)
 
     def optimize(self,loss,data,maxiter,iprint=0,method='L-BFGS-B',*args):
         # Fits the Model
@@ -88,7 +88,7 @@ class Model:
 
         res = scipy.optimize.minimize(val_gradient_function, self.get_parameters(), jac=True,
                method=method,
-               args=(data,self._call,*args),
+               args=(data,self,*args),
                options={'maxiter':maxiter,
                         'iprint':iprint
                })
@@ -146,6 +146,8 @@ class Model:
         out += params
         print(out)
 
+    def split_p(self,p):
+        return p
 
 class ContainerModel(Model):
     def __init__(self,models):
@@ -155,12 +157,12 @@ class ContainerModel(Model):
         for i,model in enumerate(models):
             self.parameters_per_model[i] = len(model.get_parameters())
 
-    def _call(self,p,*args):
+    def __call__(self,p,*args):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
-            return self(np.array([]),*args)
+            return self.call(np.array([]),*args)
         else:
-            return self(p,*args)
+            return self.call(p,*args)
 
     def __getitem__(self,i):
         return self.models[i]
@@ -220,15 +222,18 @@ class ContainerModel(Model):
             model.display(string)
             string = string[:-len(tab)]
 
+    def split_p(self,p):
+        p_list = [self.models[k].split_p(p[np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)]) for k in range(len(self.parameters_per_model))]
+        return p_list
 
 class CompositeModel(ContainerModel):
-    def __call__(self,p,x,i,*args):
+    def call(self,p,x,i,*args):
         # prstringt(self.parameters_per_model)
         for k,model in enumerate(self.models):
             indices = np.arange(np.sum(self.parameters_per_model[:k]),
                                 np.sum(self.parameters_per_model[:k+1]),dtype=int)
             # print(indices)
-            x = model._call(p[indices],x,i,*args)
+            x = model(p[indices],x,i,*args)
         return x
 
     def composite(self,x):
@@ -239,13 +244,13 @@ class CompositeModel(ContainerModel):
 
 
 class AdditiveModel(ContainerModel):
-    def __call__(self,p,x,i,*args):
+    def call(self,p,x,i,*args):
         output = 0.0
         # PARALLELIZABLE
         for k,model in enumerate(self.models):
             indices = np.arange(np.sum(self.parameters_per_model[:k]),
                                 np.sum(self.parameters_per_model[:k+1]),dtype=int)
-            output += model._call(p[indices],x,i,*args)
+            output += model(p[indices],x,i,*args)
         return output
 
     def __add__(self,x):
@@ -266,12 +271,12 @@ class EnvelopModel(Model):
         super(EnvelopModel,self).__init__()
         self.model = model
 
-    def _call(self,p,*args):
+    def __call__(self,p,*args):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
-            return self(np.array([]),*args)
+            return self.call(np.array([]),*args)
         else:
-            return self(p,*args)
+            return self.call(p,*args)
 
     def __getitem__(self,i):
         return self.model[i]
@@ -295,6 +300,8 @@ class EnvelopModel(Model):
         self.model.display(string)
         string = string[:-len(tab)]
 
+    def split_p(self,p):
+        return self.model.split_p(p)
 
 class JaxEnvLinearModel(EnvelopModel):
     def __init__(self,xs,model,p=None):
@@ -311,7 +318,7 @@ class JaxEnvLinearModel(EnvelopModel):
         else:
             self.p = np.zeros(xs.shape)
 
-    def __call__(self,p,x,i,*args):
+    def call(self,p,x,i,*args):
         ys = self.model(p,self.xs,i,*args)
         y = jax.numpy.interp(x, self.xs, ys)
         return y
@@ -325,7 +332,7 @@ class ConvolutionalModel(Model):
         else:
             self.p = p
 
-    def __call__(self,p,x,i):
+    def call(self,p,x,i):
         y = jnp.convolve(x,p,mode='same')
         return y
 
@@ -340,7 +347,7 @@ class ShiftingModel(Model):
             self.epoches = p.shape[0]
             self.p = p
 
-    def __call__(self,p,x,i):
+    def call(self,p,x,i):
 
         return p[i] + x
 
@@ -375,7 +382,7 @@ class StretchingModel(Model):
             self.epoches = p.shape[0]
             self.p = p
 
-    def __call__(self,p,x,i):
+    def call(self,p,x,i):
 
         return p[i] * x
 
@@ -395,7 +402,7 @@ class JaxLinear(Model):
         else:
             self.p = np.zeros(xs.shape)
 
-    def __call__(self,p,x,i):
+    def call(self,p,x,i):
         # print()
         # print(p.shape)
         y = jax.numpy.interp(x, self.xs, p)
