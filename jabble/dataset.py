@@ -118,10 +118,6 @@ def convert_xy(lamb,flux,ferr):
     yerr = ferr/flux
     return x, y, yerr
 
-def set_masked(y,yerr,mask,y_const=0.0,err_const=10.0):
-    y[mask]    = y_const
-    yerr[mask] = err_const
-    return y, yerr
 
 class WobbleDataset:
     def __init__(self,wave,flux,flux_error,mask,normalize,nargs,):
@@ -134,5 +130,5 @@ class WobbleDataset:
 
         self.epoches  = self.ys.shape[0]
 
-    def set_masks(y_const,yerr_const):
+    def set_masks(self,y_const,yerr_const):
         self.ys[mask], self.yerr[mask] = y_const, yerr_const
