@@ -130,5 +130,7 @@ class WobbleDataset:
 
         self.epoches  = self.ys.shape[0]
 
+        self.yivar = 1/self.yerr**2
+
     def set_masks(self,y_const,yerr_const):
         self.ys[self.mask], self.yerr[self.mask] = y_const, yerr_const
