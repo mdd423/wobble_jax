@@ -134,4 +134,4 @@ class WobbleDataset:
 
     def set_masks(self,y_const,yerr_const):
         self.ys[self.mask], self.yerr[self.mask] = y_const, yerr_const
-        self.yivar[self.mask] = 1/self.yerr**2
+        self.yivar = 1/self.yerr**2
