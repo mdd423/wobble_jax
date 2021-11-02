@@ -6,6 +6,8 @@ import scipy.optimize
 import scipy.signal as signal
 import sys
 
+import copy
+
 import astropy.constants as const
 import logging
 
@@ -149,6 +151,10 @@ class Model:
     def split_p(self,p):
         return p
 
+    def copy(self):
+        return copy.deepcopy(self)
+
+
 class ContainerModel(Model):
     def __init__(self,models):
         super(ContainerModel,self).__init__()
@@ -226,6 +232,10 @@ class ContainerModel(Model):
         p_list = [self.models[k].split_p(p[np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)]) for k in range(len(self.parameters_per_model))]
         return p_list
 
+    def copy(self):
+        return self.__class__(models=copy.deepcopy(self.models))
+
+
 class CompositeModel(ContainerModel):
     def call(self,p,x,i,*args):
         # prstringt(self.parameters_per_model)
@@ -302,6 +312,7 @@ class EnvelopModel(Model):
 
     def split_p(self,p):
         return self.model.split_p(p)
+
 
 class JaxEnvLinearModel(EnvelopModel):
     def __init__(self,xs,model,p=None):
