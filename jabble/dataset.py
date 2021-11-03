@@ -120,7 +120,7 @@ def convert_xy(lamb,flux,ferr):
 
 
 class WobbleDataset:
-    def __init__(self,wave,flux,flux_error,mask,normalize,nargs,):
+    def __init__(self,wave,flux,flux_error,mask,normalize,nargs):
         self.mask = mask
         self.flux = flux
         self.wave = wave

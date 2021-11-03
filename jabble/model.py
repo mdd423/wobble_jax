@@ -79,13 +79,14 @@ class Model:
         else:
             return self.call(p,*args)
 
-    def optimize(self,loss,data,maxiter,iprint=0,method='L-BFGS-B',*args):
+    def optimize(self,loss,data,maxiter,iprint=0,method='L-BFGS-B',verbose=False,*args):
         # Fits the Model
         func_grad = jax.value_and_grad(loss.loss_all, argnums=0)
         def val_gradient_function(p,*args):
             val, grad = func_grad(p,*args)
             self.func_evals.append(val)
-            print('\r[ Value: {:+3.2e} Grad: {:+3.2e} ]'.format(val,np.inner(grad,grad)))
+            if verbose:
+                print('\r[ Value: {:+3.2e} Grad: {:+3.2e} ]'.format(val,np.inner(grad,grad)))
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
 
         res = scipy.optimize.minimize(val_gradient_function, self.get_parameters(), jac=True,
