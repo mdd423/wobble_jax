@@ -95,8 +95,10 @@ class Model:
                options={'maxiter':maxiter,
                         'iprint':iprint
                })
-
-        self.results = res
+        try:
+            self.results.append(res)
+        except AttributeError:
+            self.results = [res]
         # parameters need to be replaced in all submodels
         # so that they can be plot using variable names
         # not some indices of p, unpack function is for user
@@ -230,7 +232,7 @@ class ContainerModel(Model):
             string = string[:-len(tab)]
 
     def split_p(self,p):
-        p_list = [self.models[k].split_p(p[np.arange(np.sum(self.parameters_per_model[:k]),np.sum(self.parameters_per_model[:k+1]),dtype=int)]) for k in range(len(self.parameters_per_model))]
+        p_list = [self.models[k].split_p(p[jnp.arange(jnp.sum(self.parameters_per_model[:k]),jnp.sum(self.parameters_per_model[:k+1]),dtype=int)]) for k in range(len(self.parameters_per_model))]
         return p_list
 
     def copy(self):
@@ -271,7 +273,7 @@ class AdditiveModel(ContainerModel):
             return AdditiveModel(models=[*self.models,x])
 
     def __radd__(self,x):
-        if isinstance(x,CompositeModel):
+        if isinstance(x,AdditiveModel):
             return AdditiveModel(models=[*self.models,*x.models])
         else:
             return AdditiveModel(models=[*self.models,x])
