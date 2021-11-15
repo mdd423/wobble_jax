@@ -21,7 +21,7 @@ class LossFunc: #,loss_func,loss_parms=1.0
     def loss_all(self,p,data,model,*args):
         output = 0.0
         # recall ys are packed st that 0: epoches, 1: pixel
-        for i in range(data.ys.shape[0]):
+        for i in range(data.epoches):
             output += self(p,data,i,model,*args)
         return output
 
@@ -73,7 +73,7 @@ class L2Loss(LossFunc):
 
 class ChiSquare(LossFunc):
     def __call__(self, p, data, i, model, *args):
-        err = self.coefficient * (((data.ys[i,:] - model(p,data.xs,i,*args))**2) * data.yivar[i,:]).sum()
+        err = self.coefficient * (((data.ys[i,:] - model(p,data.xs[i,~data.mask[i,:]]g,i,*args))**2) * data.yivar[i,:]).sum()
         return err
 
 
