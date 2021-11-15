@@ -73,7 +73,7 @@ class L2Loss(LossFunc):
 
 class ChiSquare(LossFunc):
     def __call__(self, p, data, i, model, *args):
-        err = self.coefficient * (((data.ys[i,:] - model(p,data.xs[i,~data.mask[i,:]],i,*args))**2) * data.yivar[i,:]).sum()
+        err = self.coefficient * (((data.ys[i,:] - model(p,data.xs[i,:],i,*args))**2) * data.yivar[i,:]).sum()
         return err
 
 
