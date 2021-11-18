@@ -128,6 +128,9 @@ class WobbleDataset:
         flux_norm  = normalize(flux,*nargs)
         self.xs, self.ys, self.yerr = np.log(wave.to(u.Angstrom).value), np.log(flux_norm), flux_error/flux
 
+        mask_temp = np.isnan(self.ys)
+        self.mask = np.logical_or(mask_temp,self.mask)
+
         self.epoches  = self.ys.shape[0]
 
         self.yivar = 1/self.yerr**2

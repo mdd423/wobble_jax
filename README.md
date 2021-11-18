@@ -3,10 +3,13 @@ Jabble is a math modeling package designed for fitting stellar radial velocities
 The models can be divided into two classes in this package. There are ContainerModels that are composed of SubModels that perform an operation with given parameters.
 
 ## Installation
-`git clone https://github.com/mdd423/wobble_jax.git`
+To install a dev version, run...
+`git clone git+https://github.com/mdd423/wobble_jax.git@v0.3`
 Then run,
 `cd wobble_jax`
 `pip install .`
+Or to install a stable release, run
+`pip install jabble`
 
 
 ## ContainerModels
