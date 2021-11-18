@@ -4,7 +4,7 @@ The models can be divided into two classes in this package. There are ContainerM
 
 ## Installation
 To install a dev version, run...
-`git clone git+https://github.com/mdd423/wobble_jax.git@v0.3`
+`git clone git+https://github.com/mdd423/wobble_jax.git`
 Then run,
 `cd wobble_jax`
 `pip install .`
