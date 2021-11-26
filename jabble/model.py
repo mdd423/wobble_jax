@@ -102,6 +102,8 @@ class Model:
             self.results.append(res)
         except AttributeError:
             self.results = [res]
+
+        # test tes test
         # parameters need to be replaced in all submodels
         # so that they can be plot using variable names
         # not some indices of p, unpack function is for user
