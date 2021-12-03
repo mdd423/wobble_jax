@@ -79,10 +79,10 @@ class Model:
         else:
             return self.call(p,*args)
 
-    def optimize(self,loss,data,maxiter,iprint=0,method='L-BFGS-B',verbose=False,parameters=None,*args):
+    def optimize(self,loss,data,maxiter,iprint=0,method='L-BFGS-B',verbose=False,loss_ind=None,*args):
         # Fits the Model
-        if parameters is None:
-            parameters = self.get_parameters()
+        if loss is None:
+            loss_ind = np.arange(data.shape[0])
 
         func_grad = jax.value_and_grad(loss.loss_all, argnums=0)
         def val_gradient_function(p,*args):
@@ -92,9 +92,9 @@ class Model:
                 print('\r[ Value: {:+3.2e} Grad: {:+3.2e} ]'.format(val,np.inner(grad,grad)))
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
 
-        res = scipy.optimize.minimize(val_gradient_function, parameters, jac=True,
+        res = scipy.optimize.minimize(val_gradient_function, self.get_parameters(), jac=True,
                method=method,
-               args=(data,self,*args),
+               args=(data,self,loss_ind,*args),
                options={'maxiter':maxiter,
                         'iprint':iprint
                })
@@ -161,6 +161,12 @@ class Model:
 
     def copy(self):
         return copy.deepcopy(self)
+
+    def validate(self):
+        self.fix()
+
+    def add_component(self,value,n):
+        pass
 
 
 class ContainerModel(Model):
@@ -243,6 +249,14 @@ class ContainerModel(Model):
     def copy(self):
         return self.__class__(models=copy.deepcopy(self.models))
 
+    def validate(self):
+        for model in self.models:
+            model.validate()
+
+    def add_component(self,value,n=1):
+        for model in self.models:
+            model.add_component(value,n)
+
 
 class CompositeModel(ContainerModel):
     def call(self,p,x,i,*args):
@@ -321,6 +335,9 @@ class EnvelopModel(Model):
     def split_p(self,p):
         return self.model.split_p(p)
 
+    def validate(self):
+        self.model.validate()
+
 
 class JaxEnvLinearModel(EnvelopModel):
     def __init__(self,xs,model,p=None):
@@ -356,7 +373,35 @@ class ConvolutionalModel(Model):
         return y
 
 
-class ShiftingModel(Model):
+class EpochSpecificModel(Model):
+    def validate(self):
+        self.fit()
+
+    def grid_search(self,grid,loss,model,data):
+        # put all submodels in fixed mode except the shiftingmodel
+        # to be searched then take loss of each epoch
+        # that we hand the loss a slice of the shift array
+        # since at __call__ itll on take the shift_grid[i,j] element
+        model.fix()
+        # index is the index of the submodel to grid search this is redundant
+        self.fit()
+        if isinstance(model,ContainerModel):
+            model.get_parameters()
+        # this is called because this resets the parameters per model
+        # array
+        # I want to have this be done when a submodel is put into fix or fix mode
+        loss_arr = np.empty(grid.shape)
+        for i in range(grid.shape[0]):
+            for j in range(grid.shape[1]):
+                # print(shift_grid[:,j].shape)
+                loss_arr[i,j] = loss(grid[:,j],data,i,model)
+        return loss_arr
+
+    def add_component(self,value=0.0,n=1):
+        self.p = np.concatenate((self.p,value*np.ones(n)))
+
+
+class ShiftingModel(EpochSpecificModel):
     def __init__(self,p=None,epoches=0):
         super(ShiftingModel,self).__init__()
         if p is None:
@@ -370,28 +415,8 @@ class ShiftingModel(Model):
 
         return p[i] + x
 
-    def grid_search(self,shift_grid,loss,model,data):
-        # put all submodels in fixed mode except the shiftingmodel
-        # to be searched then take loss of each epoch
-        # that we hand the loss a slice of the shift array
-        # since at __call__ itll on take the shift_grid[i,j] element
-        model.fix()
-        # index is the index of the submodel to grid search this is redundant
-        self.fit()
-        if isinstance(model,ContainerModel):
-            model.get_parameters()
-        # this is called because this resets the parameters per model
-        # array
-        # I want to have this be done when a submodel is put into fix or fix mode
-        loss_arr = np.empty(shift_grid.shape)
-        for i in range(shift_grid.shape[0]):
-            for j in range(shift_grid.shape[1]):
-                # print(shift_grid[:,j].shape)
-                loss_arr[i,j] = loss(shift_grid[:,j],data,i,model)
-        return loss_arr
 
-
-class StretchingModel(Model):
+class StretchingModel(EpochSpecificModel):
     def __init__(self,p=None,epoches=0):
         super(StretchingModel,self).__init__()
         if p is None:

@@ -18,11 +18,13 @@ class LossFunc: #,loss_func,loss_parms=1.0
         self.coefficient *= x
         return self
 
-    def loss_all(self,p,data,model,*args):
+    def loss_all(self,p,data,model,loss_ind,*args):
         output = 0.0
         # recall ys are packed st that 0: epoches, 1: pixel
-        for i in range(data.epoches):
-            output += self(p,data,i,model,*args)
+        if loss_ind is None:
+            loss_ind = np.arange(data.xs.shape[0])
+        for i,ind in enumerate(loss_ind):
+            output += self(p,data,ind,model,*args)
         return output
 
 
