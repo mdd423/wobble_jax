@@ -79,12 +79,6 @@ class Model:
         except AttributeError:
             self.results = [res]
 
-        # test tes test
-        # parameters need to be replaced in all submodels
-        # so that they can be plot using variable names
-        # not some indices of p, unpack function is for user
-        # to know how to plot parameters being fit
-        # either way the models parameters are put back into 1d p
         try:
             self.unpack(res.x)
         except NameError:
@@ -218,7 +212,9 @@ class ContainerModel(Model):
             string = string[:-len(tab)]
 
     def split_p(self,p):
-        p_list = [self.models[k].split_p(p[jnp.arange(jnp.sum(self.parameters_per_model[:k]),jnp.sum(self.parameters_per_model[:k+1]),dtype=int)]) for k in range(len(self.parameters_per_model))]
+        p_list = [self.models[k].split_p(p[jnp.arange(jnp.sum(self.parameters_per_model[:k]), \
+                                                      jnp.sum(self.parameters_per_model[:k+1]),dtype=int)]) \
+                                                      for k in range(len(self.parameters_per_model))]
         return p_list
 
     def copy(self):
@@ -338,6 +334,11 @@ class ConvolutionalModel(Model):
 
 
 class EpochSpecificModel(Model):
+    def __init__(self,epoches):
+        super(EpochSpecificModel,self).__init__()
+        self.n = epoches
+        self._epoches = slice(0,epoches)
+
     def __call__(self,p,*args):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
@@ -345,7 +346,9 @@ class EpochSpecificModel(Model):
         else:
             return self.call(p,*args)
 
-    def grid_search(self,grid,loss,model,data,epoches):
+    def grid_search(self,grid,loss,model,data,epoches=None):
+        if epoches is None:
+            epoches = slice(0,self.n)
         # put all submodels in fixed mode except the shiftingmodel
         # to be searched then take loss of each epoch
         # that we hand the loss a slice of the shift array
@@ -369,15 +372,17 @@ class EpochSpecificModel(Model):
 
         self.p = np.concatenate((self.p,value*np.ones(n)))
 
-    def fix(self,epoches=True):
+    def fix(self,epoches=None):
 
         self._fit = False
-        self._epoches = epoches
+        if epoches is not None:
+            self._epoches = epoches
 
-    def fit(self,epoches=True):
+    def fit(self,epoches=None):
 
         self._fit = True
-        self._epoches = epoches
+        if epoches is not None:
+            self._epoches = epoches
 
     def get_parameters(self):
         if self._fit:
@@ -392,13 +397,12 @@ class EpochSpecificModel(Model):
 
 class ShiftingModel(EpochSpecificModel):
     def __init__(self,p=None,epoches=0):
-        super(ShiftingModel,self).__init__()
         if p is None:
-            self.epoches = epoches
             self.p = np.zeros(epoches)
         else:
-            self.epoches = p.shape[0]
             self.p = p
+            epoches = len(p)
+        super(ShiftingModel,self).__init__(epoches)
 
     def call(self,p,x,i):
 
@@ -407,13 +411,13 @@ class ShiftingModel(EpochSpecificModel):
 
 class StretchingModel(EpochSpecificModel):
     def __init__(self,p=None,epoches=0):
-        super(StretchingModel,self).__init__()
         if p is None:
-            self.epoches = epoches
             self.p = np.ones((epoches))
         else:
-            self.epoches = p.shape[0]
             self.p = p
+            epoches = len(p)
+        super(StretchingModel,self).__init__(epoches)
+
 
     def call(self,p,x,i):
 
