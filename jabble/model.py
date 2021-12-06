@@ -16,29 +16,6 @@ import jabble.dataset
 
 # import simulator as wobble_sim
 # import loss as wobble_loss
-
-def spacing_from_res(R):
-    return np.log(1+1/R)
-
-def getCellArray(x,xs):
-
-    if xs[0]  < x[0]:
-        print('error xs datapoints do not fit within the model')
-        return None
-    if xs[-1] > x[-1]:
-        print('error xs datapoints do not fit within the model')
-        return None
-
-    cell_array = np.zeros(len(xs),dtype=int)
-    j     = 1
-    x_val = x[j]
-    for i, xss in enumerate(xs):
-        while x_val < xss:
-            j    += 1
-            x_val = x[j]
-        cell_array[i] = int(j)
-    return cell_array
-
 def save(filename,model):
     with open(filename, 'wb') as output:  # Overwrites any existing file.
         pickle.dump(model, output, pickle.HIGHEST_PROTOCOL)
@@ -50,20 +27,19 @@ def load(filename):
 
 # make function like this but in terms of resolution not n
 # plus padding
-def get_lin_spaced_grid(xs,padding,step):
-    '''Generates grid of x points for JaxLinear model, using the minimum of the
-    observations, some padding amount, and the step size'''
-    # padding = abs(shifts).max()
-    minimum = xs.min()
-    maximum = xs.max()
-    return np.arange(minimum-padding,maximum+padding,step=step)
-
 def create_x_grid(xs,vel_padding,resolution):
     x_min = xs.min()
     x_max = xs.max()
     step  = jabble.dataset.shifts(const.c/resolution)
     x_padding = jabble.dataset.shifts(vel_padding)
     return np.arange(x_min-x_padding,x_max+x_padding,step)
+
+def stellar_model(shifts,x_grid):
+    return CompositeModel([ShiftingModel(shifts),JaxLinear(x_grid)])
+
+def tellurics_model(airmass,x_grid):
+    return CompositeModel([JaxLinear(x_grid),StretchingModel(airmass)])
+
 
 class Model:
     '''General model class of Jabble:
@@ -79,7 +55,7 @@ class Model:
         else:
             return self.call(p,*args)
 
-    def optimize(self,loss,data,maxiter,iprint=0,method='L-BFGS-B',verbose=False,loss_ind=None,*args):
+    def optimize(self,loss,data,maxiter,iprint=0,method='L-BFGS-B',verbose=False,*args):
         # Fits the Model
         if loss is None:
             loss_ind = np.arange(data.shape[0])
@@ -94,7 +70,7 @@ class Model:
 
         res = scipy.optimize.minimize(val_gradient_function, self.get_parameters(), jac=True,
                method=method,
-               args=(data,self,loss_ind,*args),
+               args=(data,self,*args),
                options={'maxiter':maxiter,
                         'iprint':iprint
                })
@@ -162,12 +138,6 @@ class Model:
     def copy(self):
         return copy.deepcopy(self)
 
-    def validate(self):
-        self.fix()
-
-    def add_component(self,value,n):
-        pass
-
 
 class ContainerModel(Model):
     def __init__(self,models):
@@ -176,6 +146,10 @@ class ContainerModel(Model):
         self.parameters_per_model = np.empty((len(models)))
         for i,model in enumerate(models):
             self.parameters_per_model[i] = len(model.get_parameters())
+
+    def append(self,model):
+        self.models.append(model)
+        self.parameters_per_model = np.concatenate((self.parameters_per_model,len(model.get_parameters())))
 
     def __call__(self,p,*args):
         # if there are no parameters coming in, then use the stored parameters
@@ -234,6 +208,7 @@ class ContainerModel(Model):
     p = property(*p())
 
     def display(self,string=''):
+        self.get_parameters()
         super(ContainerModel,self).display(string)
         for i,model in enumerate(self.models):
             # print(model)
@@ -248,14 +223,6 @@ class ContainerModel(Model):
 
     def copy(self):
         return self.__class__(models=copy.deepcopy(self.models))
-
-    def validate(self):
-        for model in self.models:
-            model.validate()
-
-    def add_component(self,value,n=1):
-        for model in self.models:
-            model.add_component(value,n)
 
 
 class CompositeModel(ContainerModel):
@@ -335,9 +302,6 @@ class EnvelopModel(Model):
     def split_p(self,p):
         return self.model.split_p(p)
 
-    def validate(self):
-        self.model.validate()
-
 
 class JaxEnvLinearModel(EnvelopModel):
     def __init__(self,xs,model,p=None):
@@ -374,17 +338,21 @@ class ConvolutionalModel(Model):
 
 
 class EpochSpecificModel(Model):
-    def validate(self):
-        self.fit()
+    def __call__(self,p,*args):
+        # if there are no parameters coming in, then use the stored parameters
+        if len(p) == 0:
+            return self.call(self.p[self._epoches],*args)
+        else:
+            return self.call(p,*args)
 
-    def grid_search(self,grid,loss,model,data):
+    def grid_search(self,grid,loss,model,data,epoches):
         # put all submodels in fixed mode except the shiftingmodel
         # to be searched then take loss of each epoch
         # that we hand the loss a slice of the shift array
         # since at __call__ itll on take the shift_grid[i,j] element
         model.fix()
         # index is the index of the submodel to grid search this is redundant
-        self.fit()
+        self.fit(epoches=epoches)
         if isinstance(model,ContainerModel):
             model.get_parameters()
         # this is called because this resets the parameters per model
@@ -398,7 +366,28 @@ class EpochSpecificModel(Model):
         return loss_arr
 
     def add_component(self,value=0.0,n=1):
+
         self.p = np.concatenate((self.p,value*np.ones(n)))
+
+    def fix(self,epoches=True):
+
+        self._fit = False
+        self._epoches = epoches
+
+    def fit(self,epoches=True):
+
+        self._fit = True
+        self._epoches = epoches
+
+    def get_parameters(self):
+        if self._fit:
+            return jnp.array(self.p[self._epoches])
+        else:
+            return jnp.array([])
+
+    def unpack(self,p):
+        if len(p) != 0:
+            self.p[self._epoches] = p
 
 
 class ShiftingModel(EpochSpecificModel):

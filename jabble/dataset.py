@@ -1,46 +1,37 @@
+
+# Third Party
 import numpy as np
-# import matplotlib.pyplot as plt
+import numpy.polynomial as polynomial
+
 import astropy.table as at
 import astropy.units as u
 import astropy.coordinates as coord
 import astropy.constants as const
 import astropy.time as atime
-import scipy.ndimage as ndimage
 
-import numpy.polynomial as polynomial
+import scipy.ndimage
 
-# import jabble.model as wobble_model
 import jax.numpy as jnp
 
+# not really important
 def find_nearest(array,value):
     array = np.asarray(array)
     idx   = (np.abs(array-value)).argmin()
     return idx
 
-def velocityfromshift(shifts):
+def velocities(shifts):
     expon = np.exp(2*shifts)
     vel = const.c * (expon-1)/(1 + expon)
     return vel
 
-def get_loss_array(shift_grid,model,xs,ys,yerr,loss,*args):
-    # so so so shit
-    if len(xs.shape) == 1:
-        xs = np.expand_dims(xs,axis=0)
+def delta_x(R):
+    return np.log(1+1/R)
 
-    if len(shift_grid.shape) == 1:
-        loss_arr = np.empty((xs.shape[0],shift_grid.shape[0]))
-        for i in range(xs.shape[0]):
-            for j,shift in enumerate(shift_grid):
-                loss_arr[i,j] = loss(model.p,xs[i,:]+shift,ys[i,:],yerr[i,:],i,model,*args)
-    if len(shift_grid.shape) == 2:
-        loss_arr = np.empty((xs.shape[0],shift_grid.shape[1]))
-        for i in range(xs.shape[0]):
-            for j,shift in enumerate(shift_grid[i,:]):
-                loss_arr[i,j] = loss(model.p,xs[i,:]+shift,ys[i,:],yerr[i,:],i,model,*args)
-
-    return loss_arr
-
+def shifts(vel):
+    return np.log(np.sqrt((1 + vel/(const.c))/(1 - vel/(const.c))))
+# important for grid search
 def get_parabolic_min(loss_array,grid,return_all=False):
+
     epoches = loss_array.shape[0]
     grid_min = np.empty(epoches)
 
@@ -79,19 +70,14 @@ def get_parabolic_min(loss_array,grid,return_all=False):
     else:
         return grid_min
 
-def zplusone(vel):
-    return np.sqrt((1 + vel/(const.c))/(1 - vel/(const.c)))
-
-def shifts(vel):
-    return np.log(zplusone(vel))
-
+# kinda not important function
 def get_star_velocity(BJD,star_name,observatory_name,parse=False):
     hatp20_c = coord.SkyCoord.from_name(star_name,parse=parse)
     loc      = coord.EarthLocation.of_site(observatory_name)
     ts       = atime.Time(BJD, format='jd', scale='tdb')
     bc       = hatp20_c.radial_velocity_correction(obstime=ts, location=loc).to(u.km/u.s)
     return bc
-
+# important interpolate function
 def interpolate_mask(flux,mask):
     new_flux = np.zeros(flux.shape)
     new_flux = flux
@@ -105,36 +91,34 @@ def interpolate_mask(flux,mask):
                 cnt = 0
     return new_flux
 
-# def gauss_filter(flux,sigma):
-#     filtered_flux = ndimage.gaussian_filter1d(flux,sigma)
-#     return filtered_flux
-
-# def normalize_flux(flux,sigma):
-#     return flux/gauss_filter(flux,sigma)
-
-def convert_xy(lamb,flux,ferr):
-    y    = np.log(flux)
-    x    = np.log(lamb)
-    yerr = ferr/flux
-    return x, y, yerr
-
-
-class WobbleDataset:
-    def __init__(self,wave,flux,flux_error,mask,normalize,nargs):
+class Dataset:
+    def __init__(self,xs,ys,yerr,mask):
+        self.xs = xs
+        self.ys = ys
+        self.yerr = yerr
         self.mask = mask
-        self.flux = flux
-        self.wave = wave
-        flux       = interpolate_mask(flux,mask)
-        flux_norm  = normalize(flux,*nargs)
-        self.xs, self.ys, self.yerr = np.log(wave.to(u.Angstrom).value), np.log(flux_norm), flux_error/flux
-
-        mask_temp = np.isnan(self.ys)
-        self.mask = np.logical_or(mask_temp,self.mask)
-
-        self.epoches  = self.ys.shape[0]
 
         self.yivar = 1/self.yerr**2
 
-    def set_masks(self,y_const,yerr_const):
-        self.ys[self.mask], self.yerr[self.mask] = y_const, yerr_const
+    def set_mask(self,y_val,yerr_val):
+        self.ys[self.mask] = y_val
+        self.yerr[self.mask] = yerr_val
+
         self.yivar = 1/self.yerr**2
+
+    def __getitem__(self,i):
+        return Dataset(self.xs[i,:],self.ys[i,:],self.yerr[i,:],self.mask[i,:])
+
+    def from_flux(wave,flux,ferr,mask,normalize=None,nargs=[]):
+        if normalize is None:
+            nargs = [80]
+            normalize = scipy.ndimage.gaussian_filter
+        xs = np.log(wave.to(u.Angstrom).value)
+        flux_interp = interpolate_mask(flux,mask)
+
+        flux_norm = np.empty(flux.shape)
+        for i in range(flux.shape[0]):
+            flux_norm[i,:] = normalize(flux_interp[i,:],*nargs)
+        ys = np.log(flux_interp/flux_norm)
+        yerr = ferr/flux_interp
+        return Dataset(xs, ys, yerr, mask)
