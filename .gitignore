@@ -50,7 +50,13 @@ coverage.xml
 docs/_build/
 
 # Other files
-out/*
+out/
+data/
 training.py
 training_bool.py
 training_sim.py
+scripts/
+notebooks/.ipynb_checkpoints/
+models/
+.ipynb_checkpoints/
+jabble/version.py
