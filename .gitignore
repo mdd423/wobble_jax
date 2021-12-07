@@ -60,3 +60,5 @@ notebooks/.ipynb_checkpoints/
 models/
 .ipynb_checkpoints/
 jabble/version.py
+jabble/__pycache__/
+.DS_Store
