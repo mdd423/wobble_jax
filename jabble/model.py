@@ -55,7 +55,7 @@ class Model:
         else:
             return self.call(p,*args)
 
-    def optimize(self,loss,data,maxiter,iprint=0,method='L-BFGS-B',verbose=False,margs={},*args):
+    def optimize(self,loss,data,method='L-BFGS-B',verbose=False,margs={},*args):
         # Fits the Model
         if loss is None:
             loss_ind = np.arange(data.shape[0])
@@ -71,10 +71,8 @@ class Model:
         res = scipy.optimize.minimize(val_gradient_function, self.get_parameters(), jac=True,
                method=method,
                args=(data,self,*args),
-               options={'maxiter':maxiter,
-                        'iprint':iprint,
-                        **margs
-               })
+               options=margs
+               )
         try:
             self.results.append(res)
         except AttributeError:
