@@ -227,8 +227,8 @@ class ContainerModel(Model):
 
     def save_history(self,p):
         for i,model in enumerate(self.models):
-            model.save_history(p[jnp.arange(jnp.sum(self.parameters_per_model[:i]), \
-                                            jnp.sum(self.parameters_per_model[:i+1]),dtype=int)])
+            model.save_history(p[np.arange(np.sum(self.parameters_per_model[:i]), \
+                                            np.sum(self.parameters_per_model[:i+1]),dtype=int)])
 
 
 class CompositeModel(ContainerModel):
