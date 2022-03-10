@@ -68,7 +68,7 @@ class Model:
             if verbose:
                 print('\r[ Value: {:+3.2e} Grad: {:+3.2e} ]'.format(val,np.inner(grad,grad)))
             if save_history:
-                self.history.append(self.split_p(p))
+                self.history.append(self.split_p(np.array(p)))
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
 
         res = scipy.optimize.minimize(val_gradient_function, self.get_parameters(), jac=True,
