@@ -68,7 +68,7 @@ class Model:
             if verbose:
                 print('\r[ Value: {:+3.2e} Grad: {:+3.2e} ]'.format(val,np.inner(grad,grad)))
             if save_history:
-                self.history.append(self.split_p(np.array(p)))
+                self.save_history(self.split_p(p))
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
 
         res = scipy.optimize.minimize(val_gradient_function, self.get_parameters(), jac=True,
@@ -134,6 +134,8 @@ class Model:
     def copy(self):
         return copy.deepcopy(self)
 
+    def save_history(self,p):
+        self.history.append(p)
 
 class ContainerModel(Model):
     def __init__(self,models):
@@ -221,6 +223,10 @@ class ContainerModel(Model):
 
     def copy(self):
         return self.__class__(models=copy.deepcopy(self.models))
+
+    def save_history(self,p):
+        for i,model in enumerate(self.models):
+            model.save_history(p[i])
 
 
 class CompositeModel(ContainerModel):
