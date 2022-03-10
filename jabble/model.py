@@ -135,7 +135,8 @@ class Model:
         return copy.deepcopy(self)
 
     def save_history(self,p):
-        self.history.append(p)
+        self.history.append(np.array(p))
+
 
 class ContainerModel(Model):
     def __init__(self,models):
