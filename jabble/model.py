@@ -100,7 +100,9 @@ class Model:
         return self(self.p,x,i)
     # make this a property of model
     def fix(self):
-
+        # add inds here as possibility, then add to the call, that the correct
+        # indices for fixed parameters are pulled and combined with variable
+        # parameters in the function call
         self._fit = False
 
     def fit(self):
@@ -410,7 +412,7 @@ class ShiftingModel(EpochSpecificModel):
         if p is None:
             self.p = np.zeros(epoches)
         else:
-            self.p = p
+            self.p = np.array(p)
             epoches = len(p)
         super(ShiftingModel,self).__init__(epoches)
 
