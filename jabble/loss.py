@@ -21,16 +21,13 @@ class LossFunc: #,loss_func,loss_parms=1.0
     def loss_all(self,p,data,model,*args):
         output = 0.0
         # recall ys are packed st that 0: epoches, 1: pixel
-        if model.save_history:
-            loss_arr = np.zeros(data.ys.shape)
+        # if model.save_history:
+        #     loss_arr = np.zeros(data.ys.shape)
         for ind in range(data.ys.shape[0]):
-            tmp = self(p,data,ind,model,*args)
-            print(type(jnp.asarray(tmp)),type(loss_arr),type(ind))
-            if type(jnp.asarray(tmp)) is np.ndarray and model.save_history:
-                loss_arr[ind,:] = jnp.asarray(tmp)
-            output += tmp.sum()
-        if model.save_history:
-            model.chi_history.append(loss_arr)
+            
+            output += self(p,data,ind,model,*args).sum()
+        # if model.save_history:
+        #     model.chi_history.append(loss_arr)
         return output
 
 ### NOW LOSS OUTPUTS ACROSS ALL PXLS SO IT CAN BE SAVED AT TRAINING TIME
