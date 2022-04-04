@@ -26,7 +26,7 @@ class LossFunc: #,loss_func,loss_parms=1.0
         for ind in range(data.ys.shape[0]):
             tmp = self(p,data,ind,model,*args)
             print(type(jnp.asarray(tmp)),type(loss_arr),type(ind))
-            if type(jnp.asarray(tmp) is np.ndarray and model.save_history:
+            if type(jnp.asarray(tmp)) is np.ndarray and model.save_history:
                 loss_arr[ind,:] = jnp.asarray(tmp)
             output += tmp.sum()
         if model.save_history:
