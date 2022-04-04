@@ -24,7 +24,7 @@ class LossFunc: #,loss_func,loss_parms=1.0
         # if model.save_history:
         #     loss_arr = np.zeros(data.ys.shape)
         for ind in range(data.ys.shape[0]):
-            
+
             output += self(p,data,ind,model,*args).sum()
         # if model.save_history:
         #     model.chi_history.append(loss_arr)
@@ -39,7 +39,7 @@ class LossSequential(LossFunc):
     def __call__(self,p,data,i,model,*args):
         output = 0.0
         for loss in self.loss_funcs:
-            output += loss(p,data,i,model,*args)
+            output += loss(p,data,i,model,*args).sum()
         return output
 
     def __add__(self,x):
@@ -103,5 +103,5 @@ class L2Smooth(LossFunc):
         ps = model.split_p(p)
         for ind in self.submodel_ind:
             ps = ps[ind]
-        err = self.coefficient * 0.5 * ((ps[1:] - ps[:-1])**2).sum()
+        err = self.coefficient * 0.5 * ((ps[1:] - ps[:-1])**2)
         return err

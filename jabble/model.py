@@ -58,7 +58,7 @@ class Model:
         else:
             return self.call(p,*args)
 
-    def optimize(self,loss,data,method='L-BFGS-B',verbose=False,margs={},save_history=False,*args):
+    def optimize(self,loss,data,method='L-BFGS-B',verbose=False,margs={},save_history=False,save_loss=False,*args):
         # Fits the Model
         self.save_history = save_history
         if loss is None:
@@ -72,6 +72,14 @@ class Model:
                 print('\r[ Value: {:+3.2e} Grad: {:+3.2e} ]'.format(val,np.inner(grad,grad)))
             if self.save_history:
                 self.history.append(np.array(p))
+            if self.save_loss:
+                initialize = loss(p,data,0,self)
+                tmp = np.zeros((data.ys.shape[0],*initilize.shape))
+                tmp[0,...] = initilize
+                for i in range(1,data.ys.shape[0]):
+                    tmp[i,...] = loss(p,data,i,self)
+                self.loss_history.append(tmp)
+
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
 
         res = scipy.optimize.minimize(val_gradient_function, self.get_parameters(), jac=True,
