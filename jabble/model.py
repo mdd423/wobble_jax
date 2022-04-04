@@ -161,7 +161,7 @@ class ContainerModel(Model):
 
     def __call__(self,p,*args):
         # if there are no parameters coming in, then use the stored parameters
-        if len(p) == 0 and self._fix:
+        if len(p) == 0:
             return self.call(np.array([]),*args)
         else:
             return self.call(p,*args)
