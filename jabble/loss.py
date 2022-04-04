@@ -24,7 +24,7 @@ class LossFunc: #,loss_func,loss_parms=1.0
             loss_arr = np.zeros(data.ys.shape)
         for ind in range(data.ys.shape[0]):
             tmp = self(p,data,ind,model,*args)
-            print(type(tmp),type(loss_arr))
+            print(type(np.asarray(tmp)),type(loss_arr))
             loss_arr[ind,:] = np.asarray(tmp)
             output += tmp.sum()
         if model.save_history:
