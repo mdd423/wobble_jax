@@ -1,5 +1,6 @@
 # import jabble.model as wobble_model
 import numpy as np
+import jax.numpy as jnp
 
 class LossFunc: #,loss_func,loss_parms=1.0
     def __init__(self,coefficient=1.0):
@@ -24,8 +25,8 @@ class LossFunc: #,loss_func,loss_parms=1.0
             loss_arr = np.zeros(data.ys.shape)
         for ind in range(data.ys.shape[0]):
             tmp = self(p,data,ind,model,*args)
-            print(type(np.asarray(tmp)),type(loss_arr))
-            loss_arr[ind,:] = np.asarray(tmp)
+            print(type(jnp.asarray(tmp)),type(loss_arr))
+            loss_arr[ind,:] = jnp.asarray(tmp)
             output += tmp.sum()
         if model.save_history:
             model.chi_history.append(loss_arr)
