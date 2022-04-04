@@ -53,6 +53,8 @@ class Model:
         self.loss_history = []
         self.save_loss = []
 
+        self.results = []
+
     def __call__(self,p,*args):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
@@ -91,15 +93,8 @@ class Model:
                args=(data,self,*args),
                options=margs
                )
-        try:
-            self.results.append(res)
-        except AttributeError:
-            self.results = [res]
-
-        try:
-            self.unpack(res.x)
-        except NameError:
-            pass
+        self.results.append(res)
+        self.unpack(res.x)
         return res
 
     def __add__(self,x):
