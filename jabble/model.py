@@ -161,7 +161,7 @@ class ContainerModel(Model):
 
     def __call__(self,p,*args):
         # if there are no parameters coming in, then use the stored parameters
-        if len(p) == 0:
+        if len(p) == 0 and self._fix:
             return self.call(np.array([]),*args)
         else:
             return self.call(p,*args)
@@ -205,15 +205,15 @@ class ContainerModel(Model):
             self[i].fix(*args)
             self.parameters_per_model[i] = 0
 
-    def p():
-        doc = "The p property."
-        def fget(self):
-            out = np.array([])
-            for model in self.models:
-                out = np.concatenate((out,model.p))
-            return out
-        return locals()
-    p = property(*p())
+    # def p():
+    #     doc = "The p property."
+    #     def fget(self):
+    #         out = np.array([])
+    #         for model in self.models:
+    #             out = np.concatenate((out,model.p))
+    #         return out
+    #     return locals()
+    # p = property(*p())
 
     def display(self,string=''):
         self.get_parameters()
