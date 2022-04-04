@@ -58,6 +58,7 @@ class Model:
     def __call__(self,p,*args):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
+            assert self._fit == False
             return self.call(self.p,*args)
         else:
             return self.call(p,*args)
