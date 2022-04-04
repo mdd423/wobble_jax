@@ -48,6 +48,8 @@ class Model:
         self._fit    = False
         self.func_evals = []
         self.history = []
+        self.chi_history = []
+        self.save_history = False
 
     def __call__(self,p,*args):
         # if there are no parameters coming in, then use the stored parameters
@@ -58,6 +60,7 @@ class Model:
 
     def optimize(self,loss,data,method='L-BFGS-B',verbose=False,margs={},save_history=False,*args):
         # Fits the Model
+        self.save_history = save_history
         if loss is None:
             loss_ind = np.arange(data.shape[0])
 
@@ -67,8 +70,8 @@ class Model:
             self.func_evals.append(val)
             if verbose:
                 print('\r[ Value: {:+3.2e} Grad: {:+3.2e} ]'.format(val,np.inner(grad,grad)))
-            if save_history:
-                self.history.append(p)
+            if self.save_history:
+                self.history.append(np.array(p))
             return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
 
         res = scipy.optimize.minimize(val_gradient_function, self.get_parameters(), jac=True,

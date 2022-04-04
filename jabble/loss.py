@@ -1,7 +1,6 @@
 # import jabble.model as wobble_model
 import numpy as np
 
-
 class LossFunc: #,loss_func,loss_parms=1.0
     def __init__(self,coefficient=1.0):
         self.coefficient = coefficient
@@ -21,11 +20,17 @@ class LossFunc: #,loss_func,loss_parms=1.0
     def loss_all(self,p,data,model,*args):
         output = 0.0
         # recall ys are packed st that 0: epoches, 1: pixel
+        if model.save_history:
+            loss_arr = np.zeros(data.ys.shape)
         for ind in range(data.ys.shape[0]):
-            output += self(p,data,ind,model,*args)
+            tmp = self(p,data,ind,model,*args)
+            loss_arr[i,:] = tmp
+            output += tmp.sum()
+        if model.save_history:
+            model.chi_history.append(loss_arr)
         return output
 
-
+### NOW LOSS OUTPUTS ACROSS ALL PXLS SO IT CAN BE SAVED AT TRAINING TIME
 class LossSequential(LossFunc):
     def __init__(self,loss_funcs):
         # super().__init__(self)
@@ -65,7 +70,7 @@ class LossSequential(LossFunc):
 # object then it translates to the output
 class L2Loss(LossFunc):
     def __call__(self, p, data, i, model,*args):
-        err = self.coefficient * 0.5 * ((data.ys[i,~data.mask[i,:]] - model(p,data.xs[i,~data.mask[i,:]],i,*args))**2).sum()
+        err = self.coefficient * 0.5 * ((data.ys[i,~data.mask[i,:]] - model(p,data.xs[i,~data.mask[i,:]],i,*args))**2)
         # Since jax grad only takes in 1d ndarrays you need to flatten your inputs
         # thus the targets should already be flattened as well
         return err
@@ -73,7 +78,7 @@ class L2Loss(LossFunc):
 
 class ChiSquare(LossFunc):
     def __call__(self, p, data, i, model, *args):
-        err = self.coefficient * (((data.ys[i,:] - model(p,data.xs[i,:],i,*args))**2) * data.yivar[i,:]).sum()
+        err = self.coefficient * (((data.ys[i,:] - model(p,data.xs[i,:],i,*args))**2) * data.yivar[i,:])
         return err
 
 
@@ -84,7 +89,7 @@ class L2Reg(LossFunc):
         self.indices  = indices
 
     def __call__(self, p, data, i, model, *args):
-        err = self.coefficient * 0.5 * ((p[self.indices] - self.constant)**2).sum()
+        err = self.coefficient * 0.5 * ((p[self.indices] - self.constant)**2)
         return err
 
 
