@@ -48,8 +48,10 @@ class Model:
         self._fit    = False
         self.func_evals = []
         self.history = []
-        self.chi_history = []
         self.save_history = False
+
+        self.loss_history = []
+        self.save_loss = []
 
     def __call__(self,p,*args):
         # if there are no parameters coming in, then use the stored parameters
@@ -70,8 +72,10 @@ class Model:
             self.func_evals.append(val)
             if verbose:
                 print('\r[ Value: {:+3.2e} Grad: {:+3.2e} ]'.format(val,np.inner(grad,grad)))
+
             if self.save_history:
                 self.history.append(np.array(p))
+
             if self.save_loss:
                 initialize = loss(p,data,0,self)
                 tmp = np.zeros((data.ys.shape[0],*initilize.shape))
