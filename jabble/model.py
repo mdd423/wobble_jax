@@ -83,7 +83,7 @@ class Model:
             if self.save_loss:
                 initialize = loss(p,data,0,self)
                 tmp = np.zeros((data.ys.shape[0],*initilize.shape))
-                tmp[0,...] = initilize
+                tmp[0,...] = initialize
                 for i in range(1,data.ys.shape[0]):
                     tmp[i,...] = loss(p,data,i,self)
                 self.loss_history.append(tmp)
