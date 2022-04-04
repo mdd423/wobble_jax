@@ -65,6 +65,7 @@ class Model:
     def optimize(self,loss,data,method='L-BFGS-B',verbose=False,margs={},save_history=False,save_loss=False,*args):
         # Fits the Model
         self.save_history = save_history
+        self.save_loss    = save_loss
         if loss is None:
             loss_ind = np.arange(data.shape[0])
 
