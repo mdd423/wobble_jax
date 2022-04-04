@@ -61,6 +61,7 @@ class Model:
             assert self._fit == False
             return self.call(self.p,*args)
         else:
+            assert self._fit == True
             return self.call(p,*args)
 
     def optimize(self,loss,data,method='L-BFGS-B',verbose=False,margs={},save_history=False,save_loss=False,*args):
