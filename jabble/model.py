@@ -64,12 +64,12 @@ class Model:
             assert self._fit == True
             return self.call(p,*args)
 
-    def optimize(self,loss,data,method='L-BFGS-B',verbose=False,margs={},save_history=False,save_loss=False,*args):
+    def optimize(self,loss,data,method='L-BFGS-B',verbose=False,options={},save_history=False,save_loss=False,*args):
         # Fits the Model
         self.save_history = save_history
         self.save_loss    = save_loss
-        if loss is None:
-            loss_ind = np.arange(data.shape[0])
+        # if loss is None:
+        #     loss_ind = np.arange(data.shape[0])
 
         func_grad = jax.value_and_grad(loss.loss_all, argnums=0)
         def val_gradient_function(p,*args):
@@ -83,7 +83,7 @@ class Model:
 
             if self.save_loss:
                 initialize = loss(p,data,0,self)
-                tmp = np.zeros((data.ys.shape[0],*initialize.shape))
+                tmp        = np.zeros((data.ys.shape[0],*initialize.shape))
                 tmp[0,...] = initialize
                 for i in range(1,data.ys.shape[0]):
                     tmp[i,...] = loss(p,data,i,self)
@@ -94,7 +94,7 @@ class Model:
         res = scipy.optimize.minimize(val_gradient_function, self.get_parameters(), jac=True,
                method=method,
                args=(data,self,*args),
-               options=margs
+               options=options
                )
         self.results.append(res)
         self.unpack(res.x)
@@ -134,7 +134,7 @@ class Model:
 
     def display(self,string=''):
         out = string+'-'+self.__class__.__name__+'-'
-        out += '-----------------------------------'
+        out += '--------------------------------------'
         params = str(len(self.get_parameters()))
         while len(out + params) % 17 != 0:
             # print(len())
@@ -408,7 +408,7 @@ class EpochSpecificModel(Model):
 
     def get_parameters(self):
         if self._fit:
-            return jnp.array(self.p[self._epoches])
+            return jnp.array(self.p)
         else:
             return jnp.array([])
 
