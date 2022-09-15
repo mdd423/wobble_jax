@@ -447,6 +447,7 @@ class StretchingModel(EpochSpecificModel):
 
 class ScipySpline(Model):
     def __init__(self,xs,p=None):
+        super(ScipySpline,self).__init__()
         import scipy.interpolate
         self.xs = xs
         if p is not None:
