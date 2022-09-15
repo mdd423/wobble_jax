@@ -134,7 +134,7 @@ class Model:
 
     def display(self,string=''):
         out = string+'-'+self.__class__.__name__+'-'
-        out += '--------------------------------------'
+        out += '-----------------------------------'
         params = str(len(self.get_parameters()))
         while len(out + params) % 17 != 0:
             # print(len())
@@ -408,7 +408,7 @@ class EpochSpecificModel(Model):
 
     def get_parameters(self):
         if self._fit:
-            return jnp.array(self.p)
+            return jnp.array(self.p[self._epoches])
         else:
             return jnp.array([])
 
@@ -428,7 +428,7 @@ class ShiftingModel(EpochSpecificModel):
 
     def call(self,p,x,i):
 
-        return p[i] + x
+        return x - p[i]
 
 
 class StretchingModel(EpochSpecificModel):
