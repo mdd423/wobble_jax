@@ -445,6 +445,21 @@ class StretchingModel(EpochSpecificModel):
 
         return p[i] * x
 
+class ScipySpline(Model):
+    def __init__(self,xs,p=None):
+        import scipy.interpolate
+        self.xs = xs
+        if p is not None:
+            if p.shape == self.xs.shape:
+                self.p = p
+            else:
+                logging.error('p {} must be the same shape as x_grid {}'.format(p.shape,xs.shape))
+        else:
+            self.p = np.zeros(xs.shape)
+
+    def call(self,p,x,i):
+        f = scipy.interpolate.CubicSpline(self.xs,p)
+        return f(x)
 
 class JaxLinear(Model):
     def __init__(self,xs,p=None):
