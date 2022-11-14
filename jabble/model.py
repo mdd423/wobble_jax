@@ -5,6 +5,8 @@ import jax.numpy as jnp
 import scipy.optimize
 import scipy.signal as signal
 import sys
+from functools import partial
+from jax import jit
 
 import copy
 
@@ -40,6 +42,10 @@ def stellar_model(shifts,x_grid):
 def tellurics_model(airmass,x_grid):
     return CompositeModel([JaxLinear(x_grid),StretchingModel(airmass)])
 
+def _parameters_indices_check(p_i):
+
+
+    return
 
 class Model:
     '''General model class of Jabble:
@@ -62,9 +68,11 @@ class Model:
             return self.call(self.p,*args)
         else:
             assert self._fit == True
+            # if self._fit_indices is not None:
+                # return jnp.where(self._fit_indices,p,self.p)
             return self.call(p,*args)
 
-    def optimize(self,loss,data,method='L-BFGS-B',verbose=False,options={},save_history=False,save_loss=False,*args):
+    def optimize(self,loss,data,method='L-BFGS-B',bounds=None,verbose=False,options={},save_history=False,save_loss=False,*args):
         # Fits the Model
         self.save_history = save_history
         self.save_loss    = save_loss
@@ -94,7 +102,8 @@ class Model:
         res = scipy.optimize.minimize(val_gradient_function, self.get_parameters(), jac=True,
                method=method,
                args=(data,self,*args),
-               options=options
+               options=options,
+               bounds=bounds
                )
         self.results.append(res)
         self.unpack(res.x)
@@ -122,8 +131,15 @@ class Model:
 
         self._fit = True
 
+    def fit_p(self,p_i):
+
+        # self._fit_indices = p_i
+        self._fit = True
+
     def get_parameters(self):
         if self._fit:
+            # if self._fit_indices is not None:
+            #     return jnp.array(self.p[self._fit_indices])
             return jnp.array(self.p)
         else:
             return jnp.array([])
@@ -144,7 +160,12 @@ class Model:
         print(out)
 
     def split_p(self,p):
-        return p
+        if self._fit:
+            # if self._fit_indices is not None:
+            #     return jnp.array(p[self._fit_indices])
+            return jnp.array(p)
+        else:
+            return jnp.array([])
 
     def copy(self):
         return copy.deepcopy(self)
@@ -208,16 +229,6 @@ class ContainerModel(Model):
             self[i].fix(*args)
             self.parameters_per_model[i] = 0
 
-    # def p():
-    #     doc = "The p property."
-    #     def fget(self):
-    #         out = np.array([])
-    #         for model in self.models:
-    #             out = np.concatenate((out,model.p))
-    #         return out
-    #     return locals()
-    # p = property(*p())
-
     def display(self,string=''):
         self.get_parameters()
         super(ContainerModel,self).display(string)
@@ -229,9 +240,10 @@ class ContainerModel(Model):
             string = string[:-len(tab)]
 
     def split_p(self,p):
-        p_list = [self.models[k].split_p(p[jnp.arange(jnp.sum(self.parameters_per_model[:k]), \
-                                                      jnp.sum(self.parameters_per_model[:k+1]),dtype=int)]) \
-                                                      for k in range(len(self.parameters_per_model))]
+        p_list = [p[jnp.arange(jnp.sum(self.parameters_per_model[:k]), \
+                                    jnp.sum(self.parameters_per_model[:k+1]),dtype=int) ] \
+                                    for k in range(len(self.parameters_per_model))]
+
         return p_list
 
     def copy(self):
@@ -364,7 +376,7 @@ class EpochSpecificModel(Model):
     def __call__(self,p,*args):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
-            return self.call(self.p[self._epoches],*args)
+            return self.call(self.p,*args)
         else:
             return self.call(p,*args)
 
@@ -408,7 +420,7 @@ class EpochSpecificModel(Model):
 
     def get_parameters(self):
         if self._fit:
-            return jnp.array(self.p[self._epoches])
+            return jnp.array(self.p)
         else:
             return jnp.array([])
 
@@ -426,7 +438,7 @@ class ShiftingModel(EpochSpecificModel):
             epoches = len(p)
         super(ShiftingModel,self).__init__(epoches)
 
-    def call(self,p,x,i):
+    def call(self,p,x,i,*arg):
 
         return x - p[i]
 
@@ -441,9 +453,10 @@ class StretchingModel(EpochSpecificModel):
         super(StretchingModel,self).__init__(epoches)
 
 
-    def call(self,p,x,i):
+    def call(self,p,x,i,*args):
 
         return p[i] * x
+# every factual statement needs references
 
 class ScipySpline(Model):
     def __init__(self,xs,p=None):
@@ -458,7 +471,7 @@ class ScipySpline(Model):
         else:
             self.p = np.zeros(xs.shape)
 
-    def call(self,p,x,i):
+    def call(self,p,x,i,*arg):
         f = scipy.interpolate.CubicSpline(self.xs,p)
         return f(x)
 
@@ -477,10 +490,101 @@ class JaxLinear(Model):
         else:
             self.p = np.zeros(xs.shape)
 
-    def call(self,p,x,i):
+    def call(self,p,x,i,*arg):
         # print()
         # print(p.shape)
         y = jax.numpy.interp(x, self.xs, p)
+        return y
+
+def _alpha_recursion(i,j,p):
+    # fixed values
+    if i < 0 or i > p:
+        return 0
+    if j < 0 or j > p:
+        return 0
+    if p == 0:
+        return 1
+    # recursion
+    return  (j/p) * alpha_recursion(i,j,p-1) +\
+            (1/p) * alpha_recursion(i-1,j,p-1) +\
+            ((p+1-j)/p) * alpha_recursion(i,j-1,p-1) -\
+            (1/p) * alpha_recursion(i-1,j-1,p-1)
+
+class BSpline:
+    def __init__(self,p):
+        # calculate coefficients of basis spline functions(piecewise polynomial)
+        # p piecewise functions with p+1 terms
+#         p = p.astype(int)
+        p = int(p)
+        self.p = p
+        self.alphas = np.zeros((p+1,p+1))
+        for i in range(p+1):
+            for j in range(p+1):
+                self.alphas[i,j] = _alpha_recursion(i,j,p)
+        self.alphas = jnp.array(self.alphas)
+
+    @partial(jit,static_argnums=[0])
+    def __call__(self,x,*args):
+        # Recentering
+        i = jnp.floor(x + (self.p+1) / 2).astype(int)
+        cond1 = i >= 0
+        cond2 = i <= self.p
+        f = jnp.where((cond1 * cond2), \
+                      jnp.polyval(self.alphas[::-1,i], (x + (self.p+1) / 2) % 1), \
+                      0.0)
+        return f
+
+
+def _sparse_design_matrix(x,xp,dx,basis,a):
+    '''Internal Function for general_interp_simple
+    to do:
+    make sparse using 'a' and fast
+    choose fast sparse encoding
+    the fastest for lstsq solve
+    time all'''
+
+
+    return basis((x[None,:] - xp[:,None])/dx)
+
+@partial(jit,static_argnums=[3,4])
+def general_interp_loose(x, xp, ap, basis, a):
+    '''XP must be equally spaced
+    deal boundary conditions 0D, 0N
+    padding points
+    with user inputs values
+
+    for future test for a, where basis function goes to zero'''
+    dx = xp[1] - xp[0]# GET EXACT SPACING from XP
+#     assert jnp.allclose(xp[1:] - xp[:-1],dx) # require uniform spacing
+#     X    = _sparse_design_matrix(xp,xp,dx,basis,a)
+
+    # This is a toeplitz matrix solve, may be faster also sparse
+    # make sparse scipy jax function maybe
+#     alphas,res,rank,s = jnp.linalg.lstsq(X,fp)
+
+    return (ap[:,None] * _sparse_design_matrix(x,xp,dx,basis,a)).sum(axis=0)
+
+class BSplineModel(Model):
+    def __init__(self,xs,p_val=2,p=None):
+        super(BSplineModel,self).__init__()
+        # when defining ones own model, need to include inputs as xs, outputs as ys
+        # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
+        # also assumes epoches of data that is shifted between
+        self.spline = BSpline(p_val)
+        self.p_val = p_val
+        self.xs = xs
+        if p is not None:
+            if p.shape == self.xs.shape:
+                self.p = p
+            else:
+                logging.error('p {} must be the same shape as x_grid {}'.format(p.shape,xs.shape))
+        else:
+            self.p = np.zeros(xs.shape)
+
+    def call(self,p,x,i):
+        # print()
+        # print(p.shape)
+        y = general_interp_loose(x, self.xs, p, basis=self.spline, a=self.p_val//2)
         return y
 
 # foo = jax.numpy.interp(xs, x - shifts, params)
