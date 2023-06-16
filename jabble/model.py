@@ -505,10 +505,10 @@ def _alpha_recursion(i,j,p):
     if p == 0:
         return 1
     # recursion
-    return  (j/p) * alpha_recursion(i,j,p-1) +\
-            (1/p) * alpha_recursion(i-1,j,p-1) +\
-            ((p+1-j)/p) * alpha_recursion(i,j-1,p-1) -\
-            (1/p) * alpha_recursion(i-1,j-1,p-1)
+    return  (j/p) * _alpha_recursion(i,j,p-1) +\
+            (1/p) * _alpha_recursion(i-1,j,p-1) +\
+            ((p+1-j)/p) * _alpha_recursion(i,j-1,p-1) -\
+            (1/p) * _alpha_recursion(i-1,j-1,p-1)
 
 class BSpline:
     def __init__(self,p):
