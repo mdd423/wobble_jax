@@ -108,6 +108,38 @@ class Model:
         self.results.append(res)
         self.unpack(res.x)
         return res
+    
+    def new_lbfgsb(self,loss,data,verbose=False,save_history=False,save_loss=False,**options):
+        # Fits the Model
+#         self.save_history = save_history
+#         self.save_loss    = save_loss
+        # if loss is None:
+        #     loss_ind = np.arange(data.shape[0])
+
+        func_grad = jax.value_and_grad(loss.loss_all, argnums=0)
+        def val_gradient_function(p,*args):
+            val, grad = func_grad(p,*args)
+            self.func_evals.append(val)
+            if verbose:
+                print('\r[ Value: {:+3.2e} Grad: {:+3.2e} ]'.format(val,np.inner(grad,grad)))
+
+            if self.save_history:
+                self.history.append(np.array(p))
+
+            if self.save_loss:
+                initialize = loss(p,data,0,self)
+                tmp        = np.zeros((data.ys.shape[0],*initialize.shape))
+                tmp[0,...] = initialize
+                for i in range(1,data.ys.shape[0]):
+                    tmp[i,...] = loss(p,data,i,self)
+                self.loss_history.append(tmp)
+
+            return np.array(val,dtype='f8'),np.array(grad,dtype='f8')
+
+        x, f, d = scipy.optimize.fmin_l_bfgs_b(val_gradient_function, self.get_parameters(), None, (data, self))
+        self.results.append(d)
+        self.unpack(x)
+        return d
 
     def __add__(self,x):
         return AdditiveModel(models=[self,x])
