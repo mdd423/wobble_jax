@@ -483,7 +483,7 @@ class OrderShiftingModel(Model):
         else:
             self.p = np.array(p)
             epoches = len(p)
-            super(OrderShiftingModel,self).__init__(epoches)
+        super(OrderShiftingModel,self).__init__(epoches)
 
     def call(self,p,x,i,j,*args):
 
