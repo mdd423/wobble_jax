@@ -88,6 +88,11 @@ class ChiSquare(LossFunc):
     def __call__(self, p, data, i, model, *args):
         err = self.coefficient * (((data.ys[i,:] - model(p,data.xs[i,:],i,*args))**2) * data.yivar[i,:])
         return err
+    
+class ChiSquare2D(LossFunc):
+    def __call__(self, p, data, i, model, j, *args):
+        err = self.coefficient * (((data.ys[i,j,:] - model(p,data.xs[i,j,:],i,j,*args))**2) * data.yivar[i,j,:])
+        return err
 
 
 class L2Reg(LossFunc):
