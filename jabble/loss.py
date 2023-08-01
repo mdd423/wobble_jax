@@ -34,7 +34,7 @@ class LossFunc: #,loss_func,loss_parms=1.0
         output = 0.0
         for ind in range(data.ys.shape[0]):
             for jnd in range(data.ys.shape[1]):
-                output += self(p,data,ind,model,jnd)
+                output += self(p,data,ind,model,jnd,*args).sum()
 
         return output
 
