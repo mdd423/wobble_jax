@@ -473,6 +473,21 @@ class ShiftingModel(EpochSpecificModel):
     def call(self,p,x,i,*arg):
 
         return x - p[i]
+    
+class OrderShiftingModel(Model):
+    def __init__(self,p=None,epoches=0):
+        if p is None:
+            assert epoches != 0
+            self.p = np.zeros(epoches)
+
+        else:
+            self.p = np.array(p)
+            epoches = len(p)
+            super(OrderShiftingModel,self).__init__(epoches)
+
+    def call(self,p,x,i,j,*args):
+
+        return x - p[j]
 
 
 class StretchingModel(EpochSpecificModel):
@@ -568,12 +583,14 @@ class BSpline:
 
 
 def _sparse_design_matrix(x,xp,dx,basis,a):
-    '''Internal Function for general_interp_simple
-    to do:
-    make sparse using 'a' and fast
-    choose fast sparse encoding
-    the fastest for lstsq solve
-    time all'''
+    '''
+        Internal Function for general_interp_simple
+        to do:
+        make sparse using 'a' and fast
+        choose fast sparse encoding
+        the fastest for lstsq solve
+        time all
+    '''
 
 
     return basis((x[None,:] - xp[:,None])/dx)
@@ -613,7 +630,7 @@ class BSplineModel(Model):
         else:
             self.p = np.zeros(xs.shape)
 
-    def call(self,p,x,i):
+    def call(self,p,x,*args):
         # print()
         # print(p.shape)
         y = general_interp_loose(x, self.xs, p, basis=self.spline, a=self.p_val//2)

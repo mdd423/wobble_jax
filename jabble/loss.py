@@ -29,6 +29,14 @@ class LossFunc: #,loss_func,loss_parms=1.0
         # if model.save_history:
         #     model.chi_history.append(loss_arr)
         return output
+    
+    def loss_orders(self,p,data,model,*args):
+
+        for ind in range(data.ys.shape[0]):
+            for jnd in range(data.ys.shape[1]):
+                output += self(p,data,ind,model,jnd)
+
+        return output
 
 ### NOW LOSS OUTPUTS ACROSS ALL PXLS SO IT CAN BE SAVED AT TRAINING TIME
 class LossSequential(LossFunc):
