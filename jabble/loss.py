@@ -31,7 +31,7 @@ class LossFunc: #,loss_func,loss_parms=1.0
         return output
     
     def loss_orders(self,p,data,model,*args):
-
+        output = 0.0
         for ind in range(data.ys.shape[0]):
             for jnd in range(data.ys.shape[1]):
                 output += self(p,data,ind,model,jnd)
