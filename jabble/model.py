@@ -474,14 +474,14 @@ class ShiftingModel(EpochSpecificModel):
 
         return x - p[i]
     
-class OrderShiftingModel(Model):
+class OrderShiftingModel(EpochSpecificModel):
     def __init__(self,p=None,epoches=0):
         if p is None:
             assert epoches != 0
             self.p = np.zeros(epoches)
 
         else:
-            self.p = np.array(p)
+            self.p  = np.array(p)
             epoches = len(p)
         super(OrderShiftingModel,self).__init__(epoches)
 
