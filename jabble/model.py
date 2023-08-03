@@ -593,11 +593,12 @@ def _sparse_design_matrix(x,xp,dx,basis,a):
         time all
     '''
     input = (x[None,:] - xp[:,None])/dx
-    cond1 = jnp.floor(input) < -a
-    cond2 = jnp.floor(input) >  a
-    input[(cond1 + cond2).astype(bool)] = 0.0
-    spinput = sparse.BCOO.fromdense(input)
-    return basis(spinput)
+    # cond1 = jnp.floor(input) < -a
+    # cond2 = jnp.floor(input) >  a
+    # input[(cond1 + cond2).astype(bool)] = 0.0
+    # spinput = sparse.BCOO.fromdense(input)
+
+    return basis(input)
 
 @partial(jit,static_argnums=[3,4])
 def general_interp_loose(x, xp, ap, basis):
