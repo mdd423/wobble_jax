@@ -583,6 +583,7 @@ class BSpline:
 
 
 def _sparse_design_matrix(x,xp,dx,basis,a):
+    from jax.experimental import sparse
     '''
         Internal Function for general_interp_simple
         to do:
@@ -591,19 +592,25 @@ def _sparse_design_matrix(x,xp,dx,basis,a):
         the fastest for lstsq solve
         time all
     '''
-
-
-    return basis((x[None,:] - xp[:,None])/dx)
+    input = (x[None,:] - xp[:,None])/dx
+    cond1 = jnp.floor(input) < -a
+    cond2 = jnp.floor(input) >  a
+    input[(cond1 + cond2).astype(bool)] = 0.0
+    spinput = sparse.BCOO.fromdense(input)
+    return basis(spinput)
 
 @partial(jit,static_argnums=[3,4])
-def general_interp_loose(x, xp, ap, basis, a):
+def general_interp_loose(x, xp, ap, basis):
     '''XP must be equally spaced
-    deal boundary conditions 0D, 0N
-    padding points
-    with user inputs values
+        deal boundary conditions 0D, 0N
+        padding points
+        with user inputs values
 
-    for future test for a, where basis function goes to zero'''
-    dx = xp[1] - xp[0]# GET EXACT SPACING from XP
+        for future test for a, where basis function goes to zero
+    '''
+    dx = xp[1] - xp[0]
+    a = int((p+1)//2)
+    # GET EXACT SPACING from XP
 #     assert jnp.allclose(xp[1:] - xp[:-1],dx) # require uniform spacing
 #     X    = _sparse_design_matrix(xp,xp,dx,basis,a)
 
@@ -633,7 +640,7 @@ class BSplineModel(Model):
     def call(self,p,x,*args):
         # print()
         # print(p.shape)
-        y = general_interp_loose(x, self.xs, p, basis=self.spline, a=self.p_val//2)
+        y = general_interp_loose(x, self.xs, p, basis=self.spline)
         return y
 
 # foo = jax.numpy.interp(xs, x - shifts, params)
