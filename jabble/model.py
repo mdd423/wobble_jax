@@ -610,7 +610,7 @@ def general_interp_loose(x, xp, ap, basis):
         for future test for a, where basis function goes to zero
     '''
     dx = xp[1] - xp[0]
-    a = int((p+1)//2)
+    # a = int((p+1)//2)
     # GET EXACT SPACING from XP
 #     assert jnp.allclose(xp[1:] - xp[:-1],dx) # require uniform spacing
 #     X    = _sparse_design_matrix(xp,xp,dx,basis,a)
