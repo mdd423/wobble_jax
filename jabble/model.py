@@ -582,7 +582,7 @@ class BSpline:
         return f
 
 
-def _sparse_design_matrix(x,xp,dx,basis,a):
+def _sparse_design_matrix(x,xp,dx,basis):
     from jax.experimental import sparse
     '''
         Internal Function for general_interp_simple
@@ -592,6 +592,7 @@ def _sparse_design_matrix(x,xp,dx,basis,a):
         the fastest for lstsq solve
         time all
     '''
+    dx = xp[1] - xp[0]
     input = (x[None,:] - xp[:,None])/dx
     # cond1 = jnp.floor(input) < -a
     # cond2 = jnp.floor(input) >  a
@@ -619,7 +620,7 @@ def general_interp_loose(x, xp, ap, basis):
     # make sparse scipy jax function maybe
 #     alphas,res,rank,s = jnp.linalg.lstsq(X,fp)
 
-    return (ap[:,None] * _sparse_design_matrix(x,xp,dx,basis,a)).sum(axis=0)
+    return (ap[:,None] * _sparse_design_matrix(x,xp,dx,basis)).sum(axis=0)
 
 class BSplineModel(Model):
     def __init__(self,xs,p_val=2,p=None):
