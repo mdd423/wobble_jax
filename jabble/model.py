@@ -611,11 +611,11 @@ def _sparse_design_matrix(x,xp,basis,a):
     x_tilde = (inputs[:,None] - ainds[None,:]).flatten()
     # restrict boundary conditions
     cond1 = (ms >= 0)
-    cond2 = (ms < xs.shape[0])
+    cond2 = (ms < xp.shape[0])
     data    = jnp.where((cond1*cond2), basis(x_tilde), 0.0)
     indices = jnp.concatenate((ms[:,None],js[:,None]),axis=1)
     # create sparse matrix using these ms,js indices and basis evaluation
-    out  = sparse.BCOO((data,indices),shape=(xp.shape[0],x.shape[0]))
+    out  = jax.experimental.sparse.BCOO((data,indices),shape=(xp.shape[0],x.shape[0]))
     return out
 
 @partial(jit,static_argnums=[3,4])
