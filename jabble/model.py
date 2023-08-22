@@ -1,6 +1,7 @@
 import numpy as np
 import jax
 import jax.numpy as jnp
+import jax.experimental
 # import matplotlib.pyplot as plt
 import scipy.optimize
 import scipy.signal as signal
