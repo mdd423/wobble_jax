@@ -600,7 +600,7 @@ def _sparse_design_matrix(x,xp,basis,a):
     index  = (x - xp[0]) // dx
     # print((x - xp[0]) / dx, index, inputs)
     # create range of of basis vectors that each datapoint touches bc each basis spans from -a to a from its center
-    arange = jnp.arange(-a-1,a+2,step=1.0,dtype=jnp.float64)
+    arange = jnp.arange(-a-1,a+2,step=1.0)
     # get indices of these basis vectors
     ainds  = jnp.floor(arange)
     # print(arange, ainds)
@@ -614,12 +614,12 @@ def _sparse_design_matrix(x,xp,basis,a):
     cond1 = (ms >= 0)
     cond2 = (ms < xp.shape[0])
     data    = jnp.where((cond1*cond2), basis(x_tilde), 0.0)
-    indices = jnp.concatenate((ms[:,None],js[:,None]),axis=1)
+    indices = jnp.concatenate((js[:,None],ms[:,None]),axis=1)
     # create sparse matrix using these ms,js indices and basis evaluation
-    out  = jax.experimental.sparse.BCOO((data,indices),shape=(xp.shape[0],x.shape[0]))
+    out  = sparse.BCOO((data,indices),shape=(x.shape[0],xp.shape[0]))
     return out
 
-@partial(jit,static_argnums=[3,4])
+# @partial(jit,static_argnums=[3,4])
 def cardinal_basis_sparse(x, xp, ap, basis, a):
     '''XP must be equally spaced
         deal boundary conditions 0D, 0N
@@ -642,8 +642,8 @@ def cardinal_basis_sparse(x, xp, ap, basis, a):
     ap = jnp.array(ap)
     design = _sparse_design_matrix(x,xp,basis,a)
     # design = jax.experimental.sparse.BCOO.fromdense(_full_design_matrix(x,xp,basis))
-
-    check = (ap[:,None] * design).sum(axis=0)
+    # print(design.shape,ap.shape)
+    check = design @ ap
     # print(np.array(design.todense()))
     if isinstance(check, jax.experimental.sparse.bcoo.BCOO):
         return check.todense()
