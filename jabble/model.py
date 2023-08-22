@@ -598,12 +598,12 @@ def _sparse_design_matrix(x,xp,basis,a):
     inputs = ((x - xp[0]) / dx) % 1
     # get index of that cardinal basis spline
     index  = (x - xp[0]) // dx
-    print((x - xp[0]) / dx, index, inputs)
+    # print((x - xp[0]) / dx, index, inputs)
     # create range of of basis vectors that each datapoint touches bc each basis spans from -a to a from its center
     arange = jnp.arange(-a-1,a+2,step=1.0)
     # get indices of these basis vectors
     ainds  = jnp.floor(arange)
-    print(arange, ainds)
+    # print(arange, ainds)
     # use indices, and a indices to get all ms associated with each datapoint
     ms = (index[:,None] + ainds[None,:]).flatten().astype(int)
     # use indices of datapoints and a indices to get js
