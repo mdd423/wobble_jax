@@ -644,7 +644,7 @@ def cardinal_basis_sparse(x, xp, ap, basis, a):
     # design = jax.experimental.sparse.BCOO.fromdense(_full_design_matrix(x,xp,basis))
 
     check = (ap[:,None] * design).sum(axis=0)
-    print(np.array(design.todense()))
+    # print(np.array(design.todense()))
     if isinstance(check, jax.experimental.sparse.bcoo.BCOO):
         return check.todense()
 
