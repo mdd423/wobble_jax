@@ -649,7 +649,7 @@ def cardinal_basis_sparse(x, xp, ap, basis, a):
 
     return check
 
-def _sparse_design_matrix(x,xp,dx,basis):
+def _full_design_matrix(x,xp,dx,basis):
     from jax.experimental import sparse
     '''
         Internal Function for general_interp_simple
@@ -687,7 +687,7 @@ def general_interp_loose(x, xp, ap, basis):
     # make sparse scipy jax function maybe
 #     alphas,res,rank,s = jnp.linalg.lstsq(X,fp)
 
-    return (ap[:,None] * _sparse_design_matrix(x,xp,dx,basis)).sum(axis=0)
+    return (ap[:,None] * _full_design_matrix(x,xp,dx,basis)).sum(axis=0)
 
 class BSplineModel(Model):
     def __init__(self,xs,p_val=2,p=None):
