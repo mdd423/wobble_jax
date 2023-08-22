@@ -581,6 +581,73 @@ class BSpline:
                       0.0)
         return f
 
+def _sparse_design_matrix(x,xp,basis,a):
+
+    '''
+        Internal Function for general_interp_simple
+        to do:
+        make sparse using 'a' and fast
+        choose fast sparse encoding
+        the fastest for lstsq solve
+        time all
+    '''
+    # get difference between cardinal splines
+    dx     = xp[1] - xp[0]
+    # get distance between each element and the closest cardinal basis to its left
+    inputs = ((x - xp[0]) / dx) % 1
+    # get index of that cardinal basis spline
+    index  = (x - xp[0]) // dx
+    print((x - xp[0]) / dx, index, inputs)
+    # create range of of basis vectors that each datapoint touches bc each basis spans from -a to a from its center
+    arange = jnp.arange(-a-1,a+2,step=1.0)
+    # get indices of these basis vectors
+    ainds  = jnp.floor(arange)
+    print(arange, ainds)
+    # use indices, and a indices to get all ms associated with each datapoint
+    ms = (index[:,None] + ainds[None,:]).flatten().astype(int)
+    # use indices of datapoints and a indices to get js
+    js = (np.arange(0,len(x),dtype=int)[:,None] * np.ones(ainds[None,:].shape)).flatten().astype(int)
+    # compute nonzero x values
+    x_tilde = (inputs[:,None] - ainds[None,:]).flatten()
+    # restrict boundary conditions
+    cond1 = (ms >= 0)
+    cond2 = (ms < xs.shape[0])
+    data    = jnp.where((cond1*cond2), basis(x_tilde), 0.0)
+    indices = jnp.concatenate((ms[:,None],js[:,None]),axis=1)
+    # create sparse matrix using these ms,js indices and basis evaluation
+    out  = sparse.BCOO((data,indices),shape=(xp.shape[0],x.shape[0]))
+    return out
+
+@partial(jit,static_argnums=[3,4])
+def cardinal_basis_sparse(x, xp, ap, basis, a):
+    '''XP must be equally spaced
+        deal boundary conditions 0D, 0N
+        padding points
+        with user inputs values
+
+        for future test for a, where basis function goes to zero
+    '''
+#     a = int((p+1)//2)
+    # GET EXACT SPACING from XP
+#     assert jnp.allclose(xp[1:] - xp[:-1],dx) # require uniform spacing
+#     X    = _sparse_design_matrix(xp,xp,dx,basis,a)
+
+    # This is a toeplitz matrix solve, may be faster also sparse
+    # make sparse scipy jax function maybe
+#     alphas,res,rank,s = jnp.linalg.lstsq(X,fp)
+
+
+    # This is to ensure the multiplication with the sparse mat works
+    ap = jnp.array(ap)
+    design = _sparse_design_matrix(x,xp,basis,a)
+    # design = jax.experimental.sparse.BCOO.fromdense(_full_design_matrix(x,xp,basis))
+
+    check = (ap[:,None] * design).sum(axis=0)
+    print(np.array(design.todense()))
+    if isinstance(check, jax.experimental.sparse.bcoo.BCOO):
+        return check.todense()
+
+    return check
 
 def _sparse_design_matrix(x,xp,dx,basis):
     from jax.experimental import sparse
@@ -642,7 +709,8 @@ class BSplineModel(Model):
     def call(self,p,x,*args):
         # print()
         # print(p.shape)
-        y = general_interp_loose(x, self.xs, p, basis=self.spline)
+        a = (self.p_val+1)/2
+        y = cardinal_basis_sparse(x, self.xs, p, basis=self.spline,a)
         return y
 
 # foo = jax.numpy.interp(xs, x - shifts, params)
