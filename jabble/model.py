@@ -710,7 +710,7 @@ class BSplineModel(Model):
         # print()
         # print(p.shape)
         a = (self.p_val+1)/2
-        y = cardinal_basis_sparse(x, self.xs, p, basis=self.spline,a)
+        y = cardinal_basis_sparse(x, self.xs, p, self.spline,a)
         return y
 
 # foo = jax.numpy.interp(xs, x - shifts, params)
