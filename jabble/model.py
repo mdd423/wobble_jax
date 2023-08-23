@@ -601,7 +601,7 @@ def _full_design_matrix(x,xp,basis):
 
     return basis(input)
 
-# @partial(jit,static_argnums=[3,4])
+@partial(jit,static_argnums=[3,4])
 def cardinal_basis_full(x, xp, ap, basis):
     '''XP must be equally spaced
         deal boundary conditions 0D, 0N
@@ -618,6 +618,7 @@ def cardinal_basis_full(x, xp, ap, basis):
     # This is a toeplitz matrix solve, may be faster also sparse
     # make sparse scipy jax function maybe
 #     alphas,res,rank,s = jnp.linalg.lstsq(X,fp)
+    print(type(x),type(xp),type(ap),type(basis))
     design = _full_design_matrix(x,xp,basis)
     # print(np.array(design))
     return design @ ap
@@ -659,7 +660,7 @@ def _sparse_design_matrix(x,xp,basis,a):
     out  = sparse.BCOO((data,indices),shape=(x.shape[0],xp.shape[0]))
     return out
 
-# @partial(jit,static_argnums=[3,4])
+@partial(jit,static_argnums=[3,4,5])
 def cardinal_basis_sparse(x, xp, ap, basis, a):
     '''XP must be equally spaced
         deal boundary conditions 0D, 0N
