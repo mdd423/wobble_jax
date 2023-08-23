@@ -600,7 +600,7 @@ def _sparse_design_matrix(x,xp,basis,a):
     index  = (x - xp[0]) // dx
     # print((x - xp[0]) / dx, index, inputs)
     # create range of of basis vectors that each datapoint touches bc each basis spans from -a to a from its center
-    arange = jnp.arange(-a-1,a+2,step=1.0)
+    arange = jnp.arange(-a-1,a+2,step=1.0,dtype=np.float64)
     # get indices of these basis vectors
     ainds  = jnp.floor(arange)
     # print(arange, ainds)
