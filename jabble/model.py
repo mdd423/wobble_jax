@@ -618,7 +618,6 @@ def cardinal_basis_full(x, xp, ap, basis):
     # This is a toeplitz matrix solve, may be faster also sparse
     # make sparse scipy jax function maybe
 #     alphas,res,rank,s = jnp.linalg.lstsq(X,fp)
-    print(type(x),type(xp),type(ap),type(basis))
     design = _full_design_matrix(x,xp,basis)
     # print(np.array(design))
     return design @ ap
