@@ -2,6 +2,7 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 import jax.experimental.sparse
+from jax.experimental import sparse
 # import matplotlib.pyplot as plt
 import scipy.optimize
 import scipy.signal as signal
@@ -583,7 +584,6 @@ class BSpline:
         return f
 
 def _full_design_matrix(x,xp,basis):
-    from jax.experimental import sparse
     '''
         Internal Function for general_interp_simple
         to do:
