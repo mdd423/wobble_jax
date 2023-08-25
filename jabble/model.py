@@ -586,6 +586,9 @@ def cardinal_basis_full(x, xp, ap, basis):
     # print(np.array(design))
     return design @ ap
 
+from line_profiler import profile
+
+@profile
 def _sparse_design_matrix(x,xp,basis,a):
 
     '''
@@ -623,6 +626,7 @@ def _sparse_design_matrix(x,xp,basis,a):
     out  = sparse.BCOO((data,indices),shape=(x.shape[0],xp.shape[0]))
     return out
 
+@profile
 @partial(jit,static_argnums=[3,4,5])
 def cardinal_basis_sparse(x, xp, ap, basis, a):
     '''XP must be equally spaced
