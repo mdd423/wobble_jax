@@ -546,6 +546,8 @@ class JaxLinear(Model):
         y = jax.numpy.interp(x, self.xs, p)
         return y
 
+from line_profiler import profile
+
 @profile
 def _full_design_matrix(x,xp,basis):
     '''
@@ -586,8 +588,6 @@ def cardinal_basis_full(x, xp, ap, basis):
     design = _full_design_matrix(x,xp,basis)
     # print(np.array(design))
     return design @ ap
-
-from line_profiler import profile
 
 @profile
 def _sparse_design_matrix(x,xp,basis,a):
