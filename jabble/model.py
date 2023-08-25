@@ -675,7 +675,7 @@ class IrwinHall:
         
         return f
     
-class IrwinHallModel_full(jabble.model.Model):
+class IrwinHallModel_full(Model):
     def __init__(self,xs,p_val=2,p=None):
         super(IrwinHallModel_full,self).__init__()
         # when defining ones own model, need to include inputs as xs, outputs as ys
