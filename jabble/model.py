@@ -545,43 +545,6 @@ class JaxLinear(Model):
         y = jax.numpy.interp(x, self.xs, p)
         return y
 
-def _alpha_recursion(i,j,p):
-    # fixed values
-    if i < 0 or i > p:
-        return 0
-    if j < 0 or j > p:
-        return 0
-    if p == 0:
-        return 1
-    # recursion
-    return  (j/p) * _alpha_recursion(i,j,p-1) +\
-            (1/p) * _alpha_recursion(i-1,j,p-1) +\
-            ((p+1-j)/p) * _alpha_recursion(i,j-1,p-1) -\
-            (1/p) * _alpha_recursion(i-1,j-1,p-1)
-
-class BSpline:
-    def __init__(self,p):
-        # calculate coefficients of basis spline functions(piecewise polynomial)
-        # p piecewise functions with p+1 terms
-#         p = p.astype(int)
-        p = int(p)
-        self.p = p
-        self.alphas = np.zeros((p+1,p+1))
-        for i in range(p+1):
-            for j in range(p+1):
-                self.alphas[i,j] = _alpha_recursion(i,j,p)
-        self.alphas = jnp.array(self.alphas)
-
-    @partial(jit,static_argnums=[0])
-    def __call__(self,x,*args):
-        # Recentering
-        i = jnp.floor(x + (self.p+1) / 2).astype(int)
-        cond1 = i >= 0
-        cond2 = i <= self.p
-        f = jnp.where((cond1 * cond2), \
-                      jnp.polyval(self.alphas[::-1,i], (x + (self.p+1) / 2) % 1), \
-                      0.0)
-        return f
 
 def _full_design_matrix(x,xp,basis):
     '''
@@ -668,15 +631,6 @@ def cardinal_basis_sparse(x, xp, ap, basis, a):
 
         for future test for a, where basis function goes to zero
     '''
-#     a = int((p+1)//2)
-    # GET EXACT SPACING from XP
-#     assert jnp.allclose(xp[1:] - xp[:-1],dx) # require uniform spacing
-#     X    = _sparse_design_matrix(xp,xp,dx,basis,a)
-
-    # This is a toeplitz matrix solve, may be faster also sparse
-    # make sparse scipy jax function maybe
-#     alphas,res,rank,s = jnp.linalg.lstsq(X,fp)
-
 
     # This is to ensure the multiplication with the sparse mat works
     ap = jnp.array(ap)
@@ -690,53 +644,44 @@ def cardinal_basis_sparse(x, xp, ap, basis, a):
 
     return check
 
-# def _full_design_matrix(x,xp,dx,basis):
-#     from jax.experimental import sparse
-#     '''
-#         Internal Function for general_interp_simple
-#         to do:
-#         make sparse using 'a' and fast
-#         choose fast sparse encoding
-#         the fastest for lstsq solve
-#         time all
-#     '''
-#     dx = xp[1] - xp[0]
-#     input = (x[None,:] - xp[:,None])/dx
-#     # cond1 = jnp.floor(input) < -a
-#     # cond2 = jnp.floor(input) >  a
-#     # input[(cond1 + cond2).astype(bool)] = 0.0
-#     # spinput = sparse.BCOO.fromdense(input)
 
-#     return basis(input)
+def _irwin_recursion(j,k,n):
+    if k == 0:
+        if j < n-1:
+            return 0.0
+        else:
+            return 1.0
+    
+    return _irwin_recursion(j,k-1,n) + ((-1)**(n+k-j-1) * math.comb(n,k) * math.comb(n-1,j) * k**(n-j-1))
 
-# @partial(jit,static_argnums=[3,4])
-# def general_interp_loose(x, xp, ap, basis):
-#     '''XP must be equally spaced
-#         deal boundary conditions 0D, 0N
-#         padding points
-#         with user inputs values
-
-#         for future test for a, where basis function goes to zero
-#     '''
-#     dx = xp[1] - xp[0]
-#     # a = int((p+1)//2)
-#     # GET EXACT SPACING from XP
-# #     assert jnp.allclose(xp[1:] - xp[:-1],dx) # require uniform spacing
-# #     X    = _sparse_design_matrix(xp,xp,dx,basis,a)
-
-#     # This is a toeplitz matrix solve, may be faster also sparse
-#     # make sparse scipy jax function maybe
-# #     alphas,res,rank,s = jnp.linalg.lstsq(X,fp)
-
-#     return (ap[:,None] * _full_design_matrix(x,xp,dx,basis)).sum(axis=0)
-
-class BSplineModel(Model):
+class IrwinHall:
+    def __init__(self,n):
+        n += 1
+        self.n = n
+        self.alphas = np.zeros((n,n))
+        for j in range(n):
+            for k in range(n):
+                self.alphas[j,k] = _irwin_recursion(j,k,n)
+        self.alphas = jnp.array(self.alphas)
+        
+    def __call__(self,x,*args):
+        ks = jnp.floor(x + (self.n/2)).astype(int)
+        cond1 = ks >= 0
+        cond2 = ks <= (self.n-1)
+              
+        f = jnp.where((cond1 * cond2), \
+                      jnp.polyval(self.alphas[::-1,ks],x + (self.n/2)), \
+                      0.0)
+        
+        return f
+    
+class IrwinHallModel_full(jabble.model.Model):
     def __init__(self,xs,p_val=2,p=None):
-        super(BSplineModel,self).__init__()
+        super(IrwinHallModel_full,self).__init__()
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
         # also assumes epoches of data that is shifted between
-        self.spline = BSpline(p_val)
+        self.spline = IrwinHall(p_val)
         self.p_val = p_val
         self.xs = xs
         if p is not None:
@@ -748,12 +693,14 @@ class BSplineModel(Model):
             self.p = np.zeros(xs.shape)
 
     def call(self,p,x,*args):
-        # print()
-        # print(p.shape)
-        a = (self.p_val+1)/2
-        y = cardinal_basis_sparse(x, self.xs, p, self.spline,a)
+        
+        y = jabble.model.cardinal_basis_full(x, self.xs, p, self.spline)
         return y
 
-# foo = jax.numpy.interp(xs, x - shifts, params)
-# res = scipy.optimize.minimize(lamdba(): (ys - foo(xs))**2, params, args=(self,*args), method='BFGS', jac=jax.grad(loss),
-#        options={'disp': True})
+class IrwinHallModel_sparse(IrwinHallModel_full):
+
+    def call(self,p,x,*args):
+        
+        a = (self.p_val+1)/2
+        y = jabble.model.cardinal_basis_sparse(x, self.xs, p, self.spline, a)
+        return y
