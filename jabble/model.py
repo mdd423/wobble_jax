@@ -546,7 +546,7 @@ class JaxLinear(Model):
         y = jax.numpy.interp(x, self.xs, p)
         return y
 
-
+@profile
 def _full_design_matrix(x,xp,basis):
     '''
         Internal Function for general_interp_simple
@@ -565,6 +565,7 @@ def _full_design_matrix(x,xp,basis):
 
     return basis(input)
 
+@profile
 @partial(jit,static_argnums=[3,4])
 def cardinal_basis_full(x, xp, ap, basis):
     '''XP must be equally spaced
