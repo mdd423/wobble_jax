@@ -567,8 +567,8 @@ def _full_design_matrix(x,xp,basis):
 
     return basis(input)
 
+# @partial(jit,static_argnums=[3,4])
 @profile
-@partial(jit,static_argnums=[3,4])
 def cardinal_basis_full(x, xp, ap, basis):
     '''XP must be equally spaced
         deal boundary conditions 0D, 0N
@@ -627,8 +627,8 @@ def _sparse_design_matrix(x,xp,basis,a):
     out  = sparse.BCOO((data,indices),shape=(x.shape[0],xp.shape[0]))
     return out
 
+# @partial(jit,static_argnums=[3,4,5])
 @profile
-@partial(jit,static_argnums=[3,4,5])
 def cardinal_basis_sparse(x, xp, ap, basis, a):
     '''XP must be equally spaced
         deal boundary conditions 0D, 0N
