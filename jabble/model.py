@@ -477,6 +477,7 @@ class ShiftingModel(EpochSpecificModel):
 
         return x - p[i]
     
+
 class OrderShiftingModel(EpochSpecificModel):
     def __init__(self,p=None,epoches=0):
         if p is None:
@@ -704,6 +705,36 @@ class IrwinHallModel_full(Model):
         return y
 
 class IrwinHallModel_sparse(IrwinHallModel_full):
+
+    def call(self,p,x,*args):
+        
+        a = (self.p_val+1)/2
+        y = jabble.model.cardinal_basis_sparse(x, self.xs, p, self.spline, a)
+        return y
+
+@partial(jit,static_argnums=[3,4,5])
+def cardinal_vmap_model(x,xp,ap,basis,a):
+    '''
+        Creates model with evenly spaced (cardinal) basis functions, coefficients ap
+        at xp, evaluated at x points, and a cardinal basis function is only
+        nonzero within -a, and a
+    '''
+    dx     = xp[1] - xp[0]
+    # assert np.all(dx == xp[1:] - xp[:-1])
+    arange = jnp.floor(jnp.arange(-a-1,a+2,step=1.0)).astype(int)
+    # get distance between each element and the closest cardinal basis to its left
+    inputs = ((x - xp[0]) / dx) % 1
+    # get index of the cardinal basis spline to datapoints left
+    index  = ((x - xp[0]) // dx).astype(int)
+    def _internal(inputs,index):
+      
+      return jnp.dot(ap[index - arange], basis(inputs + arange))
+
+    out = jax.vmap(_internal,in_axes=(0,0),out_axes=0)(inputs,index)
+
+    return out
+
+class IrwinHallModel_vmap(IrwinHallModel_full):
 
     def call(self,p,x,*args):
         
