@@ -701,7 +701,7 @@ class IrwinHallModel_full(Model):
 
     def call(self,p,x,*args):
         
-        y = jabble.model.cardinal_basis_full(x, self.xs, p, self.spline)
+        y = cardinal_basis_full(x, self.xs, p, self.spline)
         return y
 
 class IrwinHallModel_sparse(IrwinHallModel_full):
@@ -709,7 +709,7 @@ class IrwinHallModel_sparse(IrwinHallModel_full):
     def call(self,p,x,*args):
         
         a = (self.p_val+1)/2
-        y = jabble.model.cardinal_basis_sparse(x, self.xs, p, self.spline, a)
+        y = cardinal_basis_sparse(x, self.xs, p, self.spline, a)
         return y
 
 @partial(jit,static_argnums=[3,4,5])
