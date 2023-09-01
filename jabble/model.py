@@ -739,5 +739,5 @@ class IrwinHallModel_vmap(IrwinHallModel_full):
     def call(self,p,x,*args):
         
         a = (self.p_val+1)/2
-        y = jabble.model.cardinal_vmap_model(x, self.xs, p, self.spline, a)
+        y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
         return y
