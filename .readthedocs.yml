@@ -8,5 +8,3 @@ version: 3.7
 install: 
     - method: pip
     - requirements: docs/requirements.txt
-    extra_requirements:
-        - docs
