@@ -590,7 +590,7 @@ def cardinal_basis_full(x, xp, ap, basis):
     # print(np.array(design))
     return design @ ap
 
-@profile
+# @profile
 def _sparse_design_matrix(x,xp,basis,a):
 
     '''
@@ -629,7 +629,7 @@ def _sparse_design_matrix(x,xp,basis,a):
     return out
 
 # @partial(jit,static_argnums=[3,4,5])
-@profile
+# @profile
 def cardinal_basis_sparse(x, xp, ap, basis, a):
     '''XP must be equally spaced
         deal boundary conditions 0D, 0N
@@ -712,7 +712,7 @@ class IrwinHallModel_sparse(IrwinHallModel_full):
         y = cardinal_basis_sparse(x, self.xs, p, self.spline, a)
         return y
 
-@partial(jit,static_argnums=[3,4,5])
+# @partial(jit,static_argnums=[3,4,5])
 def cardinal_vmap_model(x,xp,ap,basis,a):
     '''
         Creates model with evenly spaced (cardinal) basis functions, coefficients ap
