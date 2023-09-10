@@ -30,8 +30,6 @@ def load(filename):
         model = pickle.load(input)
         return model
 
-# make function like this but in terms of resolution not n
-# plus padding
 def create_x_grid(xs,vel_padding,resolution):
     x_min = xs.min()
     x_max = xs.max()
@@ -51,8 +49,10 @@ def _parameters_indices_check(p_i):
     return
 
 class Model:
-    '''General model class of Jabble:
-    contains methods for optimizing, calling'''
+    '''
+    General model class of Jabble:
+    contains methods for optimizing, calling
+    '''
     def __init__(self):
         self._fit    = False
         self.func_evals = []
@@ -720,6 +720,7 @@ def cardinal_vmap_model(x,xp,ap,basis,a):
         nonzero within -a, and a
     '''
     dx     = xp[1] - xp[0]
+    ap  = jnp.array(ap)
     # assert np.all(dx == xp[1:] - xp[:-1])
     arange = jnp.floor(jnp.arange(-a-1,a+2,step=1.0)).astype(int)
     # get distance between each element and the closest cardinal basis to its left
