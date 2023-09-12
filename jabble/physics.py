@@ -9,14 +9,14 @@ import jax.numpy as jnp
 
 def velocities(shifts):
     expon = jnp.exp(2*shifts)
-    vel = const.c * (expon-1)/(1 + expon)
+    vel = np.constants.c * (expon-1)/(1 + expon)
     return vel
 
 def delta_x(R):
     return jnp.log(1+1/R)
 
 def shifts(vel):
-    return jnp.log(np.sqrt((1 + vel/(const.c))/(1 - vel/(const.c))))
+    return jnp.log(jnp.sqrt((1 + vel/(const.c))/(1 - vel/(const.c))))
 
 def get_star_velocity(BJD,star_name,observatory_name,parse=False):
     star = coord.SkyCoord.from_name(star_name,parse=parse)
