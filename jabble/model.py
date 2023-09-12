@@ -571,27 +571,6 @@ class StretchingModel(EpochSpecificModel):
         return p[i] * x
 
 
-class ScipySpline(Model):
-    def __init__(self, xs, p=None):
-        super(ScipySpline, self).__init__()
-        import scipy.interpolate
-
-        self.xs = xs
-        if p is not None:
-            if p.shape == self.xs.shape:
-                self.p = p
-            else:
-                logging.error(
-                    "p {} must be the same shape as x_grid {}".format(p.shape, xs.shape)
-                )
-        else:
-            self.p = np.zeros(xs.shape)
-
-    def call(self, p, x, i, *arg):
-        f = scipy.interpolate.CubicSpline(self.xs, p)
-        return f(x)
-
-
 class JaxLinear(Model):
     def __init__(self, xs, p=None):
         super(JaxLinear, self).__init__()
@@ -616,9 +595,6 @@ class JaxLinear(Model):
         return y
 
 
-from line_profiler import profile
-
-
 def _full_design_matrix(x, xp, basis):
     """
     Internal Function for general_interp_simple
@@ -630,11 +606,6 @@ def _full_design_matrix(x, xp, basis):
     """
     dx = xp[1] - xp[0]
     input = (x[:, None] - xp[None, :]) / dx
-    # cond1 = jnp.floor(input) < -a
-    # cond2 = jnp.floor(input) >  a
-    # input[(cond1 + cond2).astype(bool)] = 0.0
-    # spinput = sparse.BCOO.fromdense(input)
-
     return basis(input)
 
 
@@ -647,16 +618,8 @@ def cardinal_basis_full(x, xp, ap, basis):
 
     for future test for a, where basis function goes to zero
     """
-    # a = int((p+1)//2)
-    # GET EXACT SPACING from XP
-    #     assert jnp.allclose(xp[1:] - xp[:-1],dx) # require uniform spacing
-    #     X    = _sparse_design_matrix(xp,xp,dx,basis,a)
-
-    # This is a toeplitz matrix solve, may be faster also sparse
-    # make sparse scipy jax function maybe
-    #     alphas,res,rank,s = jnp.linalg.lstsq(X,fp)
+    
     design = _full_design_matrix(x, xp, basis)
-    # print(np.array(design))
     return design @ ap
 
 
