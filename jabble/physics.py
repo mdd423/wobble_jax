@@ -7,9 +7,11 @@ import astropy.time as atime
 import numpy as np
 import jax.numpy as jnp
 
+import scipy.constants
+
 def velocities(shifts):
     expon = jnp.exp(2*shifts)
-    vel = np.constants.c * (expon-1)/(1 + expon)
+    vel = scipy.constants.c * (expon-1)/(1 + expon)
     return vel
 
 def delta_x(R):
