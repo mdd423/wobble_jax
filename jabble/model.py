@@ -3,6 +3,7 @@ import math
 import jax
 import jax.numpy as jnp
 import jax.experimental.sparse
+from jaxopt import GaussNewton
 from jax.experimental import sparse
 
 # import matplotlib.pyplot as plt
@@ -137,6 +138,23 @@ class Model:
         self.results.append(res)
         self.unpack(res.x)
         return res
+
+    def gaussnewton(self,data,*args):
+        # Fits the Model
+        def chi_1(p):
+            residual = jnp.zeros(data.xs.shape)
+            for i in range(data.xs.shape[0]):
+                
+                residual = residual.at[i,:].set((data.ys[i,:] - self(p,data.xs[i,:],i)) * data.yivar[i,:])
+            return residual
+        
+
+        gn = GaussNewton(residual_fun=chi_1)
+        gn_sol = gn.run(self.get_parameters())
+        
+        self.results.append(gn_sol)
+        self.unpack(gn_sol.params)
+        return gn_sol
 
     def new_lbfgsb(
         self, loss, data, verbose=False, save_history=False, save_loss=False, **options
@@ -497,7 +515,7 @@ class EpochSpecificModel(Model):
         for i in range(grid.shape[0]):
             for j in range(grid.shape[1]):
                 # print(shift_grid[:,j].shape)
-                loss_arr[i, j] = loss(grid[:, j], data, i, model)
+                loss_arr[i, j] = np.sum(loss(grid[:, j], data, i, model))
         return loss_arr
 
     def add_component(self, value=0.0, n=1):
