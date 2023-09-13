@@ -18,7 +18,7 @@ def delta_x(R):
     return jnp.log(1+1/R)
 
 def shifts(vel):
-    return jnp.log(jnp.sqrt((1 + vel/(const.c))/(1 - vel/(const.c))))
+    return jnp.log(jnp.sqrt((1 + vel/(scipy.constants.c))/(1 - vel/(scipy.constants.c))))
 
 def get_star_velocity(BJD,star_name,observatory_name,parse=False):
     star = coord.SkyCoord.from_name(star_name,parse=parse)
