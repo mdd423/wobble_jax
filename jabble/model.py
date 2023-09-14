@@ -496,9 +496,9 @@ class EpochSpecificModel(Model):
         else:
             return self.call(p, *args)
 
-    def grid_search(self, grid, loss, model, data, epoches=None):
+    def grid_search(self,grid,loss,model,data,epoches=None):
         if epoches is None:
-            epoches = slice(0, self.n)
+            epoches = slice(0,self.n)
         # put all submodels in fixed mode except the shiftingmodel
         # to be searched then take loss of each epoch
         # that we hand the loss a slice of the shift array
@@ -506,17 +506,31 @@ class EpochSpecificModel(Model):
         model.fix()
         # index is the index of the submodel to grid search this is redundant
         self.fit(epoches=epoches)
-        if isinstance(model, ContainerModel):
+        if isinstance(model,jabble.model.ContainerModel):
             model.get_parameters()
-        # this is called because this resets the parameters per model
-        # array
-        # I want to have this be done when a submodel is put into fix or fix mode
-        loss_arr = np.empty(grid.shape)
-        for i in range(grid.shape[0]):
-            for j in range(grid.shape[1]):
-                # print(shift_grid[:,j].shape)
-                loss_arr[i, j] = np.sum(loss(grid[:, j], data, i, model))
+        
+        def _internal(grid,j):
+                
+            return jnp.array([jnp.sum(loss(grid, data, i, model)) for i in range(self.n)])
+        
+        loss_arr = jax.vmap(_internal, in_axes=(1,0), out_axes=1)(grid,np.arange(0,grid.shape[1]))
         return loss_arr
+
+    def parabola_fit(self,array1d,loss,model,data):
+        
+        grid   = np.array(self.p[:,None] + array1d[None,:])
+        loss   = np.array(self.grid_search(grid,loss,model,data))
+        
+        def _internal(g,l):
+    
+            poly = jnp.polyfit(g,l,deg=2)
+            lmin = jnp.roots(jnp.polyder(poly),strip_zeros=False).real
+            return lmin, jnp.polyval(poly,lmin)
+        minima = np.argmin(loss,axis=1).astype(int)
+        inds_i = np.arange(0,loss.shape[0],dtype=int).repeat(3).reshape(-1,3)
+        inds_j = (minima[:,None]+np.array([-1,0,1])[None,:]).flatten().reshape(-1,3)
+        l_min, g_min = jax.vmap(_internal,in_axes=(0,0),out_axes=0)(grid[inds_i,inds_j],loss[inds_i,inds_j])
+        self.p = np.array(jnp.squeeze(l_min))
 
     def add_component(self, value=0.0, n=1):
 
