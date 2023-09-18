@@ -737,21 +737,20 @@ def _irwin_recursion(j, k, n):
 
 class IrwinHall:
     def __init__(self, n):
-        n += 1
         self.n = n
-        self.alphas = np.zeros((n, n))
-        for j in range(n):
-            for k in range(n):
-                self.alphas[j, k] = _irwin_recursion(j, k, n)
+        self.alphas = np.zeros((n+1, n+1))
+        for j in range(n+1):
+            for k in range(n+1):
+                self.alphas[j, k] = _irwin_recursion(j, k, n+1)
         self.alphas = jnp.array(self.alphas)
 
     def __call__(self, x, *args):
-        ks = jnp.floor(x + (self.n / 2)).astype(int)
+        ks = jnp.floor(x + ((self.n + 1) / 2)).astype(int)
         cond1 = ks >= 0
-        cond2 = ks <= (self.n - 1)
+        cond2 = ks <= (self.n)
 
         f = jnp.where(
-            (cond1 * cond2), jnp.polyval(self.alphas[::-1, ks], x + (self.n / 2)), 0.0
+            (cond1 * cond2), jnp.polyval(self.alphas[::-1, ks], x + ((self.n + 1)  / 2)), 0.0
         )
 
         return f
