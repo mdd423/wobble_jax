@@ -9,6 +9,7 @@ from jax.experimental import sparse
 # import matplotlib.pyplot as plt
 import scipy.optimize
 import scipy.signal as signal
+import scipy.constants
 import sys
 from functools import partial
 from jax import jit
@@ -38,7 +39,7 @@ def load(filename):
 def create_x_grid(xs, vel_padding, resolution):
     x_min = xs.min()
     x_max = xs.max()
-    step = jabble.physics.shifts(const.c / resolution)
+    step = jabble.physics.shifts(scipy.constants.c / resolution)
     x_padding = jabble.physics.shifts(vel_padding)
     return np.arange(x_min - x_padding, x_max + x_padding, step)
 
