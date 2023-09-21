@@ -20,6 +20,7 @@ import logging
 
 import pickle  # 5 as pickle
 import jabble.dataset
+import jabble.physics
 
 # import simulator as wobble_sim
 # import loss as wobble_loss
@@ -37,8 +38,8 @@ def load(filename):
 def create_x_grid(xs, vel_padding, resolution):
     x_min = xs.min()
     x_max = xs.max()
-    step = jabble.dataset.shifts(const.c / resolution)
-    x_padding = jabble.dataset.shifts(vel_padding)
+    step = jabble.physics.shifts(const.c / resolution)
+    x_padding = jabble.physics.shifts(vel_padding)
     return np.arange(x_min - x_padding, x_max + x_padding, step)
 
 
