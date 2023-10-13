@@ -363,18 +363,20 @@ class ContainerModel(Model):
                     )
                 ]
             )
+    def get_indices(self,i):
+        return np.arange(
+                    np.sum(self.parameters_per_model[:i]),
+                    np.sum(self.parameters_per_model[: i + 1]),
+                    dtype=int,
+                )
+
 
 
 class CompositeModel(ContainerModel):
     def call(self, p, x, i, *args):
-        # prstringt(self.parameters_per_model)
+        # print(self.parameters_per_model)
         for k, model in enumerate(self.models):
-            indices = np.arange(
-                np.sum(self.parameters_per_model[:k]),
-                np.sum(self.parameters_per_model[: k + 1]),
-                dtype=int,
-            )
-            # print(indices)
+            indices = self.get_indices(k)
             x = model(p[indices], x, i, *args)
         return x
 
@@ -390,11 +392,7 @@ class AdditiveModel(ContainerModel):
         output = 0.0
         # PARALLELIZABLE
         for k, model in enumerate(self.models):
-            indices = np.arange(
-                np.sum(self.parameters_per_model[:k]),
-                np.sum(self.parameters_per_model[: k + 1]),
-                dtype=int,
-            )
+            indices = self.get_indices(k)
             output += model(p[indices], x, i, *args)
         return output
 
@@ -559,6 +557,15 @@ class EpochSpecificModel(Model):
     def unpack(self, p):
         if len(p) != 0:
             self.p[self._epoches] = p
+
+    def f_info(self,model,dataset):
+        f_info = np.zeros(self.n)
+        model.fix()
+        self.fit()
+        for e_num in range(self.n):
+            duddx = jax.jacfwd(model, argnums=0)(model.get_parameters(),dataset.xs[e_num,:],e_num)
+            f_info[e_num] =  jnp.dot(duddx[:,e_num]**2,dataset.yivar[e_num,:])
+        return f_info
 
 
 class ShiftingModel(EpochSpecificModel):
