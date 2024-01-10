@@ -67,4 +67,5 @@ jabble/__pycache__/
 notebooks/#*#
 notebooks/*.mdl
 notebooks/*.stats
+notebooks/*.stat
 
