@@ -1,3 +1,32 @@
 [build-system]
 requires = ["setuptools", "wheel", "setuptools_scm"]
 build-backend = 'setuptools.build_meta'
+
+[project]
+name = "jabble"
+version = "2023.1.0"
+dependencies = [
+  "numpy",
+  "astropy>=3.2",
+  "scipy",
+  "jax",
+]
+requires-python = ">=3.8"
+authors = [
+  {name = "Matthew Daunt", email = "mdd423@nyu.edu"}
+]
+maintainers = [
+  {name = "Matthew Daunt", email = "mdd423@nyu.edu"}
+]
+description = "Jax modeling for spectrograph analysis"
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = ["statistics", "jax", "astrophysics", "RV"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python"
+]
+
+[project.urls]
+Documentation = "https://readthedocs.org"
+Repository = "https://github.com/mdd423/wobble_jax.git"
