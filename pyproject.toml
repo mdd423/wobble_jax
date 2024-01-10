@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = "jabble"
-version = "1.0.0"
+dynamic = ["version"]
 dependencies = [
   "numpy",
   "astropy>=3.2",
@@ -26,6 +26,9 @@ classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python"
 ]
+
+[tool.setuptools-git-versioning]
+enabled = true
 
 [project.urls]
 Documentation = "https://readthedocs.org"
