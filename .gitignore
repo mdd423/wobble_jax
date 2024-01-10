@@ -62,3 +62,5 @@ models/
 jabble/version.py
 jabble/__pycache__/
 .DS_Store
+.pypirc
+
