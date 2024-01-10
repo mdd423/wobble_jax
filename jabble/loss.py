@@ -2,7 +2,10 @@
 import numpy as np
 import jax.numpy as jnp
 
-class LossFunc: #,loss_func,loss_parms=1.0
+class LossFunc: 
+    """
+    Loss or Objective function class for fitting jabble.models
+    """
     def __init__(self,coefficient=1.0):
         self.coefficient = coefficient
 
@@ -19,26 +22,25 @@ class LossFunc: #,loss_func,loss_parms=1.0
         return self
 
     def loss_all(self,p,data,model,*args):
+        """
+        Loops through all epochs in dataset. And adds each value to objective.
+
+        Parameters
+        ----------
+        p : `jnp.array`
+            Parameters of the model being fit.
+        data : `jabble.Dataset`
+            Dataset that model is being fit to.
+        model : `jabble.Model`
+            Model being fit.
+        """
         output = 0.0
-        # recall ys are packed st that 0: epoches, 1: pixel
-        # if model.save_history:
-        #     loss_arr = np.zeros(data.ys.shape)
         for ind in range(data.ys.shape[0]):
 
             output += self(p,data,ind,model,*args).sum()
-        # if model.save_history:
-        #     model.chi_history.append(loss_arr)
         return output
     
-    def loss_orders(self,p,data,model,*args):
-        output = 0.0
-        for ind in range(data.ys.shape[0]):
-            for jnd in range(data.ys.shape[1]):
-                output += self(p,data,ind,model,jnd,*args).sum()
 
-        return output
-
-### NOW LOSS OUTPUTS ACROSS ALL PXLS SO IT CAN BE SAVED AT TRAINING TIME
 class LossSequential(LossFunc):
     def __init__(self,loss_funcs):
         # super().__init__(self)
@@ -87,11 +89,6 @@ class L2Loss(LossFunc):
 class ChiSquare(LossFunc):
     def __call__(self, p, data, i, model, *args):
         err = self.coefficient * (((data.ys[i,:] - model(p,data.xs[i,:],i,*args))**2) * data.yivar[i,:])
-        return err
-    
-class ChiSquare2D(LossFunc):
-    def __call__(self, p, data, i, model, j, *args):
-        err = self.coefficient * (((data.ys[i,j,:] - model(p,data.xs[i,j,:],i,j,*args))**2) * data.yivar[i,j,:])
         return err
 
 
