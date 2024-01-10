@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = "jabble"
-dynamic = ["version"]
+dynamic = ["version","description"]
 dependencies = [
   "numpy",
   "astropy>=3.2",
@@ -18,7 +18,6 @@ authors = [
 maintainers = [
   {name = "Matthew Daunt", email = "mdd423@nyu.edu"}
 ]
-description = "Jax modeling for spectrograph analysis"
 readme = "README.md"
 license = {file = "LICENSE"}
 keywords = ["statistics", "jax", "astrophysics", "RV"]
