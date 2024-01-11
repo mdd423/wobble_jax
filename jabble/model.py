@@ -220,6 +220,12 @@ class Model:
         """
         self._fit = True
 
+    def to_device(self,device):
+        """
+        Move all parameters to given device
+        """
+        self.p = jax.device_put(self.p, device)
+
     def get_parameters(self):
         """
         Gets parameters from the model that are in fitting mode.
@@ -360,6 +366,13 @@ class ContainerModel(Model):
             self[i].fix(*args)
             self.parameters_per_model[i] = 0
 
+    def to_device(self,device):
+        """
+        Move all parameters of all submodels to given device
+        """
+        for model in self.models:
+            self.p = jax.device_put(model.p, device)
+
     def display(self, string=""):
         self.get_parameters()
         super(ContainerModel, self).display(string)
@@ -476,6 +489,12 @@ class EnvelopModel(Model):
 
     def fix(self, *args):
         self.model.fix(*args)
+
+    def to_device(self,device):
+        """
+        Move all parameters to given device
+        """
+        self.p = jax.device_put(self.model.p, device)
 
     def _unpack(self, p):
         self.model._unpack(p)
@@ -935,7 +954,13 @@ class IrwinHallModel_full(Model):
 
         y = cardinal_basis_full(x, self.xs, p, self.spline)
         return y
-
+    
+    def to_device(self,device):
+        """
+        Move all parameters to given device
+        """
+        self.p = jax.device_put(self.p, device)
+        self.xs = jax.device_put(self.xs, device)
 
 class IrwinHallModel_sparse(IrwinHallModel_full):
     """
