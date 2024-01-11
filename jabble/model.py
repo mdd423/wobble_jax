@@ -670,8 +670,7 @@ class EpochSpecificModel(Model):
             return jnp.array([])
 
     def _unpack(self, p):
-        if len(p) != 0:
-            self.p[self._epoches] = p
+        self.p = p
 
     def f_info(self,model,data):
         """
