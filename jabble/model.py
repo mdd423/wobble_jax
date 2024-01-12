@@ -134,7 +134,7 @@ class Model:
         return gn_sol
 
     def optimize(
-        self, loss, data, verbose=False, save_history=False, save_loss=False, **options
+        self, loss, data, verbose=False, save_history=False, save_loss=False, options={}
     ):
         """
         Choosen optimizer for jabble is scipy.fmin_l_bfgs_b.
@@ -188,7 +188,7 @@ class Model:
             return np.array(val, dtype="f8"), np.array(grad, dtype="f8")
 
         x, f, d = scipy.optimize.fmin_l_bfgs_b(
-            val_gradient_function, self.get_parameters(), None, (data, self)
+            val_gradient_function, self.get_parameters(), None, (data, self), **options
         )
         self.results.append(d)
         self._unpack(x)
