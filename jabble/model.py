@@ -669,9 +669,6 @@ class EpochSpecificModel(Model):
         else:
             return jnp.array([])
 
-    def _unpack(self, p):
-        self.p = p
-
     def f_info(self,model,data):
         """
         Get fischer information on parameters of the model. 
