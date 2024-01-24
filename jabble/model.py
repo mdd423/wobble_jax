@@ -371,7 +371,7 @@ class ContainerModel(Model):
         Move all parameters of all submodels to given device
         """
         for model in self.models:
-            self.p = jax.device_put(model.p, device)
+            model.to_device(device)
 
     def display(self, string=""):
         self.get_parameters()
