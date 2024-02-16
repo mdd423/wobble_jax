@@ -1039,3 +1039,9 @@ class IrwinHallModel_vmap(IrwinHallModel_full):
         a = (self.p_val + 1) / 2
         y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
         return y
+
+class NormalizationModel(ContainerModel):
+    def call(self, p, x, i, *args):
+        indices = self.get_indices(i)
+        x = self.models[i](p[indices], x, i, *args)
+        return x
