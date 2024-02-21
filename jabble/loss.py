@@ -36,16 +36,16 @@ class LossFunc:
             Model being fit.
         """
 
-        output = jnp.zeros(len(data.ys))
-        def _internal(ind):
-            return self(p,data,ind,model,*args)
-        output = jax.vmap(_internal,in_axes=(0,),out_axes=0)(jnp.arange(len(data.ys)))
-        return jnp.sum(output)
-        # output = 0.0
-        # for ind in range(data.ys.shape[0]):
+        # output = jnp.zeros(len(data.ys))
+        # def _internal(data,ind):
+        #     return self(p,data,ind,model,*args)
+        # output = jax.vmap(_internal,in_axes=(0,),out_axes=0)(jnp.arange(len(data.ys)))
+        # return jnp.sum(output)
+        output = 0.0
+        for ind in range(data.ys.shape[0]):
 
-        #     output += self(p,data,ind,model,*args).sum()
-        # return output
+            output += self(p,data,ind,model,*args).sum()
+        return output
     
 
 class LossSequential(LossFunc):
