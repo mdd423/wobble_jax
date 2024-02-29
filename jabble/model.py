@@ -935,7 +935,7 @@ class IrwinHallModel_full(Model):
         # also assumes epoches of data that is shifted between
         self.spline = jabble.irwinhall.IrwinHall(p_val)
         self.p_val = p_val
-        self.xs = xs
+        self.xs = jnp.array(xs)
         if p is not None:
             if p.shape == self.xs.shape:
                 self.p = p
@@ -944,7 +944,7 @@ class IrwinHallModel_full(Model):
                     "p {} must be the same shape as x_grid {}".format(p.shape, xs.shape)
                 )
         else:
-            self.p = np.zeros(xs.shape)
+            self.p = jnp.zeros(xs.shape)
 
     def call(self, p, x, *args):
 
