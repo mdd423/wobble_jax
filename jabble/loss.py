@@ -83,14 +83,18 @@ class LossSequential(LossFunc):
 # always multiply by coefficient so that when you do mutliplication with the
 # object then it translates to the output
 class L2Loss(LossFunc):
-    def __call__(self, p, data, i, model,*args):
-        err = self.coefficient * 0.5 * ((data.ys[i,~data.mask[i,:]] - model(p,data.xs[i,~data.mask[i,:]],i,*args))**2)
-        # Since jax grad only takes in 1d ndarrays you need to flatten your inputs
-        # thus the targets should already be flattened as well
+    def __call__(self, p, dataframe, i, model,*args):
+        err = self.coefficient * 0.5 * jnp.where(~dataframe.mask,(((dataframe.ys - model(p,dataframe.xs,i,*args))**2)),0.0)
+        return err
+    
+    
+class L1Loss(LossFunc):
+    def __call__(self, p, dataframe, i, model,*args):
+        err = self.coefficient * jnp.where(~dataframe.mask,jnp.abs(((dataframe.ys - model(p,dataframe.xs,i,*args)))),0.0)
         return err
 
 
-class MyChiSquare(jabble.loss.ChiSquare):
+class ChiSquare(LossFunc):
     def __call__(self, p, dataframe, i, model, *args):
         err = self.coefficient * jnp.where(~dataframe.mask,dataframe.yivar * (((dataframe.ys - model(p,dataframe.xs,i,*args))**2)),0.0)
         return err
