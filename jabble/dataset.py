@@ -1,4 +1,4 @@
-
+from dataclasses import dataclass
 # Third Party
 import numpy as np
 import numpy.polynomial as polynomial
@@ -71,34 +71,55 @@ def interpolate_mask(flux,mask):
                 cnt = 0
     return new_flux
 
-class Dataset:
-    def __init__(self,xs,ys,yerr,mask):
-        self.xs = xs
-        self.ys = ys
-        self.yerr = yerr
-        self.mask = mask
-
-        self.yivar = 1/self.yerr**2
-
-    def set_mask(self,y_val,yerr_val):
-        self.ys[self.mask] = y_val
-        self.yerr[self.mask] = yerr_val
-
-        self.yivar = 1/self.yerr**2
+@dataclass
+class Data:
+    """Temporary Data Type"""
+    dataframes: list
 
     def __getitem__(self,i):
-        return Dataset(self.xs[i,:],self.ys[i,:],self.yerr[i,:],self.mask[i,:])
+        return self.dataframes[i]
 
-    def from_flux(wave,flux,ferr,mask,normalize=None,nargs=[]):
-        if normalize is None:
-            nargs = [80]
-            normalize = scipy.ndimage.gaussian_filter
-        xs = np.log(wave.to(u.Angstrom).value)
-        flux_interp = interpolate_mask(flux,mask)
+    @property
+    def yerr(self):
+        return 1/np.sqrt(self.yivar)
 
-        flux_norm = np.empty(flux.shape)
-        for i in range(flux.shape[0]):
-            flux_norm[i,:] = normalize(flux_interp[i,:],*nargs)
-        ys = np.log(flux_interp/flux_norm)
-        yerr = ferr/flux_interp
-        return Dataset(xs, ys, yerr, mask)
+    @property
+    def xs(self):
+        return [dataframe.xs for dataframe in self.dataframes]
+
+    @property
+    def ys(self):
+        return [dataframe.ys for dataframe in self.dataframes]
+
+    @property
+    def yivar(self):
+        return [dataframe.yivar for dataframe in self.dataframes]
+
+    @property
+    def mask(self):
+        return [dataframe.mask for dataframe in self.dataframes]
+
+    def __len__(self):
+        return len(self.dataframes)
+
+    def from_lists(xs,ys,yivar,ma):
+        frames = []
+        for iii in range(len(xs)):
+            frames.append(DataFrame(xs[iii],ys[iii],yivar[iii],ma[iii]))
+        return Data(frames)
+
+    def to_device(self,device):
+        for dataframe in self.dataframes:
+            dataframe.to_device(device)
+
+@dataclass
+class DataFrame:
+    xs: jnp.array
+    ys: jnp.array
+    yivar: jnp.array
+    mask: jnp.array
+
+    def to_device(self,device):
+        jax.device_put(jnp.array(self.xs),device)
+        jax.device_put(jnp.array(self.ys),device)
+        jax.device_put(jnp.array(self.yivar),device)

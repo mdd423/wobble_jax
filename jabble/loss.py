@@ -36,16 +36,13 @@ class LossFunc:
             Model being fit.
         """
 
-        # output = jnp.zeros(len(data.ys))
-        # def _internal(data,ind):
-        #     return self(p,data,ind,model,*args)
-        # output = jax.vmap(_internal,in_axes=(0,),out_axes=0)(jnp.arange(len(data.ys)))
-        # return jnp.sum(output)
         output = 0.0
-        for ind in range(data.ys.shape[0]):
 
-            output += self(p,data,ind,model,*args).sum()
+        for ind,dataframe in enumerate(data):
+            output += self(p,dataframe,ind,model,*args).sum()
+        
         return output
+
     
 
 class LossSequential(LossFunc):
@@ -93,9 +90,9 @@ class L2Loss(LossFunc):
         return err
 
 
-class ChiSquare(LossFunc):
-    def __call__(self, p, data, i, model, *args):
-        err = self.coefficient * (((data.ys[i] - model(p,data.xs[i],i,*args))**2) * data.yivar[i])
+class MyChiSquare(jabble.loss.ChiSquare):
+    def __call__(self, p, dataframe, i, model, *args):
+        err = self.coefficient * jnp.where(~dataframe.mask,dataframe.yivar * (((dataframe.ys - model(p,dataframe.xs,i,*args))**2)),0.0)
         return err
 
 
