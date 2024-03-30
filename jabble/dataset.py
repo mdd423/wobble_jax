@@ -6,6 +6,7 @@ import numpy.polynomial as polynomial
 import scipy.ndimage
 
 import jax.numpy as jnp
+import jax
 
 # not really important
 def find_nearest(array,value):
