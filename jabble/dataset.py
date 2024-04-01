@@ -113,13 +113,13 @@ class Data:
         for dataframe in self.dataframes:
             dataframe.to_device(device)
 
-@dataclass
+
 class DataFrame:
     def __init__(self, xs: jnp.array,ys: jnp.array,yivar: jnp.array, mask: jnp.array):
-        self.xs = xs
-        self.ys = ys
-        self.yivar = yivar
-        self.mask = mask
+        self.xs = jnp.array(xs)
+        self.ys = jnp.array(ys)
+        self.yivar = jnp.array(yivar)
+        self.mask = jnp.array(mask)
     
 
     def to_device(self,device):
