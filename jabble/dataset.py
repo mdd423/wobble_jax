@@ -115,12 +115,15 @@ class Data:
 
 @dataclass
 class DataFrame:
-    xs: jnp.array
-    ys: jnp.array
-    yivar: jnp.array
-    mask: jnp.array
+    def __init__(self, xs: jnp.array,ys: jnp.array,yivar: jnp.array, mask: jnp.array):
+        self.xs = xs
+        self.ys = ys
+        self.yivar = yivar
+        self.mask = mask
+    
 
     def to_device(self,device):
         self.xs = jax.device_put(jnp.array(self.xs),device)
         self.ys = jax.device_put(jnp.array(self.ys),device)
         self.yivar = jax.device_put(jnp.array(self.yivar),device)
+        self.mask = jax.device_put(jnp.array(self.mask),device)
