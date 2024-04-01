@@ -121,6 +121,6 @@ class DataFrame:
     mask: jnp.array
 
     def to_device(self,device):
-        jax.device_put(jnp.array(self.xs),device)
-        jax.device_put(jnp.array(self.ys),device)
-        jax.device_put(jnp.array(self.yivar),device)
+        self.xs = jax.device_put(jnp.array(self.xs),device)
+        self.ys = jax.device_put(jnp.array(self.ys),device)
+        self.yivar = jax.device_put(jnp.array(self.yivar),device)
