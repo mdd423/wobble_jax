@@ -276,7 +276,7 @@ class ContainerModel(Model):
     def __init__(self, models):
         super(ContainerModel, self).__init__()
         self.models = models
-        self.parameters_per_model = np.empty((len(models)))
+        self.parameters_per_model = jnp.empty((len(models)))
         for i, model in enumerate(models):
             self.parameters_per_model[i] = len(model.get_parameters())
 
@@ -290,7 +290,7 @@ class ContainerModel(Model):
             Model to be added to the list of models
         """
         self.models.append(model)
-        self.parameters_per_model = np.concatenate(
+        self.parameters_per_model = jnp.concatenate(
             (self.parameters_per_model, len(model.get_parameters()))
         )
 
@@ -412,9 +412,9 @@ class ContainerModel(Model):
         indices : 'np.ndarray(int)`
             Array of indices for the parameters in the ith model that is in fitting mode
         """
-        return np.arange(
-                    np.sum(self.parameters_per_model[:i]),
-                    np.sum(self.parameters_per_model[: i + 1]),
+        return jnp.arange(
+                    jnp.sum(self.parameters_per_model[:i]),
+                    jnp.sum(self.parameters_per_model[: i + 1]),
                     dtype=int,
                 )
 
