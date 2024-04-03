@@ -530,7 +530,7 @@ class JaxEnvLinearModel(EnvelopModel):
                     "p {} must be the same shape as x_grid {}".format(p.shape, xs.shape)
                 )
         else:
-            self.p = np.zeros(xs.shape)
+            self.p = jnp.zeros(xs.shape)
 
     def call(self, p, x, i, *args):
         ys = self.model(p, self.xs, i, *args)
@@ -545,7 +545,7 @@ class ConvolutionalModel(Model):
     def __init__(self, p=None):
         super(ConvolutionalModel, self).__init__()
         if p is None:
-            self.p = np.array([0, 1, 0])
+            self.p = jnp.array([0, 1, 0])
         else:
             self.p = p
 
@@ -643,7 +643,7 @@ class EpochSpecificModel(Model):
         inds_i = np.arange(0,loss.shape[0],dtype=int).repeat(3).reshape(-1,3)
         inds_j = (minima[:,None]+np.array([-1,0,1])[None,:]).flatten().reshape(-1,3)
         l_min, g_min = jax.vmap(_internal,in_axes=(0,0),out_axes=0)(grid[inds_i,inds_j],loss[inds_i,inds_j])
-        self.p = np.array(jnp.squeeze(l_min))
+        self.p = jnp.array(jnp.squeeze(l_min))
 
     def add_component(self, value=0.0, n=1):
         """
@@ -709,9 +709,9 @@ class ShiftingModel(EpochSpecificModel):
     """
     def __init__(self, p=None, epoches=0):
         if p is None:
-            self.p = np.zeros(epoches)
+            self.p = jnp.zeros(epoches)
         else:
-            self.p = np.array(p)
+            self.p = jnp.array(p)
             epoches = len(p)
         super(ShiftingModel, self).__init__(epoches)
 
@@ -733,7 +733,7 @@ class StretchingModel(EpochSpecificModel):
     """
     def __init__(self, p=None, epoches=0):
         if p is None:
-            self.p = np.ones((epoches))
+            self.p = jnp.ones((epoches))
         else:
             self.p = p
             epoches = len(p)
