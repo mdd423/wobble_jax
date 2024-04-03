@@ -344,10 +344,10 @@ class ContainerModel(Model):
         if i is None:
             for j, model in enumerate(self.models):
                 model.fit()
-                self.parameters_per_model[j] = model.get_parameters().shape[0]
+                self.parameters_per_model = self.parameters_per_model.at[j].set(model.get_parameters().shape[0])
         else:
             self[i].fit(*args)
-            self.parameters_per_model[i] = self[i].get_parameters().shape[0]
+            self.parameters_per_model = self.parameters_per_model.at[i].set(self[i].get_parameters().shape[0])
 
     def fix(self, i=None, *args):
         """
@@ -361,10 +361,10 @@ class ContainerModel(Model):
         if i is None:
             for j, model in enumerate(self.models):
                 model.fix()
-                self.parameters_per_model[j] = 0
+                self.parameters_per_model = self.parameters_per_model.at[j].set(0)
         else:
             self[i].fix(*args)
-            self.parameters_per_model[i] = 0
+            self.parameters_per_model = self.parameters_per_model.at[i].set(0)
 
     def to_device(self,device):
         """
