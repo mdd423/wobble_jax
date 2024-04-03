@@ -327,7 +327,7 @@ class ContainerModel(Model):
         x = jnp.array([])
         for i, model in enumerate(self.models):
             params = model.get_parameters()
-            self.parameters_per_model[i] = params.shape[0]
+            self.parameters_per_model = self.parameters_per_model.at[i].set(params.shape[0])
             x = jnp.concatenate((x, params))
 
         return x
