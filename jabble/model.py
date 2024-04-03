@@ -278,7 +278,7 @@ class ContainerModel(Model):
         self.models = models
         self.parameters_per_model = jnp.empty((len(models)))
         for i, model in enumerate(models):
-            self.parameters_per_model[i] = len(model.get_parameters())
+            self.parameters_per_model = self.parameters_per_model.at[i].set(len(model.get_parameters()))
 
     def append(self, model):
         """
