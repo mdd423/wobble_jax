@@ -387,8 +387,8 @@ class ContainerModel(Model):
         self._param_bool = np.zeros((len(self.models),int(np.sum(self.parameters_per_model))))
         for i in range(len(self.models)):
             self._param_bool[i,jnp.sum(self.parameters_per_model[:i]):jnp.sum(self.parameters_per_model[: i + 1])] = jnp.ones(
-                                            (jnp.sum(self.parameters_per_model[:i]),
-                                            jnp.sum(self.parameters_per_model[: i + 1])),
+                                            (int(jnp.sum(self.parameters_per_model[:i]),)
+                                            int(jnp.sum(self.parameters_per_model[: i + 1]))),
                                             dtype=bool,
                                         )
         self._param_bool = jnp.array(self._param_bool)
