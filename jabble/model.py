@@ -325,7 +325,7 @@ class ContainerModel(Model):
     def __init__(self, models):
         super(ContainerModel, self).__init__()
         self.models = models
-        self.parameters_per_model = jnp.empty((len(models)))
+        self.parameters_per_model = jnp.empty((len(models)),dtype=int)
         for i, model in enumerate(models):
             self.parameters_per_model = self.parameters_per_model.at[i].set(len(model.get_parameters()))
         self.create_param_bool()
