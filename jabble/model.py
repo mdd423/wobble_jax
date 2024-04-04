@@ -328,6 +328,7 @@ class ContainerModel(Model):
         self.parameters_per_model = jnp.empty((len(models)))
         for i, model in enumerate(models):
             self.parameters_per_model = self.parameters_per_model.at[i].set(len(model.get_parameters()))
+        self.create_param_bool()
 
     def append(self, model):
         """
@@ -342,6 +343,7 @@ class ContainerModel(Model):
         self.parameters_per_model = jnp.concatenate(
             (self.parameters_per_model, len(model.get_parameters()))
         )
+        self.create_param_bool()
 
     def __call__(self, p, *args):
        
@@ -378,8 +380,18 @@ class ContainerModel(Model):
             params = model.get_parameters()
             self.parameters_per_model = self.parameters_per_model.at[i].set(params.shape[0])
             x = jnp.concatenate((x, params))
-
+        self.create_param_bool()
         return x
+
+    def create_param_bool(self):
+        self._param_bool = np.zeros((len(self.models,jnp.sum(self.parameters_per_model))))
+        for i in range(self.models):
+            self._param_bool[i,jnp.sum(self.parameters_per_model[:i]):jnp.sum(self.parameters_per_model[: i + 1])] = jnp.ones(
+                                            (jnp.sum(self.parameters_per_model[:i]),
+                                            jnp.sum(self.parameters_per_model[: i + 1])),
+                                            dtype=bool,
+                                        )
+        self._param_bool = jnp.array(self._param_bool)
 
     def fit(self, i=None, *args):
         """
@@ -461,11 +473,7 @@ class ContainerModel(Model):
         indices : 'np.ndarray(int)`
             Array of indices for the parameters in the ith model that is in fitting mode
         """
-        return jnp.arange(
-                    jnp.sum(self.parameters_per_model[:i]),
-                    jnp.sum(self.parameters_per_model[: i + 1]),
-                    dtype=int,
-                )
+        return self._param_bool[i]
 
 
 
