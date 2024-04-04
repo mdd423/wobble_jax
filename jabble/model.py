@@ -390,7 +390,7 @@ class ContainerModel(Model):
                                             (int(jnp.sum(self.parameters_per_model[: i + 1])) - int(jnp.sum(self.parameters_per_model[:i]))),
                                             dtype=bool,
                                         )
-        self._param_bool = jnp.array(self._param_bool)
+        self._param_bool = jnp.array(self._param_bool,dtype=bool)
 
     def fit(self, i=None, *args):
         """
