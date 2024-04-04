@@ -385,7 +385,7 @@ class ContainerModel(Model):
 
     def create_param_bool(self):
         self._param_bool = np.zeros((len(self.models),int(np.sum(self.parameters_per_model))))
-        for i in range(self.models):
+        for i in range(len(self.models)):
             self._param_bool[i,jnp.sum(self.parameters_per_model[:i]):jnp.sum(self.parameters_per_model[: i + 1])] = jnp.ones(
                                             (jnp.sum(self.parameters_per_model[:i]),
                                             jnp.sum(self.parameters_per_model[: i + 1])),
