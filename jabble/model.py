@@ -1099,6 +1099,6 @@ class IrwinHallModel_vmap(IrwinHallModel_full):
 class NormalizationModel(ContainerModel):
     def call(self, p, x, i, *args):
         indices = self.get_indices(i)
-        parameters = model.split_p(p)
-        x = self.models[i](parameters[i], x, i, *args)
+        # parameters = self.split_p(p)
+        x = self.models[i](p[indices], x, i, *args)
         return x
