@@ -113,6 +113,27 @@ class Data:
         for dataframe in self.dataframes:
             dataframe.to_device(device)
 
+    def blockify(data,device):
+        max_ind = np.max([len(dataframe.xs) for dataframe in data])
+        xs    = np.zeros((len(data),max_ind))
+        ys    = np.zeros((len(data),max_ind))
+        yivar = np.zeros((len(data),max_ind))
+        mask  = np.ones((len(data),max_ind))
+    
+        for i,dataframe in enumerate(data):
+            frame_size = len(dataframe.xs)
+            xs[i,:frame_size]    = dataframe.xs
+            ys[i,:frame_size]    = dataframe.ys
+            yivar[i,:frame_size] = dataframe.yivar
+            mask[i,:frame_size]  = dataframe.mask
+
+        xs    = jax.device_put(jnp.array(xs),device)
+        ys    = jax.device_put(jnp.array(ys),device)
+        yivar = jax.device_put(jnp.array(yivar),device)
+        mask  = jax.device_put(jnp.array(mask,dtype=bool),device)
+
+        return xs, ys, yivar, mask
+
 
 class DataFrame:
     def __init__(self, xs: jnp.array,ys: jnp.array,yivar: jnp.array, mask: jnp.array):

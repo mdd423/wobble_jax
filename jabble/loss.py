@@ -87,7 +87,7 @@ class L2Loss(LossFunc):
         err = self.coefficient * 0.5 * jnp.where(~dataframe.mask,(((dataframe.ys - model(p,dataframe.xs,i,*args))**2)),0.0)
         return err
     
-    
+
 class L1Loss(LossFunc):
     def __call__(self, p, dataframe, i, model,*args):
         err = self.coefficient * jnp.where(~dataframe.mask,jnp.abs(((dataframe.ys - model(p,dataframe.xs,i,*args)))),0.0)
@@ -95,10 +95,17 @@ class L1Loss(LossFunc):
 
 
 class ChiSquare(LossFunc):
-    def __call__(self, p, dataframe, i, model, *args):
-        err = self.coefficient * jnp.where(~dataframe.mask,dataframe.yivar * (((dataframe.ys - model(p,dataframe.xs,i,*args))**2)),0.0)
-        return err
+    def __call__(self, p, xs, ys, yivar, mask, i, model, *args):
+        return jnp.where(~mask,yivar * (((ys - model(p,xs,i,*args))**2)),0.0)
+    
+    def loss_all(self,p,xs,ys,yivar,mask,model,*args):
+        
+        def _internal(xs_row,ys_row,yivar_row,mask_row,index):
+            return self(p,xs_row,ys_row,yivar_row,mask_row,index,model,*args).sum()
 
+        indices = jnp.arange(0,xs.shape[0],dtype=int)
+        out = jax.vmap(_internal, in_axes=(0, 0, 0, 0, 0), out_axes=0)(xs, ys, yivar, mask, indices)
+        return out.sum()
 
 class L2Reg(LossFunc):
     def __init__(self,coefficient=1.0,constant=0.0,indices=True):

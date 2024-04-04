@@ -194,6 +194,55 @@ class Model:
         self._unpack(x)
         return d
 
+    def gpu_optimize(
+        self, loss, data, device, options={}
+    ):
+        """
+        Choosen optimizer for jabble is scipy.fmin_l_bfgs_b.
+        optimizes all parameters in fit mode with respect to the loss function using jabble.Dataset
+
+        Parameters
+        ----------
+        loss : `jabble.Loss`
+            jabble.loss object, 
+        data : `jabble.Dataset`
+            jabble.Dataset, that is handed to the Loss function during optimization
+        verbose : `bool`
+            if true prints, loss, grad dot grad at every function
+        save_history : `bool`
+            if true, saves values of parameters at every function call
+        save_loss : `bool`
+            if true, saves loss array every function call of optimization
+        options : 
+            additional keyword options to be passed to scipy.fmin_l_bfgs_b
+
+
+        Returns
+        ----------
+        d : `dict`
+            Results from scipy.fmin_l_bgs_b call
+        """
+
+        func_grad = jax.value_and_grad(loss.loss_all, argnums=0)
+
+        def val_gradient_function(p, *args):
+            val, grad = func_grad(p, *args)
+
+            return np.array(val, dtype="f8"), np.array(grad, dtype="f8")
+        
+        # blockify dataset
+        # mask extra points added to block
+        xs, ys, yivar, mask = data.blockify(device)
+
+        ##########################################################
+    
+        x, f, d = scipy.optimize.fmin_l_bfgs_b(
+            val_gradient_function, self.get_parameters(), None, (xs,ys,yivar,mask,self), **options
+        )
+        self.results.append(d)
+        self._unpack(jax.device_put(jnp.array(x),device))
+        return d
+
     def __add__(self, x):
         if isinstance(x, AdditiveModel):
             return AdditiveModel(models=[self, *x.models])
