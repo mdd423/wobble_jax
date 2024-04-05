@@ -326,8 +326,9 @@ class ContainerModel(Model):
         super(ContainerModel, self).__init__()
         self.models = models
         self.parameters_per_model = jnp.empty((len(models)),dtype=int)
-        for i, model in enumerate(models):
-            self.parameters_per_model = self.parameters_per_model.at[i].set(len(model.get_parameters()))
+        self.size = len(models)
+        for i in range(self.size):
+            self.parameters_per_model = self.parameters_per_model.at[i].set(len(self.models[i].get_parameters()))
         self.create_param_bool()
 
     def append(self, model):
@@ -384,8 +385,8 @@ class ContainerModel(Model):
         return x
 
     def create_param_bool(self):
-        self._param_bool = np.zeros((len(self.models),int(np.sum(self.parameters_per_model))))
-        for i in range(len(self.models)):
+        self._param_bool = np.zeros((self.size,int(np.sum(self.parameters_per_model))))
+        for i in range(self.size):
             self._param_bool[i,int(jnp.sum(self.parameters_per_model[:i])):int(jnp.sum(self.parameters_per_model[: i + 1]))] = jnp.ones(
                                             (int(jnp.sum(self.parameters_per_model[: i + 1])) - int(jnp.sum(self.parameters_per_model[:i]))),
                                             dtype=bool,
@@ -402,9 +403,9 @@ class ContainerModel(Model):
             index of the submodel in models list to fit, if left as None all submodels will be set to fitting mode.
         """
         if i is None:
-            for j, model in enumerate(self.models):
-                model.fit()
-                self.parameters_per_model = self.parameters_per_model.at[j].set(model.get_parameters().shape[0])
+            for j in range(self.size):
+                self.models[j].fit()
+                self.parameters_per_model = self.parameters_per_model.at[j].set(self.models[j].get_parameters().shape[0])
         else:
             self[i].fit(*args)
             self.parameters_per_model = self.parameters_per_model.at[i].set(self[i].get_parameters().shape[0])
