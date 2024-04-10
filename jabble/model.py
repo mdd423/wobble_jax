@@ -1104,9 +1104,26 @@ class NormalizationModel(ContainerModel):
         x = self.models[i](p[indices], x, i, *args)
         return x
     
+def get_normalization_model(dataset,norm_p_val,pts_per_wavelength):
+    len_xs = np.max([np.max(dataframe.xs) - np.min(dataframe.xs) for dataframe in dataset])
+    min_xs = np.min([np.min(dataframe.xs) for dataframe in dataset])
+    max_xs = np.max([np.max(dataframe.xs) for dataframe in dataset])
+
+    shifts = jnp.array([dataframe.xs.min() - min_xs for dataframe in dataset])
+
+    x_num = int((np.exp(max_xs) - np.exp(min_xs)) * pts_per_wavelength)
+    x_spacing = len_xs/x_num
+    x_grid = jnp.linspace(-x_spacing,len_xs+x_spacing,x_num+2) + min_xs
+    
+    model = IrwinHallModel_vmap(x_grid, norm_p_val)
+    size  = len(dataset)
+    
+    norm_model = NewNormalizationModel(model,size)
+    return ShiftingModel(shifts).composite(norm_model)
+    
 class NewNormalizationModel(jabble.model.Model):
     def __init__(self, model, size):
-        super(MyNormalizationModel, self).__init__()
+        super(NewNormalizationModel, self).__init__()
         self.p     = jnp.repeat(model.p,size)
         self.model = model
         self.parameters_per_model = jnp.empty(size,dtype=int)
@@ -1120,7 +1137,7 @@ class NewNormalizationModel(jabble.model.Model):
     
     def get_parameters(self):
             
-        x  = super(MyNormalizationModel, self).get_parameters()
+        x  = super(NewNormalizationModel, self).get_parameters()
         self.update_parameters_per()
         return x   
 
