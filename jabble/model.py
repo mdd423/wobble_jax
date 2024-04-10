@@ -377,8 +377,8 @@ class ContainerModel(Model):
             1-D jax array concatenated all submodels paraemeters that are in fit mode
         """
         x = jnp.array([])
-        for i, model in enumerate(self.models):
-            params = model.get_parameters()
+        for i in range(self.size):
+            params = self.models[i].get_parameters()
             self.parameters_per_model = self.parameters_per_model.at[i].set(params.shape[0])
             x = jnp.concatenate((x, params))
         self.create_param_bool()
@@ -748,7 +748,7 @@ class EpochSpecificModel(Model):
         model.fix()
         self.fit()
         for e_num in range(self.n):
-            duddx = jax.jacfwd(model, argnums=0)(model.get_parameters(),data.xs[e_num,:],e_num)
+            duddx = jnp.where(~data.mask[e_num][:],jax.jacfwd(model, argnums=0)(model.get_parameters(),data.xs[e_num][:],e_num))
             f_info[e_num] =  jnp.dot(duddx[:,e_num]**2,data.yivar[e_num,:])
         return f_info
 
