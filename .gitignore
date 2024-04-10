@@ -50,6 +50,7 @@ coverage.xml
 docs/_build/
 
 # Other files
+*.ipynb
 out/
 data/
 training.py
@@ -63,6 +64,7 @@ jabble/version.py
 jabble/__pycache__/
 .DS_Store
 config.pypirc
+batching/
 
 notebooks/#*#
 notebooks/*.mdl
