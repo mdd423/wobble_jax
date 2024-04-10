@@ -1103,3 +1103,74 @@ class NormalizationModel(ContainerModel):
         # parameters = self.split_p(p)
         x = self.models[i](p[indices], x, i, *args)
         return x
+    
+class NewNormalizationModel(jabble.model.Model):
+    def __init__(self, model, size):
+        super(MyNormalizationModel, self).__init__()
+        self.p     = jnp.repeat(model.p,size)
+        self.model = model
+        self.parameters_per_model = jnp.empty(size,dtype=int)
+        self.size  = size
+        self.update_parameters_per()
+
+    def update_parameters_per(self):
+        for i in range(self.size):
+            self.parameters_per_model = self.parameters_per_model.at[i].set(self.model.get_parameters().shape[0])
+        self.create_param_bool()
+    
+    def get_parameters(self):
+            
+        x  = super(MyNormalizationModel, self).get_parameters()
+        self.update_parameters_per()
+        return x   
+
+    def fit(self):
+        """
+        Sets model into fitting model. All parameters will be varied during next optimization call.
+        """
+        self._fit = True
+        self.model.fit()
+        self.update_parameters_per()
+
+    def fix(self):
+        """
+        Sets model into fitting model. All parameters will be varied during next optimization call.
+        """
+        self._fit = False
+        self.model.fix()
+        self.update_parameters_per()
+
+    def split_p(self, p):
+        p_list = jnp.array([
+            p[
+                self.get_indices(k)
+            ]
+            for k in range(len(self.parameters_per_model))
+        ])
+
+        return p_list
+
+    def get_indices(self,i):
+        """
+        Get array of ints for the ith submodel, in models list using parameters_per_model
+        Returns
+        -------
+        indices : 'np.ndarray(int)`
+            Array of indices for the parameters in the ith model that is in fitting mode
+        """
+        return self._param_bool[i]
+
+    def create_param_bool(self):
+        self._param_bool = np.zeros((self.size,int(np.sum(self.parameters_per_model))))
+        for i in range(self.size):
+            self._param_bool[i,int(jnp.sum(self.parameters_per_model[:i])):int(jnp.sum(self.parameters_per_model[: i + 1]))] = jnp.ones(
+                                            (int(jnp.sum(self.parameters_per_model[: i + 1])) - int(jnp.sum(self.parameters_per_model[:i]))),
+                                            dtype=bool,
+                                        )
+        self._param_bool = jnp.array(self._param_bool,dtype=bool)
+    
+    def call(self, p, x, i, *args):
+        # indices = self.get_indices(i)
+        parameters = self.split_p(p)
+        x = self.model(parameters[i], x, i, *args)
+        return x
