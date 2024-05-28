@@ -3,6 +3,9 @@ import math
 import jax.numpy as jnp
 
 def _irwin_recursion(j, k, n):
+    # j -> n
+    # k -> m
+    # n -> p
     if k == 0:
         if j < n - 1:
             return 0.0
