@@ -1141,7 +1141,7 @@ def get_normalization_model(dataset,norm_p_val,pts_per_wavelength):
     norm_model = NewNormalizationModel(model,size)
     return jabble.model.ShiftingModel(shifts).composite(norm_model)
 
-class NewNormalizationModel(jabble.model.Model):
+class NewNormalizationModel(Model):
     def __init__(self, model, size):
         super(NewNormalizationModel, self).__init__()
         self.p     = jnp.tile(model.p,size)
