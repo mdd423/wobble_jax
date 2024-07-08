@@ -1099,29 +1099,7 @@ class IrwinHallModel_vmap(IrwinHallModel_full):
         y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
         return y
 
-class NormalizationModel(ContainerModel):
-    def call(self, p, x, i, *args):
-        indices = self.get_indices(i)
-        # parameters = self.split_p(p)
-        x = self.models[i](p[indices], x, i, *args)
-        return x
-    
-def get_normalization_model(dataset,norm_p_val,pts_per_wavelength):
-    len_xs = np.max([np.max(dataframe.xs) - np.min(dataframe.xs) for dataframe in dataset])
-    min_xs = np.min([np.min(dataframe.xs) for dataframe in dataset])
-    max_xs = np.max([np.max(dataframe.xs) for dataframe in dataset])
 
-    shifts = jnp.array([dataframe.xs.min() - min_xs for dataframe in dataset])
-
-    x_num = int((np.exp(max_xs) - np.exp(min_xs)) * pts_per_wavelength)
-    x_spacing = len_xs/x_num
-    x_grid = jnp.linspace(-x_spacing,len_xs+x_spacing,x_num+2) + min_xs
-    
-    model = IrwinHallModel_vmap(x_grid, norm_p_val)
-    size  = len(dataset)
-    
-    norm_model = NewNormalizationModel(model,size)
-    return ShiftingModel(shifts).composite(norm_model)
 
 def get_normalization_model(dataset,norm_p_val,pts_per_wavelength):
     len_xs = np.max([np.max(dataframe.xs) - np.min(dataframe.xs) for dataframe in dataset])
@@ -1139,7 +1117,8 @@ def get_normalization_model(dataset,norm_p_val,pts_per_wavelength):
 
     print(size,len(model.p))
     norm_model = NewNormalizationModel(model,size)
-    return jabble.model.ShiftingModel(shifts).composite(norm_model)
+    return ShiftingModel(shifts).composite(norm_model)
+
 
 class NewNormalizationModel(Model):
     def __init__(self, model, size):
@@ -1157,73 +1136,3 @@ class NewNormalizationModel(Model):
         return x
   
 
-# class NewNormalizationModel(Model):
-    # def __init__(self, model, size):
-    #     super(NewNormalizationModel, self).__init__()
-    #     self.p     = jnp.repeat(model.p,size)
-    #     self.model = model
-    #     self.parameters_per_model = jnp.empty(size,dtype=int)
-    #     self.size  = size
-    #     self.update_parameters_per()
-
-    # def update_parameters_per(self):
-    #     for i in range(self.size):
-    #         self.parameters_per_model = self.parameters_per_model.at[i].set(self.model.get_parameters().shape[0])
-    #     self.create_param_bool()
-    
-    # def get_parameters(self):
-            
-    #     x  = super(NewNormalizationModel, self).get_parameters()
-    #     self.update_parameters_per()
-    #     return x   
-
-    # def fit(self):
-    #     """
-    #     Sets model into fitting model. All parameters will be varied during next optimization call.
-    #     """
-    #     self._fit = True
-    #     self.model.fit()
-    #     self.update_parameters_per()
-
-    # def fix(self):
-    #     """
-    #     Sets model into fitting model. All parameters will be varied during next optimization call.
-    #     """
-    #     self._fit = False
-    #     self.model.fix()
-    #     self.update_parameters_per()
-
-    # def split_p(self, p):
-    #     p_list = jnp.array([
-    #         p[
-    #             self.get_indices(k)
-    #         ]
-    #         for k in range(len(self.parameters_per_model))
-    #     ])
-
-    #     return p_list
-
-    # def get_indices(self,i):
-    #     """
-    #     Get array of ints for the ith submodel, in models list using parameters_per_model
-    #     Returns
-    #     -------
-    #     indices : 'np.ndarray(int)`
-    #         Array of indices for the parameters in the ith model that is in fitting mode
-    #     """
-    #     return self._param_bool[i]
-
-    # def create_param_bool(self):
-    #     self._param_bool = np.zeros((self.size,int(np.sum(self.parameters_per_model))))
-    #     for i in range(self.size):
-    #         self._param_bool[i,int(jnp.sum(self.parameters_per_model[:i])):int(jnp.sum(self.parameters_per_model[: i + 1]))] = jnp.ones(
-    #                                         (int(jnp.sum(self.parameters_per_model[: i + 1])) - int(jnp.sum(self.parameters_per_model[:i]))),
-    #                                         dtype=bool,
-    #                                     )
-    #     self._param_bool = jnp.array(self._param_bool,dtype=bool)
-    
-    # def call(self, p, x, i, *args):
-    #     # indices = self.get_indices(i)
-    #     parameters = self.split_p(p)
-    #     x = self.model(parameters[i], x, i, *args)
-    #     return x

@@ -22,7 +22,7 @@ class LossFunc:
         self.coefficient *= x
         return self
 
-    def loss_all(self,p,data,model,*args):
+    def loss_all(self,p,xs,ys,yivar,mask,model,device_op,batch_size,*args):
         """
         Loops through all epochs in dataset. And adds each value to objective.
 
@@ -31,18 +31,34 @@ class LossFunc:
         p : `jnp.array`
             Parameters of the model being fit.
         data : `jabble.Dataset`
-            Dataset that model is being fit to.
+            
         model : `jabble.Model`
             Model being fit.
         """
-
-        output = 0.0
-
-        for ind,dataframe in enumerate(data):
-            output += self(p,dataframe,ind,model,*args).sum()
+        #blockify parameters
+        #what if normalization model has different number of parameters per model
+        #anything that is going to take the epoch index needs to blockified and be the only parameter
+        #this is an issue with the normalization model because its epoch specific but the parameters vary by epoch
+        # just putting in the zero below will assume the same number of parameters as the first one
+        # not the one specified, whats the better way to do multiple epoch fitting without indices
         
-        return output
+        def _internal(xs_row,ys_row,yivar_row,mask_row,index):
+            return self(p,xs_row,ys_row,yivar_row,mask_row,index,model,*args).sum()
 
+        indices = jnp.arange(0,xs.shape[0],dtype=int)
+
+        rounds = int(np.ceil(xs.shape[0]/batch_size))
+        out = 0.0
+        for iii in range(rounds):
+            top = np.min([(iii+1)*batch_size,xs.shape[0]])
+            # print(device_op)
+            temp = jax.vmap(_internal, in_axes=(0, 0, 0, 0, 0), out_axes=0)(jax.device_put(xs[(iii*batch_size):top],device_op), \
+                                                                            jax.device_put(ys[(iii*batch_size):top],device_op), \
+                                                                            jax.device_put(yivar[(iii*batch_size):top],device_op), \
+                                                                            jax.device_put(mask[(iii*batch_size):top],device_op), \
+                                                                            jax.device_put(indices[(iii*batch_size):top],device_op))
+            out += temp.sum()
+        return out
     
 
 class LossSequential(LossFunc):
@@ -82,30 +98,11 @@ class LossSequential(LossFunc):
 
 # always multiply by coefficient so that when you do mutliplication with the
 # object then it translates to the output
-class L2Loss(LossFunc):
-    def __call__(self, p, dataframe, i, model,*args):
-        err = self.coefficient * 0.5 * jnp.where(~dataframe.mask,(((dataframe.ys - model(p,dataframe.xs,i,*args))**2)),0.0)
-        return err
-    
-
-class L1Loss(LossFunc):
-    def __call__(self, p, dataframe, i, model,*args):
-        err = self.coefficient * jnp.where(~dataframe.mask,jnp.abs(((dataframe.ys - model(p,dataframe.xs,i,*args)))),0.0)
-        return err
-
 
 class ChiSquare(LossFunc):
     def __call__(self, p, xs, ys, yivar, mask, i, model, *args):
-        return jnp.where(~mask,yivar * (((ys - model(p,xs,i,*args))**2)),0.0)
+        return self.coefficient * jnp.where(~mask,yivar * (((ys - model(p,xs,i,*args))**2)),0.0)
     
-    def loss_all(self,p,xs,ys,yivar,mask,model,*args):
-        
-        def _internal(xs_row,ys_row,yivar_row,mask_row,index):
-            return self(p,xs_row,ys_row,yivar_row,mask_row,index,model,*args).sum()
-
-        indices = jnp.arange(0,xs.shape[0],dtype=int)
-        out = jax.vmap(_internal, in_axes=(0, 0, 0, 0, 0), out_axes=0)(xs, ys, yivar, mask, indices)
-        return out.sum()
 
 class L2Reg(LossFunc):
     def __init__(self,coefficient=1.0,constant=0.0,indices=True):
@@ -113,20 +110,8 @@ class L2Reg(LossFunc):
         self.constant = constant
         self.indices  = indices
 
-    def __call__(self, p, data, i, model, *args):
+    def __call__(self, p, xs, ys, yivar, mask, i, model, *args):
         err = self.coefficient * 0.5 * ((p[self.indices] - self.constant)**2)
         return err
 
 
-class L2Smooth(LossFunc):
-    def __init__(self,coefficient=1.,constant=0.0,submodel_ind=None):
-        super(L2Smooth,self).__init__(coefficient)
-        self.submodel_ind = submodel_ind
-        self.constant = constant
-
-    def __call__(self,p,data,i,model,*args):
-        ps = model.split_p(p)
-        for ind in self.submodel_ind:
-            ps = ps[ind]
-        err = self.coefficient * 0.5 * ((ps[1:] - ps[:-1])**2)
-        return err
