@@ -958,7 +958,7 @@ def cardinal_basis_sparse(x, xp, ap, basis, a):
     return out
 
 import jabble.irwinhall
-class IrwinHallModel_full(Model):
+class CardinalSplineMixture_full(Model):
     """
     Model that evaluates input using full Irwin-Hall cardinal basis design matrix.
 
@@ -973,7 +973,7 @@ class IrwinHallModel_full(Model):
 
     """
     def __init__(self, xs, p_val=2, p=None):
-        super(IrwinHallModel_full, self).__init__()
+        super(CardinalSplineMixture_full, self).__init__()
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
         # also assumes epoches of data that is shifted between
@@ -1002,7 +1002,7 @@ class IrwinHallModel_full(Model):
         self.p = jax.device_put(self.p, device)
         self.xs = jax.device_put(self.xs, device)
 
-class IrwinHallModel_sparse(IrwinHallModel_full):
+class CardinalSplineMixture_sparse(CardinalSplineMixture_full):
     """
     Model that evaluates input using sparse Irwin-Hall cardinal basis design matrix.
 
@@ -1064,7 +1064,7 @@ def cardinal_vmap_model(x, xp, ap, basis, a):
     return out
 
 
-class IrwinHallModel_vmap(IrwinHallModel_full):
+class CardinalSplineMixture_vmap( CardinalSplineMixture_full):
     """
     Model that evaluates input using Irwin-Hall cardinal basis with jax.vmap.
 
@@ -1097,7 +1097,7 @@ def get_normalization_model(dataset,norm_p_val,pts_per_wavelength):
     x_spacing = len_xs/x_num
     x_grid = jnp.linspace(-x_spacing,len_xs+x_spacing,x_num+2) + min_xs
     
-    model = IrwinHallModel_vmap(x_grid, norm_p_val)
+    model =  CardinalSplineMixture_vmap(x_grid, norm_p_val)
     size  = len(dataset)
 
     print(size,len(model.p))
