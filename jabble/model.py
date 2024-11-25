@@ -350,6 +350,7 @@ class ContainerModel(Model):
         else:
             self[i].fit(*args)
             self.parameters_per_model = self.parameters_per_model.at[i].set(self[i].get_parameters().shape[0])
+        self.create_param_bool()
 
     def fix(self, i=None, *args):
         """
@@ -367,6 +368,7 @@ class ContainerModel(Model):
         else:
             self[i].fix(*args)
             self.parameters_per_model = self.parameters_per_model.at[i].set(0)
+        self.create_param_bool()
 
     def to_device(self,device):
         """
