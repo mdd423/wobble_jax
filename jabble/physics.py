@@ -6,8 +6,16 @@ import astropy.time as atime
 
 import numpy as np
 import jax.numpy as jnp
+import jax
 
 import scipy.constants
+
+def get_verr(shifts,f_info):
+    dvddx = jnp.array(
+        [jax.grad(velocities)(x) for x in shifts]
+    )
+    verr = np.sqrt(1 / f_info) * dvddx
+    return verr
 
 def velocities(shifts):
     expon = jnp.exp(2*shifts)

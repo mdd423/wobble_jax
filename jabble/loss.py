@@ -3,6 +3,18 @@ import numpy as np
 import jax.numpy as jnp
 import jax
 
+def dict_slice(dictionary,slice_i,slice_j,device):
+        out = {}
+        for key in dictionary:
+            out[key] = jax.device_put(dictionary[key][slice_i:slice_j],device)
+        return out
+
+def dict_ele(dictionary,slice_i,device):
+        out = {}
+        for key in dictionary:
+            out[key] = jax.device_put(dictionary[key][slice_i],device)
+        return out
+
 class LossFunc: 
     """
     Loss or Objective function class for fitting jabble.models
@@ -22,7 +34,7 @@ class LossFunc:
         self.coefficient *= x
         return self
 
-    def loss_all(self,p,xs,ys,yivar,mask,model,device_op,batch_size,*args):
+    def loss_all(self,p,datablock,metablock,model,device_op,batch_size,*args):
         """
         Loops through all epochs in dataset. And adds each value to objective.
 
@@ -42,23 +54,23 @@ class LossFunc:
         # just putting in the zero below will assume the same number of parameters as the first one
         # not the one specified, whats the better way to do multiple epoch fitting without indices
         
-        def _internal(xs_row,ys_row,yivar_row,mask_row,index):
-            return self(p,xs_row,ys_row,yivar_row,mask_row,index,model,*args).sum()
+        def _internal(datarow,metarow):
+            return self(p,datarow,metarow,model,*args).sum()
 
-        indices = jnp.arange(0,xs.shape[0],dtype=int)
-
-        rounds = int(np.ceil(xs.shape[0]/batch_size))
+        rounds = int(np.ceil(metablock['index'].max()/batch_size))
         out = 0.0
+        
         for iii in range(rounds):
-            top = np.min([(iii+1)*batch_size,xs.shape[0]])
-            # print(device_op)
-            temp = jax.vmap(_internal, in_axes=(0, 0, 0, 0, 0), out_axes=0)(jax.device_put(xs[(iii*batch_size):top],device_op), \
-                                                                            jax.device_put(ys[(iii*batch_size):top],device_op), \
-                                                                            jax.device_put(yivar[(iii*batch_size):top],device_op), \
-                                                                            jax.device_put(mask[(iii*batch_size):top],device_op), \
-                                                                            jax.device_put(indices[(iii*batch_size):top],device_op))
+            top = np.min([(iii+1)*batch_size,datablock['xs'].shape[0]])
+            
+            temp = jax.vmap(_internal, in_axes=(0,0), out_axes=0)(dict_slice(datablock,(iii*batch_size),top,device_op),\
+                                                                dict_slice(metablock,(iii*batch_size),top,device_op))
             out += temp.sum()
         return out
+    
+    def ready_indices(self,model):
+
+        pass
     
 
 class LossSequential(LossFunc):
@@ -66,10 +78,10 @@ class LossSequential(LossFunc):
         # super().__init__(self)
         self.loss_funcs = loss_funcs
 
-    def __call__(self,p,data,i,model,*args):
+    def __call__(self,p,data,meta,model,*args):
         output = 0.0
         for loss in self.loss_funcs:
-            output += loss(p,data,i,model,*args).sum()
+            output += loss(p,data,meta,model,*args).sum()
         return output
 
     def __add__(self,x):
@@ -95,23 +107,50 @@ class LossSequential(LossFunc):
         for loss in self.loss_funcs:
             loss.coefficient *= x
         return self
+    
+    def ready_indices(self,model):
+
+        for loss in self.loss_funcs:
+            loss.ready_indices(model)
+            # loss.indices = get_submodel_indices(model,*loss.submodel_inds)
 
 # always multiply by coefficient so that when you do mutliplication with the
 # object then it translates to the output
 
 class ChiSquare(LossFunc):
-    def __call__(self, p, xs, ys, yivar, mask, i, model, *args):
-        return self.coefficient * jnp.where(~mask,yivar * (((ys - model(p,xs,i,*args))**2)),0.0)
+    def __call__(self, p, datarow, metarow, model, *args):
+        
+        return self.coefficient * jnp.where(~datarow['mask'],\
+                                            datarow['yivar'] * (((datarow['ys'] - model(p,datarow['xs'],metarow,*args))**2)),\
+                                            0.0)
+
+def get_submodel_indices(self,i,j=None,*args):
+    # this recurses through submodels when given a set of indices to that submodel
+    # then returns of a bool array of the length of the total number of parameters 
+    # of whole model
+    # with 1's at the parameters of the specific submodel, 0's elsewhere
+    self.display()
+    s_temp = self.get_indices(i)
+    if j is None:
+        return s_temp
     
+    s_inds = jnp.zeros(self.get_parameters().shape,dtype=bool)
+    temp = get_submodel_indices(self[i],j,*args)
+    s_inds = s_inds.at[s_temp].set(temp) #self[i].get_indices(j)
+    print(len(s_inds),np.sum(s_inds))
+    return s_inds    
 
 class L2Reg(LossFunc):
-    def __init__(self,coefficient=1.0,constant=0.0,indices=True):
+    def __init__(self,submodel_inds=True,coefficient=1.0,constant=0.0):
         super(L2Reg,self).__init__(coefficient)
-        self.constant = constant
-        self.indices  = indices
+        self.constant      = constant
+        self.submodel_inds = submodel_inds
+        # self.indices       = get_submodel_indices(model,*self.submodel_inds)
 
-    def __call__(self, p, xs, ys, yivar, mask, i, model, *args):
+    def ready_indices(self,model):
+        self.indices = get_submodel_indices(model,*self.submodel_inds)
+
+    def __call__(self, p, datarow, model, *args):
         err = self.coefficient * 0.5 * ((p[self.indices] - self.constant)**2)
         return err
-
 

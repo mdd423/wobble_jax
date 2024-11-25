@@ -135,69 +135,9 @@ class Model:
         self._unpack(gn_sol.params)
         return gn_sol
 
+
     def optimize(
-        self, loss, data, verbose=False, save_history=False, save_loss=False, options={}
-    ):
-        """
-        Choosen optimizer for jabble is scipy.fmin_l_bfgs_b.
-        optimizes all parameters in fit mode with respect to the loss function using jabble.Dataset
-
-        Parameters
-        ----------
-        loss : `jabble.Loss`
-            jabble.loss object, 
-        data : `jabble.Dataset`
-            jabble.Dataset, that is handed to the Loss function during optimization
-        verbose : `bool`
-            if true prints, loss, grad dot grad at every function
-        save_history : `bool`
-            if true, saves values of parameters at every function call
-        save_loss : `bool`
-            if true, saves loss array every function call of optimization
-        options : 
-            additional keyword options to be passed to scipy.fmin_l_bfgs_b
-
-
-        Returns
-        ----------
-        d : `dict`
-            Results from scipy.fmin_l_bgs_b call
-        """
-
-        func_grad = jax.value_and_grad(loss.loss_all, argnums=0)
-
-        def val_gradient_function(p, *args):
-            val, grad = func_grad(p, *args)
-            self.func_evals.append(val)
-            if verbose:
-                print(
-                    "\r[ Value: {:+3.2e} Grad: {:+3.2e} ]".format(
-                        val, np.inner(grad, grad)
-                    )
-                )
-
-            if self.save_history:
-                self.history.append(np.array(p))
-
-            if self.save_loss:
-                initialize = loss(p, data, 0, self)
-                tmp = np.zeros((data.ys.shape[0], *initialize.shape))
-                tmp[0, ...] = initialize
-                for i in range(1, data.ys.shape[0]):
-                    tmp[i, ...] = loss(p, data, i, self)
-                self.loss_history.append(tmp)
-
-            return np.array(val, dtype="f8"), np.array(grad, dtype="f8")
-
-        x, f, d = scipy.optimize.fmin_l_bfgs_b(
-            val_gradient_function, self.get_parameters(), None, (data, self), **options
-        )
-        self.results.append(d)
-        self._unpack(x)
-        return d
-
-    def gpu_optimize(
-        self, loss, data, device, options={}
+        self, loss, data, device_store, device_op, batch_size, options={}
     ):
         """
         Choosen optimizer for jabble is scipy.fmin_l_bfgs_b.
@@ -233,16 +173,16 @@ class Model:
             return np.array(val, dtype="f8"), np.array(grad, dtype="f8")
         
         # blockify dataset
-        # mask extra points added to block
-        xs, ys, yivar, mask = data.blockify(device)
-
-        ##########################################################
+        datablock, metablock = data.blockify(device_store)
     
+        ##########################################################
+        loss.ready_indices(self)
         x, f, d = scipy.optimize.fmin_l_bfgs_b(
-            val_gradient_function, self.get_parameters(), None, (xs,ys,yivar,mask,self), **options
+            val_gradient_function, self.get_parameters(), None, (datablock,metablock,\
+                                                                 self,device_op,batch_size), **options
         )
         self.results.append(d)
-        self._unpack(jax.device_put(jnp.array(x),device))
+        self._unpack(jax.device_put(jnp.array(x),device_op))
         return d
 
     def __add__(self, x):
@@ -660,7 +600,7 @@ class EpochSpecificModel(Model):
        
         model.fix()
         self.fit(epoches=epoches)
-        if isinstance(model,jabble.model.ContainerModel):
+        if isinstance(model,ContainerModel):
             model.get_parameters()
         
         def _internal(grid,j):
@@ -728,7 +668,7 @@ class EpochSpecificModel(Model):
         else:
             return jnp.array([])
 
-    def f_info(self,model,data):
+    def f_info(self,model,data,loss,device):
         """
         Get fischer information on parameters of the model. 
         Since each parameter is independent of all other epochs, fischer information matrix is diagonal, 
@@ -744,15 +684,60 @@ class EpochSpecificModel(Model):
         Returns
         -------
         f_info : 'jnp.array`
-            (N,) arry of diagonal of fischer information matrix.
+            (N,) array of diagonal of fischer information matrix.
         """
-        f_info = np.zeros(self.n)
         model.fix()
         self.fit()
-        for e_num in range(self.n):
-            duddx = jnp.where(~data.mask[e_num][:],jax.jacfwd(model, argnums=0)(model.get_parameters(),data.xs[e_num][:],e_num))
-            f_info[e_num] =  jnp.dot(duddx[:,e_num]**2,data.yivar[e_num,:])
-        return f_info
+        model.display()
+
+        datablock, metablock = data.blockify(device)
+        # def _internal(self, p, datarow, metarow, model, *args)
+        #     return loss(self, p, datarow, metarow, model, *args)
+        duddx = jax.jacfwd(model, argnums=0)
+        def get_dict(datablock, index):
+            return {key: datablock[key][index] for key in datablock.keys()}
+
+        # SUPPOSE TO BE FASTER, BUT KILLS KERNEL
+        # LIKELY DUE TO MEM ALLOC
+        # def _internal(datarow):
+        #     return ((duddx(model.get_parameters(),datarow['xs'],datarow)**2) * datarow['yivar'][:,None]).sum(axis=0)
+        # f_info = jax.vmap(_internal,(0),0)(datablock)
+
+    
+        f_info = np.zeros((len(data),len(model.get_parameters())))
+        for i in range(len(data)):
+            datarow = get_dict(datablock,i)
+            metarow = get_dict(metablock,i)
+            # sum over pixels
+            # assumes diagonal variance in pixel, and time
+            f_info[i,:] += ((duddx(model.get_parameters(),datarow['xs'],metarow)**2) * datarow['yivar'][:,None]).sum(axis=0)
+
+            # f_info[i,:] += ((duddx(model.get_parameters(),datarow,metarow,model)**2) * datarow['yivar'][:,None]).sum(axis=0)
+        # sum over datarows
+        return f_info.sum(axis=0)
+
+class EpochShiftingModel(EpochSpecificModel):
+    """
+    Model that adds different value to input at each epoch.
+    .. math::
+        f(p,x,i) = x + p[i]
+
+    Parameters
+    ----------
+    p : `np.ndarray`
+        N epoch length array of initial values of p.
+    """
+    def __init__(self, p=None, epoches=0):
+        if p is None:
+            self.p = jnp.zeros(epoches)
+        else:
+            self.p = jnp.array(p)
+            epoches = len(p)
+        super(EpochShiftingModel, self).__init__(epoches)
+
+    def call(self, p, x, meta, *arg):
+
+        return x - p[meta['times']]
 
 
 class ShiftingModel(EpochSpecificModel):
@@ -774,9 +759,9 @@ class ShiftingModel(EpochSpecificModel):
             epoches = len(p)
         super(ShiftingModel, self).__init__(epoches)
 
-    def call(self, p, x, i, *arg):
-
-        return x - p[i]
+    def call(self, p, x, meta, *arg):
+    
+        return x - p[meta['index']]
 
 
 class StretchingModel(EpochSpecificModel):
@@ -798,9 +783,9 @@ class StretchingModel(EpochSpecificModel):
             epoches = len(p)
         super(StretchingModel, self).__init__(epoches)
 
-    def call(self, p, x, i, *args):
+    def call(self, p, x, meta, *args):
 
-        return p[i] * x
+        return p[meta['index']] * x
 
 
 class JaxLinear(Model):
@@ -1112,27 +1097,26 @@ def get_normalization_model(dataset,norm_p_val,pts_per_wavelength):
     x_spacing = len_xs/x_num
     x_grid = jnp.linspace(-x_spacing,len_xs+x_spacing,x_num+2) + min_xs
     
-    model = jabble.model.IrwinHallModel_vmap(x_grid, norm_p_val)
+    model = IrwinHallModel_vmap(x_grid, norm_p_val)
     size  = len(dataset)
 
     print(size,len(model.p))
-    norm_model = NewNormalizationModel(model,size)
+    norm_model = NormalizationModel(model,size)
     return ShiftingModel(shifts).composite(norm_model)
 
 
-class NewNormalizationModel(Model):
+class NormalizationModel(Model):
     def __init__(self, model, size):
-        super(NewNormalizationModel, self).__init__()
+        super(NormalizationModel, self).__init__()
         self.p     = jnp.tile(model.p,size)
         self.model = model
 
         self.model_p_size = len(model.p)
         self.size  = size
 
-    def call(self, p, x, i, *args):
-        # indices = self.get_indices(i)
-        # parameters = 
-        x = self.model.call(p.reshape(self.size,self.model_p_size)[i], x, i, *args)
+    def call(self, p, x, meta, *args):
+
+        x = self.model.call((p.reshape(self.size,self.model_p_size)[meta['index']]).flatten(), x, meta, *args)
         return x
   
 

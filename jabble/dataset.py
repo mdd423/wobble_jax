@@ -8,12 +8,6 @@ import scipy.ndimage
 import jax.numpy as jnp
 import jax
 
-# not really important
-def find_nearest(array,value):
-    array = np.asarray(array)
-    idx   = (np.abs(array-value)).argmin()
-    return idx
-
 # important for grid search
 def get_parabolic_min(loss_array,grid,return_all=False):
 
@@ -55,27 +49,14 @@ def get_parabolic_min(loss_array,grid,return_all=False):
     else:
         return grid_min
 
-# kinda not important function
-# important interpolate function
-def interpolate_mask(flux,mask):
-    # assumes even spacing in wavelength of flux
-    new_flux = np.zeros(flux.shape)
-    new_flux = flux
-    for j,mask_row in enumerate(mask):
-        cnt = 0
-        for i, mask_ele in enumerate(mask_row):
-            if mask_ele != 0:
-                cnt += 1
-            if mask_ele == 0 and cnt != 0:
-                # right here is that assumption in the linspace wort wavelength
-                new_flux[j,i-cnt:i] = np.linspace(flux[j,i-cnt-1],flux[j,i],cnt+2)[1:-1]
-                cnt = 0
-    return new_flux
 
 @dataclass
 class Data:
     """Temporary Data Type"""
-    dataframes: list
+    def __init__(self,frames,*args):
+        self.dataframes = frames
+        self.metadata = {}
+        self.metakeys = {}
 
     def __getitem__(self,i):
         return self.dataframes[i]
@@ -113,7 +94,8 @@ class Data:
         for dataframe in self.dataframes:
             dataframe.to_device(device)
 
-    def blockify(data,device):
+    def blockify(data,device,return_keys=False):
+        
         max_ind = np.max([len(dataframe.xs) for dataframe in data])
         xs    = np.zeros((len(data),max_ind))
         ys    = np.zeros((len(data),max_ind))
@@ -132,7 +114,31 @@ class Data:
         yivar = jax.device_put(jnp.array(yivar),device)
         mask  = jax.device_put(jnp.array(mask,dtype=bool),device)
 
-        return xs, ys, yivar, mask
+        datablock = {}
+        datablock['xs'] = xs
+        datablock['ys'] = ys
+        datablock['yivar'] = yivar
+        datablock['mask'] = mask
+
+        ###########################################################
+        
+        metablock = {}
+        meta_keys = {}
+        metablock['index'] = jnp.arange(0,len(data),dtype=int)
+        for key in data.metadata:
+            if key in data.metakeys:
+                epoch_indices = np.array(metablock['index'])
+                for i, ele in enumerate(data.metakeys[key]):
+                    epoch_indices[data.metadata[key] == ele] = i
+                    epoch_uniques = data.metakeys[key]
+            else:
+                epoch_uniques, epoch_indices = np.unique(data.metadata[key],return_inverse=True)
+            metablock[key] = jax.device_put(jnp.array(epoch_indices),device)
+            meta_keys[key]    = epoch_uniques
+            
+        if return_keys:
+            return datablock, metablock, meta_keys
+        return datablock, metablock
 
 
 class DataFrame:
