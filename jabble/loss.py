@@ -136,7 +136,7 @@ def get_submodel_indices(self,i,j=None,*args):
     s_inds = jnp.zeros(self.get_parameters().shape,dtype=bool)
     temp = get_submodel_indices(self[i],j,*args)
     s_inds = s_inds.at[s_temp].set(temp)
-    return s_inds    
+    return s_inds
 
 class L2Reg(LossFunc):
     def __init__(self,submodel_inds=True,coefficient=1.0,constant=0.0):

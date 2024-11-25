@@ -135,7 +135,6 @@ class Model:
         self._unpack(gn_sol.params)
         return gn_sol
 
-
     def optimize(
         self, loss, data, device_store, device_op, batch_size, options={}
     ):
@@ -416,7 +415,6 @@ class ContainerModel(Model):
             Array of indices for the parameters in the ith model that is in fitting mode
         """
         return self._param_bool[i]
-
 
 
 class CompositeModel(ContainerModel):
