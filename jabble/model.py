@@ -958,7 +958,7 @@ def cardinal_basis_sparse(x, xp, ap, basis, a):
 
     return out
 
-import jabble.irwinhall
+import jabble.cardinalspline
 class CardinalSplineMixture_full(Model):
     """
     Model that evaluates input using full Irwin-Hall cardinal basis design matrix.
