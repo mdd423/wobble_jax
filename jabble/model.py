@@ -181,7 +181,7 @@ class Model:
             val_gradient_function, self.get_parameters(), None, (datablock,metablock,\
                                                                  self,device_op,batch_size), **options
         )
-        self.results.append(d)
+        self.results.append({"out": d, "value": f, "loss": print(loss)})
         self._unpack(jax.device_put(jnp.array(x),device_op))
         return d
 
@@ -716,6 +716,7 @@ class EpochSpecificModel(Model):
         # sum over datarows
         return f_info.sum(axis=0)
 
+
 class EpochShiftingModel(EpochSpecificModel):
     """
     Model that adds different value to input at each epoch.
@@ -977,7 +978,7 @@ class CardinalSplineMixture_full(Model):
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
         # also assumes epoches of data that is shifted between
-        self.spline = jabble.irwinhall.IrwinHall(p_val)
+        self.spline = jabble.cardinalspline.CardinalSplineKernel(p_val)
         self.p_val = p_val
         self.xs = jnp.array(xs)
         if p is not None:
@@ -1064,7 +1065,7 @@ def cardinal_vmap_model(x, xp, ap, basis, a):
     return out
 
 
-class CardinalSplineMixture_vmap( CardinalSplineMixture_full):
+class CardinalSplineMixture_vmap(CardinalSplineMixture_full):
     """
     Model that evaluates input using Irwin-Hall cardinal basis with jax.vmap.
 
@@ -1083,7 +1084,6 @@ class CardinalSplineMixture_vmap( CardinalSplineMixture_full):
         a = (self.p_val + 1) / 2
         y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
         return y
-
 
 
 def get_normalization_model(dataset,norm_p_val,pts_per_wavelength):
