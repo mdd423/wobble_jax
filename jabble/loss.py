@@ -72,6 +72,10 @@ class LossFunc:
 
         pass
     
+    def __repr__(self) -> str:
+
+        return str(self.coefficient) + " {cls.__qualname__}" + "()"
+    
 
 class LossSequential(LossFunc):
     def __init__(self,loss_funcs):
@@ -84,26 +88,26 @@ class LossSequential(LossFunc):
             output += loss(p,data,meta,model,*args).sum()
         return output
 
-    def __add__(self,x):
+    def __add__(self,x: LossFunc):
         if isinstance(x,LossSequential):
             out = LossSequential(loss_funcs=[*self.loss_funcs,*x])
         else:
             out = LossSequential(loss_funcs=[*self.loss_funcs,x])
         return out
 
-    def __radd__(self,x):
+    def __radd__(self,x: LossFunc):
         if isinstance(x,LossSequential):
             out = LossSequential(loss_funcs=[*self.loss_funcs,*x])
         else:
             out = LossSequential(loss_funcs=[*self.loss_funcs,x])
         return out
 
-    def __mul__(self,x):
+    def __mul__(self,x: float, np.double):
         for loss in self.loss_funcs:
             loss.coefficient *= x
         return self
 
-    def __rmul__(self,x):
+    def __rmul__(self,x: float, np.double):
         for loss in self.loss_funcs:
             loss.coefficient *= x
         return self
@@ -114,6 +118,12 @@ class LossSequential(LossFunc):
             loss.ready_indices(model)
             # loss.indices = get_submodel_indices(model,*loss.submodel_inds)
 
+    def __repr__(self) -> str:
+        out = self.loss_funcs[0].__repr__()
+        for loss in self.loss_funcs[1:]:
+            out += " + " + loss.__repr__()
+        return out
+    
 # always multiply by coefficient so that when you do mutliplication with the
 # object then it translates to the output
 
@@ -123,6 +133,7 @@ class ChiSquare(LossFunc):
         return self.coefficient * jnp.where(~datarow['mask'],\
                                             datarow['yivar'] * (((datarow['ys'] - model(p,datarow['xs'],metarow,*args))**2)),\
                                             0.0)
+
 
 def get_submodel_indices(self,i,j=None,*args):
     # this recurses through submodels when given a set of indices to that submodel
