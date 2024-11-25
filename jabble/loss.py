@@ -129,7 +129,7 @@ def get_submodel_indices(self,i,j=None,*args):
     # then returns of a bool array of the length of the total number of parameters 
     # of whole model
     # with 1's at the parameters of the specific submodel, 0's elsewhere
-    self.display()
+    # self.display()
     s_temp = self.get_indices(i)
     if j is None:
         return s_temp
@@ -137,7 +137,7 @@ def get_submodel_indices(self,i,j=None,*args):
     s_inds = jnp.zeros(self.get_parameters().shape,dtype=bool)
     temp = get_submodel_indices(self[i],j,*args)
     s_inds = s_inds.at[s_temp].set(temp) #self[i].get_indices(j)
-    print(len(s_inds),np.sum(s_inds))
+    # print(len(s_inds),np.sum(s_inds))
     return s_inds    
 
 class L2Reg(LossFunc):
