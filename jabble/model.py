@@ -180,7 +180,7 @@ class Model:
             val_gradient_function, self.get_parameters(), None, (datablock,metablock,\
                                                                  self,device_op,batch_size), **options
         )
-        self.results.append({"out": d, "value": f, "loss": print(loss)})
+        self.results.append({"out": d, "value": f, "loss": repr(loss)})
         self._unpack(jax.device_put(jnp.array(x),device_op))
         return d
 
@@ -196,6 +196,7 @@ class Model:
         return CompositeModel(models=[self, x])
 
     def evaluate(self, x, i):
+        self.fit()
         return self(self.p, x, i)
 
     def fix(self):
