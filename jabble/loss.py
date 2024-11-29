@@ -74,7 +74,7 @@ class LossFunc:
     
     def __repr__(self) -> str:
 
-        return str(self.coefficient) + " {self__class__.__name__}" + "()"
+        return str(self.coefficient) + " {self.__class__.__name__}" + "()"
     
 
 class LossSequential(LossFunc):
