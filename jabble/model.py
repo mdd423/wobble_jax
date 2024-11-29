@@ -3,6 +3,7 @@ import math
 import jax
 import jax.numpy as jnp
 import jax.experimental.sparse
+
 # import jaxopt
 
 import scipy.optimize
@@ -21,6 +22,7 @@ import pickle  # 5 as pickle
 import jabble.dataset
 import jabble.physics
 
+
 def save(filename, model):
     with open(filename, "wb") as output:  # Overwrites any existing file.
         pickle.dump(model, output, pickle.HIGHEST_PROTOCOL)
@@ -36,7 +38,7 @@ def create_x_grid(xs, vel_padding, resolution):
     """
     Get grid in log wavelength space with equally spaced steps at speed of light over the resolution,
     padded by velocity padding on each side
-    
+
     Parameters
     ----------
     xs : `np.ndarray`
@@ -49,7 +51,7 @@ def create_x_grid(xs, vel_padding, resolution):
     Returns
     -------
     sp : `nd.array`
-        Evenly spaced numpy.ndarray 
+        Evenly spaced numpy.ndarray
     """
 
     x_min = xs.min()
@@ -69,6 +71,7 @@ class Model:
     results : `list`
        List of results objects produced each call to optimize
     """
+
     def __init__(self):
         self._fit = False
         self.func_evals = []
@@ -105,7 +108,7 @@ class Model:
             assert self._fit == True
             return self.call(p, *args)
 
-    def gaussnewton(self,data,*args):
+    def gaussnewton(self, data, *args):
         """
         maybe defunct optimizer using residuals to fit parameters using jaxopt.GaussNewton.
         Fits using y residuals times y information
@@ -120,24 +123,24 @@ class Model:
         gn_sol : `OptStep`
             JaxOpt.OptStep object with results from optimization loop
         """
+
         def chi_1(p):
             residual = jnp.zeros(data.xs.shape)
             for i in range(data.xs.shape[0]):
-                
-                residual = residual.at[i,:].set((data.ys[i,:] - self(p,data.xs[i,:],i)) * data.yivar[i,:])
+
+                residual = residual.at[i, :].set(
+                    (data.ys[i, :] - self(p, data.xs[i, :], i)) * data.yivar[i, :]
+                )
             return residual
-        
 
         gn = jax.GaussNewton(residual_fun=chi_1)
         gn_sol = gn.run(self.get_parameters())
-        
+
         self.results.append(gn_sol)
         self._unpack(gn_sol.params)
         return gn_sol
 
-    def optimize(
-        self, loss, data, device_store, device_op, batch_size, options={}
-    ):
+    def optimize(self, loss, data, device_store, device_op, batch_size, options={}):
         """
         Choosen optimizer for jabble is scipy.fmin_l_bfgs_b.
         optimizes all parameters in fit mode with respect to the loss function using jabble.Dataset
@@ -145,7 +148,7 @@ class Model:
         Parameters
         ----------
         loss : `jabble.Loss`
-            jabble.loss object, 
+            jabble.loss object,
         data : `jabble.Dataset`
             jabble.Dataset, that is handed to the Loss function during optimization
         verbose : `bool`
@@ -154,7 +157,7 @@ class Model:
             if true, saves values of parameters at every function call
         save_loss : `bool`
             if true, saves loss array every function call of optimization
-        options : 
+        options :
             additional keyword options to be passed to scipy.fmin_l_bfgs_b
 
 
@@ -170,18 +173,21 @@ class Model:
             val, grad = func_grad(p, *args)
 
             return np.array(val, dtype="f8"), np.array(grad, dtype="f8")
-        
+
         # blockify dataset
         datablock, metablock = data.blockify(device_store)
-    
+
         ##########################################################
         loss.ready_indices(self)
         x, f, d = scipy.optimize.fmin_l_bfgs_b(
-            val_gradient_function, self.get_parameters(), None, (datablock,metablock,\
-                                                                 self,device_op,batch_size), **options
+            val_gradient_function,
+            self.get_parameters(),
+            None,
+            (datablock, metablock, self, device_op, batch_size),
+            **options,
         )
         self.results.append({"out": d, "value": f, "loss": repr(loss)})
-        self._unpack(jax.device_put(jnp.array(x),device_op))
+        self._unpack(jax.device_put(jnp.array(x), device_op))
         return d
 
     def __add__(self, x):
@@ -211,7 +217,7 @@ class Model:
         """
         self._fit = True
 
-    def to_device(self,device):
+    def to_device(self, device):
         """
         Move all parameters to given device
         """
@@ -264,13 +270,16 @@ class ContainerModel(Model):
     parameters_per_model : `np.ndarray`
         Array with shape len(models), ith value of array is the number of parameters being fit in the ith model.
     """
+
     def __init__(self, models):
         super(ContainerModel, self).__init__()
         self.models = models
-        self.parameters_per_model = jnp.empty((len(models)),dtype=int)
+        self.parameters_per_model = jnp.empty((len(models)), dtype=int)
         self.size = len(models)
         for i in range(self.size):
-            self.parameters_per_model = self.parameters_per_model.at[i].set(len(self.models[i].get_parameters()))
+            self.parameters_per_model = self.parameters_per_model.at[i].set(
+                len(self.models[i].get_parameters())
+            )
         self.create_param_bool()
 
     def append(self, model):
@@ -289,7 +298,7 @@ class ContainerModel(Model):
         self.create_param_bool()
 
     def __call__(self, p, *args):
-       
+
         if len(p) == 0:
             return self.call(jnp.array([]), *args)
         else:
@@ -321,19 +330,29 @@ class ContainerModel(Model):
         x = jnp.array([])
         for i in range(self.size):
             params = self.models[i].get_parameters()
-            self.parameters_per_model = self.parameters_per_model.at[i].set(params.shape[0])
+            self.parameters_per_model = self.parameters_per_model.at[i].set(
+                params.shape[0]
+            )
             x = jnp.concatenate((x, params))
         self.create_param_bool()
         return x
 
     def create_param_bool(self):
-        self._param_bool = np.zeros((self.size,int(np.sum(self.parameters_per_model))))
+        self._param_bool = np.zeros((self.size, int(np.sum(self.parameters_per_model))))
         for i in range(self.size):
-            self._param_bool[i,int(jnp.sum(self.parameters_per_model[:i])):int(jnp.sum(self.parameters_per_model[: i + 1]))] = jnp.ones(
-                                            (int(jnp.sum(self.parameters_per_model[: i + 1])) - int(jnp.sum(self.parameters_per_model[:i]))),
-                                            dtype=bool,
-                                        )
-        self._param_bool = jnp.array(self._param_bool,dtype=bool)
+            self._param_bool[
+                i,
+                int(jnp.sum(self.parameters_per_model[:i])) : int(
+                    jnp.sum(self.parameters_per_model[: i + 1])
+                ),
+            ] = jnp.ones(
+                (
+                    int(jnp.sum(self.parameters_per_model[: i + 1]))
+                    - int(jnp.sum(self.parameters_per_model[:i]))
+                ),
+                dtype=bool,
+            )
+        self._param_bool = jnp.array(self._param_bool, dtype=bool)
 
     def fit(self, i=None, *args):
         """
@@ -347,10 +366,14 @@ class ContainerModel(Model):
         if i is None:
             for j in range(self.size):
                 self.models[j].fit()
-                self.parameters_per_model = self.parameters_per_model.at[j].set(self.models[j].get_parameters().shape[0])
+                self.parameters_per_model = self.parameters_per_model.at[j].set(
+                    self.models[j].get_parameters().shape[0]
+                )
         else:
             self[i].fit(*args)
-            self.parameters_per_model = self.parameters_per_model.at[i].set(self[i].get_parameters().shape[0])
+            self.parameters_per_model = self.parameters_per_model.at[i].set(
+                self[i].get_parameters().shape[0]
+            )
         self.create_param_bool()
 
     def fix(self, i=None, *args):
@@ -371,7 +394,7 @@ class ContainerModel(Model):
             self.parameters_per_model = self.parameters_per_model.at[i].set(0)
         self.create_param_bool()
 
-    def to_device(self,device):
+    def to_device(self, device):
         """
         Move all parameters of all submodels to given device
         """
@@ -389,12 +412,7 @@ class ContainerModel(Model):
             string = string[: -len(tab)]
 
     def split_p(self, p):
-        p_list = [
-            p[
-                self.get_indices(k)
-            ]
-            for k in range(len(self.parameters_per_model))
-        ]
+        p_list = [p[self.get_indices(k)] for k in range(len(self.parameters_per_model))]
 
         return p_list
 
@@ -403,13 +421,9 @@ class ContainerModel(Model):
 
     def save_history(self, p):
         for i, model in enumerate(self.models):
-            model.save_history(
-                p[
-                    self.get_indices(i)
-                ]
-            )
+            model.save_history(p[self.get_indices(i)])
 
-    def get_indices(self,i):
+    def get_indices(self, i):
         """
         Get array of ints for the ith submodel, in models list using parameters_per_model
         Returns
@@ -426,6 +440,7 @@ class CompositeModel(ContainerModel):
     .. math::
         f  = g_n(g_{n-1}(...g_1(g_0(x))))
     """
+
     def call(self, p, x, i, *args):
         for k, model in enumerate(self.models):
             indices = self.get_indices(k)
@@ -445,6 +460,7 @@ class AdditiveModel(ContainerModel):
     .. math::
         f  = g_n(x) + g_{n-1}(x) + ...g_1(x) + g_0(x)
     """
+
     def call(self, p, x, i, *args):
         output = 0.0
         # PARALLELIZABLE
@@ -470,6 +486,7 @@ class EnvelopModel(Model):
     """
     EnvelopModel similar to ContainerModel but only containers one submodel.
     """
+
     def __init__(self, model):
         super(EnvelopModel, self).__init__()
         self.model = model
@@ -490,7 +507,7 @@ class EnvelopModel(Model):
     def fix(self, *args):
         self.model.fix(*args)
 
-    def to_device(self,device):
+    def to_device(self, device):
         """
         Move all parameters to given device
         """
@@ -519,6 +536,7 @@ class JaxEnvLinearModel(EnvelopModel):
     .. math::
         f = g(j(p),x)
     """
+
     def __init__(self, xs, model, p=None):
         super(JaxEnvLinearModel, self).__init__(model)
         self.xs = xs
@@ -542,6 +560,7 @@ class ConvolutionalModel(Model):
     """
     Model that convolves the input, x, with parameters, p, using jax function.
     """
+
     def __init__(self, p=None):
         super(ConvolutionalModel, self).__init__()
         if p is None:
@@ -563,6 +582,7 @@ class EpochSpecificModel(Model):
     epoches : `int`
         Number of epochs
     """
+
     def __init__(self, epoches):
         super(EpochSpecificModel, self).__init__()
         self.n = epoches
@@ -575,14 +595,14 @@ class EpochSpecificModel(Model):
         else:
             return self.call(p, *args)
 
-    def grid_search(self,grid,loss,model,data,epoches=None):
+    def grid_search(self, grid, loss, model, data, epoches=None):
         """
         Function that will individually grid search each parameter.
 
         Parameters
         ----------
         grid : `np.ndarray`
-            (M,N) M searches at each epoch, N epoch array  
+            (M,N) M searches at each epoch, N epoch array
         loss : `jabble.Loss`
             Objective being optimized.
         model : `jabble.Model`
@@ -595,23 +615,27 @@ class EpochSpecificModel(Model):
         loss_arr : `jnp.array`
             (M,N) loss evaluated on full model at all grid values at their respective epochs.
         """
-    
+
         if epoches is None:
-            epoches = slice(0,self.n)
-       
+            epoches = slice(0, self.n)
+
         model.fix()
         self.fit(epoches=epoches)
-        if isinstance(model,ContainerModel):
+        if isinstance(model, ContainerModel):
             model.get_parameters()
-        
-        def _internal(grid,j):
-                
-            return jnp.array([jnp.sum(loss(grid, data, i, model)) for i in range(self.n)])
-        
-        loss_arr = jax.vmap(_internal, in_axes=(1,0), out_axes=1)(grid,np.arange(0,grid.shape[1]))
+
+        def _internal(grid, j):
+
+            return jnp.array(
+                [jnp.sum(loss(grid, data, i, model)) for i in range(self.n)]
+            )
+
+        loss_arr = jax.vmap(_internal, in_axes=(1, 0), out_axes=1)(
+            grid, np.arange(0, grid.shape[1])
+        )
         return loss_arr
 
-    def parabola_fit(self,array1d,loss,model,data):
+    def parabola_fit(self, array1d, loss, model, data):
         """
         Finds parabolic minima of the grid search of parameters. Sets parameters to optimized result.
 
@@ -627,22 +651,27 @@ class EpochSpecificModel(Model):
             Dataset to optimize with respect to.
 
         """
-        
+
         # First use grid search function to get loss grid.
-        grid   = np.array(self.p[:,None] + array1d[None,:])
-        loss   = np.array(self.grid_search(grid,loss,model,data))
-        
+        grid = np.array(self.p[:, None] + array1d[None, :])
+        loss = np.array(self.grid_search(grid, loss, model, data))
+
         # Loop lowest value on loss grid and its 2 neighbors.
         # Fit a parabola, take derivative, then find root.
-        def _internal(g,l):
-    
-            poly = jnp.polyfit(g,l,deg=2)
-            lmin = jnp.roots(jnp.polyder(poly),strip_zeros=False).real
-            return lmin, jnp.polyval(poly,lmin)
-        minima = np.argmin(loss,axis=1).astype(int)
-        inds_i = np.arange(0,loss.shape[0],dtype=int).repeat(3).reshape(-1,3)
-        inds_j = (minima[:,None]+np.array([-1,0,1])[None,:]).flatten().reshape(-1,3)
-        l_min, g_min = jax.vmap(_internal,in_axes=(0,0),out_axes=0)(grid[inds_i,inds_j],loss[inds_i,inds_j])
+        def _internal(g, l):
+
+            poly = jnp.polyfit(g, l, deg=2)
+            lmin = jnp.roots(jnp.polyder(poly), strip_zeros=False).real
+            return lmin, jnp.polyval(poly, lmin)
+
+        minima = np.argmin(loss, axis=1).astype(int)
+        inds_i = np.arange(0, loss.shape[0], dtype=int).repeat(3).reshape(-1, 3)
+        inds_j = (
+            (minima[:, None] + np.array([-1, 0, 1])[None, :]).flatten().reshape(-1, 3)
+        )
+        l_min, g_min = jax.vmap(_internal, in_axes=(0, 0), out_axes=0)(
+            grid[inds_i, inds_j], loss[inds_i, inds_j]
+        )
         self.p = jnp.array(jnp.squeeze(l_min))
 
     def add_component(self, value=0.0, n=1):
@@ -669,13 +698,13 @@ class EpochSpecificModel(Model):
         else:
             return jnp.array([])
 
-    def f_info(self,model,data,loss,device):
+    def f_info(self, model, data, loss, device):
         """
-        Get fischer information on parameters of the model. 
-        Since each parameter is independent of all other epochs, fischer information matrix is diagonal, 
+        Get fischer information on parameters of the model.
+        Since each parameter is independent of all other epochs, fischer information matrix is diagonal,
         thus returns this diagonal.
 
-        Parameters 
+        Parameters
         ----------
         model : `jabble.Model`
             The full model to evaluate.
@@ -695,6 +724,7 @@ class EpochSpecificModel(Model):
         # def _internal(self, p, datarow, metarow, model, *args)
         #     return loss(self, p, datarow, metarow, model, *args)
         duddx = jax.jacfwd(model, argnums=0)
+
         def get_dict(datablock, index):
             return {key: datablock[key][index] for key in datablock.keys()}
 
@@ -704,14 +734,16 @@ class EpochSpecificModel(Model):
         #     return ((duddx(model.get_parameters(),datarow['xs'],datarow)**2) * datarow['yivar'][:,None]).sum(axis=0)
         # f_info = jax.vmap(_internal,(0),0)(datablock)
 
-    
-        f_info = np.zeros((len(data),len(model.get_parameters())))
+        f_info = np.zeros((len(data), len(model.get_parameters())))
         for i in range(len(data)):
-            datarow = get_dict(datablock,i)
-            metarow = get_dict(metablock,i)
+            datarow = get_dict(datablock, i)
+            metarow = get_dict(metablock, i)
             # sum over pixels
             # assumes diagonal variance in pixel, and time
-            f_info[i,:] += ((duddx(model.get_parameters(),datarow['xs'],metarow)**2) * datarow['yivar'][:,None]).sum(axis=0)
+            f_info[i, :] += (
+                (duddx(model.get_parameters(), datarow["xs"], metarow) ** 2)
+                * datarow["yivar"][:, None]
+            ).sum(axis=0)
 
             # f_info[i,:] += ((duddx(model.get_parameters(),datarow,metarow,model)**2) * datarow['yivar'][:,None]).sum(axis=0)
         # sum over datarows
@@ -729,6 +761,7 @@ class EpochShiftingModel(EpochSpecificModel):
     p : `np.ndarray`
         N epoch length array of initial values of p.
     """
+
     def __init__(self, p=None, epoches=0):
         if p is None:
             self.p = jnp.zeros(epoches)
@@ -739,7 +772,7 @@ class EpochShiftingModel(EpochSpecificModel):
 
     def call(self, p, x, meta, *arg):
 
-        return x - p[meta['times']]
+        return x - p[meta["times"]]
 
 
 class ShiftingModel(EpochSpecificModel):
@@ -753,6 +786,7 @@ class ShiftingModel(EpochSpecificModel):
     p : `np.ndarray`
         N epoch length array of initial values of p.
     """
+
     def __init__(self, p=None, epoches=0):
         if p is None:
             self.p = jnp.zeros(epoches)
@@ -762,8 +796,8 @@ class ShiftingModel(EpochSpecificModel):
         super(ShiftingModel, self).__init__(epoches)
 
     def call(self, p, x, meta, *arg):
-    
-        return x - p[meta['index']]
+
+        return x - p[meta["index"]]
 
 
 class StretchingModel(EpochSpecificModel):
@@ -777,6 +811,7 @@ class StretchingModel(EpochSpecificModel):
     p : `np.ndarray`
         N epoch length array of initial values of p.
     """
+
     def __init__(self, p=None, epoches=0):
         if p is None:
             self.p = jnp.ones((epoches))
@@ -787,7 +822,7 @@ class StretchingModel(EpochSpecificModel):
 
     def call(self, p, x, meta, *args):
 
-        return p[meta['index']] * x
+        return p[meta["index"]] * x
 
 
 class JaxLinear(Model):
@@ -804,6 +839,7 @@ class JaxLinear(Model):
     p : `np.ndarray`
         the initial control points. If None, then initialized at zero.
     """
+
     def __init__(self, xs, p=None):
         super(JaxLinear, self).__init__()
         # when defining ones own model, need to include inputs as xs, outputs as ys
@@ -821,7 +857,7 @@ class JaxLinear(Model):
             self.p = np.zeros(xs.shape)
 
     def call(self, p, x, i, *arg):
-        
+
         y = jax.numpy.interp(x, self.xs, p)
         return y
 
@@ -849,7 +885,7 @@ def _full_design_matrix(x, xp, basis):
     return basis(input)
 
 
-@partial(jit,static_argnums=[3,4])
+@partial(jit, static_argnums=[3, 4])
 def cardinal_basis_full(x, xp, ap, basis):
     """
     Evaluates cardinal basis using full design matrix.
@@ -870,7 +906,7 @@ def cardinal_basis_full(x, xp, ap, basis):
     out : 'np.ndarray`
         y array (N,) of evaluated cardinal basis
     """
-    
+
     design = _full_design_matrix(x, xp, basis)
     return design @ ap
 
@@ -925,7 +961,7 @@ def _sparse_design_matrix(x, xp, basis, a):
     return out
 
 
-@partial(jit,static_argnums=[3,4,5])
+@partial(jit, static_argnums=[3, 4, 5])
 def cardinal_basis_sparse(x, xp, ap, basis, a):
     """
     Evaluates cardinal basis using sparse design matrix.
@@ -959,7 +995,10 @@ def cardinal_basis_sparse(x, xp, ap, basis, a):
 
     return out
 
+
 import jabble.cardinalspline
+
+
 class CardinalSplineMixture_full(Model):
     """
     Model that evaluates input using full Irwin-Hall cardinal basis design matrix.
@@ -974,6 +1013,7 @@ class CardinalSplineMixture_full(Model):
         the initial control points. If None, then initialized at zero.
 
     """
+
     def __init__(self, xs, p_val=2, p=None):
         super(CardinalSplineMixture_full, self).__init__()
         # when defining ones own model, need to include inputs as xs, outputs as ys
@@ -996,13 +1036,14 @@ class CardinalSplineMixture_full(Model):
 
         y = cardinal_basis_full(x, self.xs, p, self.spline)
         return y
-    
-    def to_device(self,device):
+
+    def to_device(self, device):
         """
         Move all parameters to given device
         """
         self.p = jax.device_put(self.p, device)
         self.xs = jax.device_put(self.xs, device)
+
 
 class CardinalSplineMixture_sparse(CardinalSplineMixture_full):
     """
@@ -1018,6 +1059,7 @@ class CardinalSplineMixture_sparse(CardinalSplineMixture_full):
         the initial control points. If None, then initialized at zero.
 
     """
+
     def call(self, p, x, *args):
 
         a = (self.p_val + 1) / 2
@@ -1025,7 +1067,7 @@ class CardinalSplineMixture_sparse(CardinalSplineMixture_full):
         return y
 
 
-@partial(jit,static_argnums=[3,4,5])
+@partial(jit, static_argnums=[3, 4, 5])
 def cardinal_vmap_model(x, xp, ap, basis, a):
     """
     Evaluates cardinal basis using vmap design matrix.
@@ -1042,7 +1084,7 @@ def cardinal_vmap_model(x, xp, ap, basis, a):
         Basis function. Should probably make sense as a real basis function.
     a : `float`
         basis function must go to zero outside this value.
-        
+
     Returns
     -------
     out : 'np.ndarray`
@@ -1080,6 +1122,7 @@ class CardinalSplineMixture_vmap(CardinalSplineMixture_full):
         the initial control points. If None, then initialized at zero.
 
     """
+
     def call(self, p, x, *args):
 
         a = (self.p_val + 1) / 2
@@ -1087,37 +1130,42 @@ class CardinalSplineMixture_vmap(CardinalSplineMixture_full):
         return y
 
 
-def get_normalization_model(dataset,norm_p_val,pts_per_wavelength):
-    len_xs = np.max([np.max(dataframe.xs) - np.min(dataframe.xs) for dataframe in dataset])
+def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
+    len_xs = np.max(
+        [np.max(dataframe.xs) - np.min(dataframe.xs) for dataframe in dataset]
+    )
     min_xs = np.min([np.min(dataframe.xs) for dataframe in dataset])
     max_xs = np.max([np.max(dataframe.xs) for dataframe in dataset])
 
     shifts = jnp.array([dataframe.xs.min() - min_xs for dataframe in dataset])
 
     x_num = int((np.exp(max_xs) - np.exp(min_xs)) * pts_per_wavelength)
-    x_spacing = len_xs/x_num
-    x_grid = jnp.linspace(-x_spacing,len_xs+x_spacing,x_num+2) + min_xs
-    
-    model =  CardinalSplineMixture_vmap(x_grid, norm_p_val)
-    size  = len(dataset)
+    x_spacing = len_xs / x_num
+    x_grid = jnp.linspace(-x_spacing, len_xs + x_spacing, x_num + 2) + min_xs
 
-    print(size,len(model.p))
-    norm_model = NormalizationModel(model,size)
+    model = CardinalSplineMixture_vmap(x_grid, norm_p_val)
+    size = len(dataset)
+
+    print(size, len(model.p))
+    norm_model = NormalizationModel(model, size)
     return ShiftingModel(shifts).composite(norm_model)
 
 
 class NormalizationModel(Model):
     def __init__(self, model, size):
         super(NormalizationModel, self).__init__()
-        self.p     = jnp.tile(model.p,size)
+        self.p = jnp.tile(model.p, size)
         self.model = model
 
         self.model_p_size = len(model.p)
-        self.size  = size
+        self.size = size
 
     def call(self, p, x, meta, *args):
 
-        x = self.model.call((p.reshape(self.size,self.model_p_size)[meta['index']]).flatten(), x, meta, *args)
+        x = self.model.call(
+            (p.reshape(self.size, self.model_p_size)[meta["index"]]).flatten(),
+            x,
+            meta,
+            *args,
+        )
         return x
-  
-

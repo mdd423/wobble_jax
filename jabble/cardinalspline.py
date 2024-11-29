@@ -2,6 +2,7 @@ import numpy as np
 import math
 import jax.numpy as jnp
 
+
 def _alpha_recursion(j, k, n):
     if k == 0:
         if j < n - 1:
@@ -31,12 +32,13 @@ class CardinalSplineKernel:
     alphas : `np.ndarray`
         piecewise polynomial coefficients matrix (n+1,n+1)
     """
+
     def __init__(self, n):
         self.n = n
-        self.alphas = np.zeros((n+1, n+1))
-        for j in range(n+1):
-            for k in range(n+1):
-                self.alphas[j, k] = _alpha_recursion(j, k, n+1)
+        self.alphas = np.zeros((n + 1, n + 1))
+        for j in range(n + 1):
+            for k in range(n + 1):
+                self.alphas[j, k] = _alpha_recursion(j, k, n + 1)
         self.alphas = jnp.array(self.alphas)
 
     def __call__(self, x, *args):
@@ -45,7 +47,9 @@ class CardinalSplineKernel:
         cond2 = ks <= (self.n)
 
         f = jnp.where(
-            (cond1 * cond2), jnp.polyval(self.alphas[::-1, ks], x + ((self.n + 1)  / 2)), 0.0
+            (cond1 * cond2),
+            jnp.polyval(self.alphas[::-1, ks], x + ((self.n + 1) / 2)),
+            0.0,
         )
 
         return f

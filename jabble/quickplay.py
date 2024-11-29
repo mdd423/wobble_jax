@@ -1,13 +1,16 @@
 import sys
-sys.path.append('..')
+
+sys.path.append("..")
 import jax.numpy as jnp
 import jax
 import numpy as np
 import jabble.model
 
-def _getitem__(self,key):
-    
-    return super(type(self),self).__getitem__(np.argwhere(self.keys == key)[0][0])
+
+def _getitem__(self, key):
+
+    return super(type(self), self).__getitem__(np.argwhere(self.keys == key)[0][0])
+
 
 class StellarModel(jabble.model.CompositeModel):
     """
@@ -26,25 +29,31 @@ class StellarModel(jabble.model.CompositeModel):
     Attributes
     ----------
     keys : `list`
-        list of the strings that must be used to index the submodels    
-    
+        list of the strings that must be used to index the submodels
+
     """
-    def __init__(self,init_shifts,model_grid,p_val):
-        super(StellarModel,self).__init__([jabble.model.ShiftingModel(init_shifts),jabble.model.IrwinHallModel_sparse(model_grid,p_val)])
-        self.keys = np.array(['RV','Template'])
-    
+
+    def __init__(self, init_shifts, model_grid, p_val):
+        super(StellarModel, self).__init__(
+            [
+                jabble.model.ShiftingModel(init_shifts),
+                jabble.model.IrwinHallModel_sparse(model_grid, p_val),
+            ]
+        )
+        self.keys = np.array(["RV", "Template"])
+
     def get_RV(self):
-        '''
+        """
         Converts shifting parameters to velocity in m/s
 
         Returns
         -------
         vels : `np.ndarray`
             radial velocity in m/s
-        '''
-        return jabble.physics.velocities(self['RV'].p)
+        """
+        return jabble.physics.velocities(self["RV"].p)
 
-    def get_RV_sigmas(self,dataset,model=None):
+    def get_RV_sigmas(self, dataset, model=None):
         """
         Return errorbar on radial velocities using fischer information
 
@@ -57,12 +66,15 @@ class StellarModel(jabble.model.CompositeModel):
         """
         if model is None:
             model = self
-        f_info = self['RV'].f_info(model,dataset)
-        dvddx = jnp.array([jax.grad(jabble.physics.velocities)(x) for x in self['RV'].p])
-        return np.sqrt(1/f_info) * dvddx
+        f_info = self["RV"].f_info(model, dataset)
+        dvddx = jnp.array(
+            [jax.grad(jabble.physics.velocities)(x) for x in self["RV"].p]
+        )
+        return np.sqrt(1 / f_info) * dvddx
 
-    def __getitem__(self,*args):
-        return _getitem__(self,args)
+    def __getitem__(self, *args):
+        return _getitem__(self, args)
+
 
 class TelluricsModel(jabble.model.CompositeModel):
     """
@@ -81,16 +93,23 @@ class TelluricsModel(jabble.model.CompositeModel):
     Attributes
     ----------
     keys : `list`
-        list of the strings that must be used to index the submodels    
-    
-    """
-    def  __init__(self,init_airmass,model_grid,p_val):
-        super(TelluricsModel,self).__init__([jabble.model.StretchingModel(init_airmass),jabble.model.IrwinHallModel_sparse(model_grid,p_val)])
-        self.keys = np.array(['Airmass', 'Template'])
+        list of the strings that must be used to index the submodels
 
-    def __getitem__(self,*args):
-        
-        return _getitem__(self,args)
+    """
+
+    def __init__(self, init_airmass, model_grid, p_val):
+        super(TelluricsModel, self).__init__(
+            [
+                jabble.model.StretchingModel(init_airmass),
+                jabble.model.IrwinHallModel_sparse(model_grid, p_val),
+            ]
+        )
+        self.keys = np.array(["Airmass", "Template"])
+
+    def __getitem__(self, *args):
+
+        return _getitem__(self, args)
+
 
 class WobbleModel(jabble.model.AdditiveModel):
     """
@@ -111,22 +130,26 @@ class WobbleModel(jabble.model.AdditiveModel):
     Attributes
     ----------
     keys : `list`
-        list of the strings that must be used to index the submodels    
-    
+        list of the strings that must be used to index the submodels
+
     """
-    def  __init__(self,init_shifts,init_airmass,model_grid,p_val):
-        super(WobbleModel,self).__init__([StellarModel(init_shifts,model_grid,p_val),TelluricsModel(init_airmass,model_grid,p_val)])
-        self.keys = np.array(['Stellar', 'Tellurics'])
-        
+
+    def __init__(self, init_shifts, init_airmass, model_grid, p_val):
+        super(WobbleModel, self).__init__(
+            [
+                StellarModel(init_shifts, model_grid, p_val),
+                TelluricsModel(init_airmass, model_grid, p_val),
+            ]
+        )
+        self.keys = np.array(["Stellar", "Tellurics"])
+
     def get_RV(self):
-        return self['Stellar'].get_RV()
+        return self["Stellar"].get_RV()
 
-    
-    def get_RV_sigmas(self,dataset):
+    def get_RV_sigmas(self, dataset):
 
-        return self['Stellar'].get_RV_sigmas(dataset,self)
+        return self["Stellar"].get_RV_sigmas(dataset, self)
 
+    def __getitem__(self, *args):
 
-    def __getitem__(self,*args):
-        
-        return _getitem__(self,args)
+        return _getitem__(self, args)
