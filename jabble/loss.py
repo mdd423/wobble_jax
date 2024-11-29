@@ -74,7 +74,7 @@ class LossFunc:
     
     def __repr__(self) -> str:
 
-        return str(self.coefficient) + " {self.__class__.__name__}" + "()"
+        return str(self.coefficient) + " {obj.__class__.__name__}".format(obj=self) + "()"
     
 
 class LossSequential(LossFunc):
@@ -165,5 +165,5 @@ class L2Reg(LossFunc):
     
     def __repr__(self) -> str:
 
-        return str(self.coefficient) + " {self__class__.__name__}" + "({self.submodel_inds})"
+        return str(self.coefficient) + " {obj.__class__.__name__}".format(obj = self) + "({obj.submodel_inds})".format(obj=self)
 
