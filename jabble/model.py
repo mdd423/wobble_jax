@@ -258,6 +258,17 @@ class Model:
     def copy(self):
         return copy.deepcopy(self)
 
+    def save(self,filename: str,mode: str, metadata) -> None:
+        import h5py
+        with h5py.File(filename,'w') as file:
+            self.save_hdf(file)
+            self.create_dataset("metadata",data=metadata)
+            pass
+
+    def save_hdf(self,file):
+        group = file.create_group(self.__class__.__name__)
+        group.create_dataset("parameters", data=self.p)
+        return group
 
 class ContainerModel(Model):
     """
@@ -433,6 +444,11 @@ class ContainerModel(Model):
         """
         return self._param_bool[i]
 
+    def save_hdf(self,file):
+        group = file.create_group(self.__class__.__name__)
+        for model in self.model_list:
+            model.save_hdf(self,group)
+        return group
 
 class CompositeModel(ContainerModel):
     """
@@ -568,7 +584,7 @@ class ConvolutionalModel(Model):
         else:
             self.p = p
 
-    def call(self, p, x, i):
+    def call(self, p, x, *args):
         y = jnp.convolve(x, p, mode="same")
         return y
 
@@ -823,89 +839,9 @@ class StretchingModel(EpochSpecificModel):
     def call(self, p, x, meta, *args):
 
         return p[meta["index"]] * x
-
-
-
-
-@partial(jit, static_argnums=[3, 4, 5])
-def cardinal_basis_sparse(x, xp, ap, basis, a):
-    """
-    Evaluates cardinal basis using sparse design matrix.
-    The matrix can be made sparse if the basis goes to zero outside -a, a
-    from the centerpoint of the basis function
-
-    Parameters
-    ----------
-    x : `np.ndarray`
-        array (N,) of x values to evaluate.
-    xp : `np.ndarray`
-        evenly spaced array (M,) of centerpoints of the basis functions
-    ap : `np.ndarray`
-        coefficient for basis functions
-    basis : anything callable
-        Basis function. Should probably make sense as a real basis function.
-    a : `float`
-        basis function must go to zero outside this value.
-
-    Returns
-    -------
-    out : 'np.ndarray`
-        y array (N,) of evaluated sparse cardinal basis
-    """
-    # This is to ensure the multiplication with the sparse mat works
-    ap = jnp.array(ap)
-    design = _sparse_design_matrix(x, xp, basis, a)
-    out = design @ ap
-    if isinstance(out, jax.experimental.sparse.bcoo.BCOO):
-        return out.todense()
-
-    return out
-
+    
 
 import jabble.cardinalspline
-
-
-class CardinalSplineMixture(Model):
-    """
-    Model that evaluates input using full Irwin-Hall cardinal basis design matrix.
-
-    Parameters
-    ----------
-    xs : `np.ndarray`
-        centerpoints of cardinal (evenly spaced) basis functions
-    p_val : `int`
-        order of the Irwin-Hall basis functions
-    p : `np.ndarray`
-        the initial control points. If None, then initialized at zero.
-
-    """
-
-    def __init__(self, xs, p_val=2, p=None):
-        super(CardinalSplineMixture, self).__init__()
-        # when defining ones own model, need to include inputs as xs, outputs as ys
-        # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
-        # also assumes epoches of data that is shifted between
-        self.spline = jabble.cardinalspline.CardinalSplineKernel(p_val)
-        self.p_val = p_val
-        self.xs = jnp.array(xs)
-        if p is not None:
-            if p.shape == self.xs.shape:
-                self.p = p
-            else:
-                logging.error(
-                    "p {} must be the same shape as x_grid {}".format(p.shape, xs.shape)
-                )
-        else:
-            self.p = jnp.zeros(xs.shape)
-
-    def call(self, p, x, *args):
-
-        a = (self.p_val + 1) / 2
-        y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
-        return y
-
-
-
 
 @partial(jit, static_argnums=[3, 4, 5])
 def cardinal_vmap_model(x, xp, ap, basis, a):
@@ -946,6 +882,45 @@ def cardinal_vmap_model(x, xp, ap, basis, a):
     out = jax.vmap(_internal, in_axes=(0, 0), out_axes=0)(inputs, index)
 
     return out
+
+class CardinalSplineMixture(Model):
+    """
+    Model that evaluates input using full Irwin-Hall cardinal basis design matrix.
+
+    Parameters
+    ----------
+    xs : `np.ndarray`
+        centerpoints of cardinal (evenly spaced) basis functions
+    p_val : `int`
+        order of the Irwin-Hall basis functions
+    p : `np.ndarray`
+        the initial control points. If None, then initialized at zero.
+
+    """
+
+    def __init__(self, xs, p_val=2, p=None):
+        super(CardinalSplineMixture, self).__init__()
+        # when defining ones own model, need to include inputs as xs, outputs as ys
+        # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
+        # also assumes epoches of data that is shifted between
+        self.spline = jabble.cardinalspline.CardinalSplineKernel(p_val)
+        self.p_val = p_val
+        self.xs = jnp.array(xs)
+        if p is not None:
+            if p.shape == self.xs.shape:
+                self.p = p
+            else:
+                logging.error(
+                    "p {} must be the same shape as x_grid {}".format(p.shape, xs.shape)
+                )
+        else:
+            self.p = jnp.zeros(xs.shape)
+
+    def call(self, p, x, *args):
+
+        a = (self.p_val + 1) / 2
+        y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
+        return y
     
 
 def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
