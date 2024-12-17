@@ -922,6 +922,12 @@ class CardinalSplineMixture(Model):
         y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
         return y
     
+    def save_hdf(self,file):
+        group = super(CardinalSplineMixture,self).save_hdf(file)
+        group.create_dataset("xs",data = self.xs)
+        group.create_dataset("alphas", data = self.spline.alphas)
+        return group
+    
 
 def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
     len_xs = np.max(
