@@ -825,140 +825,6 @@ class StretchingModel(EpochSpecificModel):
         return p[meta["index"]] * x
 
 
-class JaxLinear(Model):
-    """
-    Model that applies jax linear interpolation to input with p as parameters, jax.numpy.interp(x,self.xs,p).
-    Same for all epochs.
-    .. math::
-        f(p,x,i) = g(x|p)
-
-    Parameters
-    ----------
-    xs : `np.ndarray`
-        array of x values of control points. Must be same length as p.
-    p : `np.ndarray`
-        the initial control points. If None, then initialized at zero.
-    """
-
-    def __init__(self, xs, p=None):
-        super(JaxLinear, self).__init__()
-        # when defining ones own model, need to include inputs as xs, outputs as ys
-        # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
-        # also assumes epoches of data that is shifted between
-        self.xs = xs
-        if p is not None:
-            if p.shape == self.xs.shape:
-                self.p = p
-            else:
-                logging.error(
-                    "p {} must be the same shape as x_grid {}".format(p.shape, xs.shape)
-                )
-        else:
-            self.p = np.zeros(xs.shape)
-
-    def call(self, p, x, i, *arg):
-
-        y = jax.numpy.interp(x, self.xs, p)
-        return y
-
-
-def _full_design_matrix(x, xp, basis):
-    """
-    Creates full cardinal basis design matrix.
-
-    Parameters
-    ----------
-    x : `np.ndarray`
-        array (N,) of x values to evaluate.
-    xp : `np.ndarray`
-        evenly spaced array (M,) of centerpoints of the basis functions
-    basis : anything callable
-        basis function.
-
-    Returns
-    -------
-    out : 'np.ndarray`
-        design matrix (N,M) of basis functions
-    """
-    dx = xp[1] - xp[0]
-    input = (x[:, None] - xp[None, :]) / dx
-    return basis(input)
-
-
-@partial(jit, static_argnums=[3, 4])
-def cardinal_basis_full(x, xp, ap, basis):
-    """
-    Evaluates cardinal basis using full design matrix.
-
-    Parameters
-    ----------
-    x : `np.ndarray`
-        array (N,) of x values to evaluate.
-    xp : `np.ndarray`
-        evenly spaced array (M,) of centerpoints of the basis functions
-    ap : `np.ndarray`
-        coefficient for basis functions
-    basis : anything callable
-        Basis function. Should probably make sense as a real basis function.
-
-    Returns
-    -------
-    out : 'np.ndarray`
-        y array (N,) of evaluated cardinal basis
-    """
-
-    design = _full_design_matrix(x, xp, basis)
-    return design @ ap
-
-
-def _sparse_design_matrix(x, xp, basis, a):
-    """
-    Creates sparse cardinal basis design matrix.
-
-    Parameters
-    ----------
-    x : `np.ndarray`
-        array (N,) of x values to evaluate.
-    xp : `np.ndarray`
-        evenly spaced array (M,) of centerpoints of the basis functions
-    basis : anything callable
-        basis function.
-
-    Returns
-    -------
-    out : 'jax.experimental.sparse.BCOO`
-        sparse design matrix (N,M) of basis functions
-    """
-    # get difference between cardinal splines
-    dx = xp[1] - xp[0]
-    # get distance between each element and the closest cardinal basis to its left
-    inputs = ((x - xp[0]) / dx) % 1
-    # get index of that cardinal basis spline
-    index = (x - xp[0]) // dx
-    # print((x - xp[0]) / dx, index, inputs)
-    # create range of of basis vectors that each datapoint touches bc each basis spans from -a to a from its center
-    arange = jnp.arange(-a - 1, a + 2, step=1.0, dtype=np.float64)
-    # get indices of these basis vectors
-    ainds = jnp.floor(arange)
-    # print(arange, ainds)
-    # use indices, and a indices to get all ms associated with each datapoint
-    ms = (index[:, None] + ainds[None, :]).flatten().astype(int)
-    # use indices of datapoints and a indices to get js
-    js = (
-        (np.arange(0, len(x), dtype=int)[:, None] * np.ones(ainds[None, :].shape))
-        .flatten()
-        .astype(int)
-    )
-    # compute nonzero x values
-    x_tilde = (inputs[:, None] - ainds[None, :]).flatten()
-    # restrict boundary conditions
-    cond1 = ms >= 0
-    cond2 = ms < xp.shape[0]
-    data = jnp.where((cond1 * cond2), basis(x_tilde), 0.0)
-    indices = jnp.concatenate((js[:, None], ms[:, None]), axis=1)
-    # create sparse matrix using these ms,js indices and basis evaluation
-    out = sparse.BCOO((data, indices), shape=(x.shape[0], xp.shape[0]))
-    return out
 
 
 @partial(jit, static_argnums=[3, 4, 5])
@@ -999,7 +865,7 @@ def cardinal_basis_sparse(x, xp, ap, basis, a):
 import jabble.cardinalspline
 
 
-class CardinalSplineMixture_full(Model):
+class CardinalSplineMixture(Model):
     """
     Model that evaluates input using full Irwin-Hall cardinal basis design matrix.
 
@@ -1015,7 +881,7 @@ class CardinalSplineMixture_full(Model):
     """
 
     def __init__(self, xs, p_val=2, p=None):
-        super(CardinalSplineMixture_full, self).__init__()
+        super(CardinalSplineMixture, self).__init__()
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
         # also assumes epoches of data that is shifted between
@@ -1034,37 +900,11 @@ class CardinalSplineMixture_full(Model):
 
     def call(self, p, x, *args):
 
-        y = cardinal_basis_full(x, self.xs, p, self.spline)
-        return y
-
-    def to_device(self, device):
-        """
-        Move all parameters to given device
-        """
-        self.p = jax.device_put(self.p, device)
-        self.xs = jax.device_put(self.xs, device)
-
-
-class CardinalSplineMixture_sparse(CardinalSplineMixture_full):
-    """
-    Model that evaluates input using sparse Irwin-Hall cardinal basis design matrix.
-
-    Parameters
-    ----------
-    xs : `np.ndarray`
-        centerpoints of cardinal (evenly spaced) basis functions
-    p_val : `int`
-        order of the Irwin-Hall basis functions
-    p : `np.ndarray`
-        the initial control points. If None, then initialized at zero.
-
-    """
-
-    def call(self, p, x, *args):
-
         a = (self.p_val + 1) / 2
-        y = cardinal_basis_sparse(x, self.xs, p, self.spline, a)
+        y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
         return y
+
+
 
 
 @partial(jit, static_argnums=[3, 4, 5])
@@ -1106,29 +946,7 @@ def cardinal_vmap_model(x, xp, ap, basis, a):
     out = jax.vmap(_internal, in_axes=(0, 0), out_axes=0)(inputs, index)
 
     return out
-
-
-class CardinalSplineMixture_vmap(CardinalSplineMixture_full):
-    """
-    Model that evaluates input using Irwin-Hall cardinal basis with jax.vmap.
-
-    Parameters
-    ----------
-    xs : `np.ndarray`
-        centerpoints of cardinal (evenly spaced) basis functions
-    p_val : `int`
-        order of the Irwin-Hall basis functions
-    p : `np.ndarray`
-        the initial control points. If None, then initialized at zero.
-
-    """
-
-    def call(self, p, x, *args):
-
-        a = (self.p_val + 1) / 2
-        y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
-        return y
-
+    
 
 def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
     len_xs = np.max(
@@ -1146,7 +964,6 @@ def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
     model = CardinalSplineMixture_vmap(x_grid, norm_p_val)
     size = len(dataset)
 
-    print(size, len(model.p))
     norm_model = NormalizationModel(model, size)
     return ShiftingModel(shifts).composite(norm_model)
 

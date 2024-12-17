@@ -11,6 +11,9 @@ Then run,
 Or to install a stable release, run
 `pip install jabble`
 
+## For RV Extraction
+The primary application of this software is for RV extraction from 1d time-series spectra. The underlying models are more general, but using the functions in model.py you can get models specifically for this purpose. These functions will create models with three components if pseudo-normalization is needed and two components if no normalization is needed. The other two components 
+
 
 ## ContainerModels
 In the models.py, you will find two types of ContainerModels: Additive, and Composite.
