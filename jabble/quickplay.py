@@ -37,7 +37,7 @@ class StellarModel(jabble.model.CompositeModel):
         super(StellarModel, self).__init__(
             [
                 jabble.model.ShiftingModel(init_shifts),
-                jabble.model.IrwinHallModel_sparse(model_grid, p_val),
+                jabble.model.CardinalSplineMixture(model_grid, p_val),
             ]
         )
         self.keys = np.array(["RV", "Template"])
@@ -101,7 +101,7 @@ class TelluricsModel(jabble.model.CompositeModel):
         super(TelluricsModel, self).__init__(
             [
                 jabble.model.StretchingModel(init_airmass),
-                jabble.model.IrwinHallModel_sparse(model_grid, p_val),
+                jabble.model.CardinalSplineMixture(model_grid, p_val),
             ]
         )
         self.keys = np.array(["Airmass", "Template"])
