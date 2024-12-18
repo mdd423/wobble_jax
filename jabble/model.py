@@ -261,8 +261,8 @@ class Model:
     def save(self,filename: str,mode: str, metadata) -> None:
         import h5py
         with h5py.File(filename,'w') as file:
-            self.save_hdf(file)
-            self.create_dataset("metadata",data=metadata)
+            group = self.save_hdf(file)
+            file.create_dataset("metadata",data=metadata)
             pass
 
     def save_hdf(self,file,index=[]):
