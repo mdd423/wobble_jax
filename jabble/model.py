@@ -444,11 +444,12 @@ class ContainerModel(Model):
         """
         return self._param_bool[i]
 
-    def save_hdf(self,file):
-        group = file.create_group(self.__class__.__name__)
-        for model in self.models:
-            model.save_hdf(group)
+    def save_hdf(self,file,index=[]):
+        index_name = np.sum(["[{}]".format(x) for x in index])
+        group = file.create_group(index_name + self.__class__.__name__)
+        group.create_dataset("parameters", data=self.p)
         return group
+
 
 class CompositeModel(ContainerModel):
     """
@@ -922,8 +923,8 @@ class CardinalSplineMixture(Model):
         y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
         return y
     
-    def save_hdf(self,file):
-        group = super(CardinalSplineMixture,self).save_hdf(file)
+    def save_hdf(self,file,index):
+        group = super(CardinalSplineMixture,self).save_hdf(file,index)
         group.create_dataset("xs",data = self.xs)
         group.create_dataset("alphas", data = self.spline.alphas)
         return group
