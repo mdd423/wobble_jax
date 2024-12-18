@@ -452,7 +452,7 @@ class ContainerModel(Model):
         for x in index:
             index_name += "[{}]".format(x) 
         group = file.create_group(index_name + self.__class__.__name__)
-        for i,model in enumerate(self.model_list):
+        for i,model in enumerate(self.models):
             model.save_hdf(group,index.append(i))
         return group
 
