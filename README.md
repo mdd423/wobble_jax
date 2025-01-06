@@ -11,6 +11,12 @@ Then run,
 Or to install a stable release, run
 `pip install jabble`
 
+
+## Quickplay
+For quick use, the quickplay module is made to create the models necessary for spectral template fitting and RV extraction. Use 'WobbleModel' for generating a model with stellar and telluric components. Or use 'PseudoNormalModel' to generate a model with stellar, telluric, and pseudo-normalizing components. 
+
+Then use 'model.save' function to save the object parameters to hdf5 files. The stellar model will then compute the fisher information for the RV parameters. Be wary of bad fits contributing to the RV information, very bad fits can have erroneously large information. To counteract this, the RV combination between chunks will throw out RVs with information greater than 10^20.
+
 ## For RV Extraction
 The primary application of this software is for RV extraction from 1d time-series spectra. The underlying models are more general, but using the functions in model.py you can get models specifically for this purpose. These functions will create models with three components if pseudo-normalization is needed and two components if no normalization is needed. The other two components 
 

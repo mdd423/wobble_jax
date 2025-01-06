@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import jax
 import numpy as np
 import jabble.model
+import h5py
 
 
 def _getitem__(self, key):
@@ -36,7 +37,7 @@ class StellarModel(jabble.model.CompositeModel):
     def __init__(self, init_shifts, model_grid, p_val):
         super(StellarModel, self).__init__(
             [
-                jabble.model.ShiftingModel(init_shifts),
+                jabble.model.EpochShiftingModel(init_shifts),
                 jabble.model.CardinalSplineMixture(model_grid, p_val),
             ]
         )
@@ -74,6 +75,7 @@ class StellarModel(jabble.model.CompositeModel):
 
     def __getitem__(self, *args):
         return _getitem__(self, args)
+    
 
 
 class TelluricsModel(jabble.model.CompositeModel):
@@ -134,11 +136,11 @@ class WobbleModel(jabble.model.AdditiveModel):
 
     """
 
-    def __init__(self, init_shifts, init_airmass, model_grid, p_val):
+    def __init__(self, init_shifts, airmass, model_grid, p_val):
         super(WobbleModel, self).__init__(
             [
                 StellarModel(init_shifts, model_grid, p_val),
-                TelluricsModel(init_airmass, model_grid, p_val),
+                TelluricsModel(airmass, model_grid, p_val),
             ]
         )
         self.keys = np.array(["Stellar", "Tellurics"])
@@ -149,6 +151,43 @@ class WobbleModel(jabble.model.AdditiveModel):
     def get_RV_sigmas(self, dataset):
 
         return self["Stellar"].get_RV_sigmas(dataset, self)
+
+    def __getitem__(self, *args):
+
+        return _getitem__(self, args)
+    
+    def save(self,filename: str,mode: str, data) -> None:
+        '''
+            mode: 0, just RVs
+            mode: 1, RVs and template
+            mode: 2, RVs, template, and residuals
+        '''
+        if mode == 1 or mode == 2:
+            super().save(filename)
+        with h5py.File(filename,'w') as file:
+            group = file.create_group("RVs")
+            group.create_dataset("RVs",data=self.get_RV())
+            group.create_dataset("RV_err",data=self.get_RV_sigmas())
+            if mode == 2:
+                res_group = file.create_group("residuals")
+                res_group.create_dataset("residuals",data=data)
+            pass
+
+    def save_hdf(self, file, index=...):
+        return super().save_hdf(file, index)
+
+
+class PseudoNormalModel(jabble.model.AdditiveModel):
+    def __init__(self, init_shifts ,airmass, model_grid, p_val, dataset, norm_p_val, pts_per_wavelength):
+        normal_model = jabble.model.get_normalization_model(dataset, norm_p_val, pts_per_wavelength)
+        super(WobbleModel, self).__init__(
+            [
+                StellarModel(init_shifts, model_grid, p_val),
+                TelluricsModel(airmass, model_grid, p_val),
+                normal_model
+            ]
+        )
+        self.keys = np.array(["Stellar", "Tellurics", "Normal"])
 
     def __getitem__(self, *args):
 

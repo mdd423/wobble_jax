@@ -258,11 +258,12 @@ class Model:
     def copy(self):
         return copy.deepcopy(self)
 
-    def save(self,filename: str,mode: str, metadata) -> None:
+    def save(self,filename: str) -> None:
         import h5py
         with h5py.File(filename,'w') as file:
-            group = self.save_hdf(file)
-            file.create_dataset("metadata",data=metadata)
+            group = file.create_group("model")
+            model_group = self.save_hdf(group)
+            file.create_dataset("metadata",data=self.results['loss'])
             pass
 
     def save_hdf(self,file,index=[]):
@@ -272,6 +273,10 @@ class Model:
         group = file.create_group(index_name + self.__class__.__name__)
         group.create_dataset("parameters", data=self.p)
         return group
+    
+    def load_hdf(cls,group):
+
+        return cls(p=group["parameters"])
 
 class ContainerModel(Model):
     """
@@ -455,6 +460,13 @@ class ContainerModel(Model):
         for i,model in enumerate(self.models):
             model.save_hdf(group,index + [i])
         return group
+    
+    def load_hdf(cls,group):
+        model_list = []
+        for key in group.keys():
+            cls_sub = eval(key.split(']')[-1])
+            model_list.append(cls_sub.load_hdf(cls_sub,group[key]))
+        return cls(model_list)
 
 
 class CompositeModel(ContainerModel):
@@ -879,7 +891,7 @@ def cardinal_vmap_model(x, xp, ap, basis, a):
     arange = jnp.floor(jnp.arange(-a - 1, a + 2, step=1.0)).astype(int)
     # get distance between each element and the closest cardinal basis to its left
     inputs = ((x - xp[0]) / dx) % 1
-    # get index of the cardinal basis spline to datapoints left
+    # get index of the cardinal basis spline to datapoint's left
     index = ((x - xp[0]) // dx).astype(int)
 
     def _internal(inputs, index):
@@ -933,7 +945,12 @@ class CardinalSplineMixture(Model):
         group = super(CardinalSplineMixture,self).save_hdf(file,index)
         group.create_dataset("xs",data = self.xs)
         group.create_dataset("alphas", data = self.spline.alphas)
+        group.create_dataset("p",data= self.p_val)
         return group
+    
+    def load_hdf(cls,group):
+
+        return cls(xs=group["xs"], p_val=group["p_val"], p=group["parameters"])
     
 
 def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
@@ -949,7 +966,7 @@ def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
     x_spacing = len_xs / x_num
     x_grid = jnp.linspace(-x_spacing, len_xs + x_spacing, x_num + 2) + min_xs
 
-    model = CardinalSplineMixture_vmap(x_grid, norm_p_val)
+    model = CardinalSplineMixture(x_grid, norm_p_val)
     size = len(dataset)
 
     norm_model = NormalizationModel(model, size)
