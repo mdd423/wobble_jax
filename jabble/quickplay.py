@@ -76,6 +76,7 @@ class StellarModel(jabble.model.CompositeModel):
         return np.sqrt(1 / f_info) * dvddx
 
     def __getitem__(self, *args):
+        
         return _getitem__(self, args)
     
 
