@@ -173,9 +173,6 @@ class WobbleModel(jabble.model.AdditiveModel):
                 res_group.create_dataset("residuals",data=data)
             pass
 
-    def save_hdf(self, file, index=...):
-        return super().save_hdf(file, index)
-
 
 class PseudoNormalModel(jabble.model.AdditiveModel):
     def __init__(self, init_shifts ,airmass, model_grid, p_val, dataset, norm_p_val, pts_per_wavelength):
