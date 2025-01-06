@@ -263,7 +263,7 @@ class Model:
         with h5py.File(filename,'w') as file:
             group = file.create_group("model")
             model_group = self.save_hdf(group)
-            file.create_dataset("metadata",data=self.results['loss'])
+            file.create_dataset("metadata",data= [item['loss'] for item in self.results])
             pass
 
     def save_hdf(self,file,index=[]):

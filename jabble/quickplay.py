@@ -8,9 +8,11 @@ import jabble.model
 import h5py
 
 
-def _getitem__(self, key):
-
-    return super(type(self), self).__getitem__(np.argwhere(self.keys == key)[0][0])
+def _getitem__(self, key: str | int):
+    if type(key) == int:
+        return super(type(self), self).__getitem__(key)
+    if type(key) == str:
+        return super(type(self), self).__getitem__(np.argwhere(self.keys == key)[0][0])
 
 
 class StellarModel(jabble.model.CompositeModel):
