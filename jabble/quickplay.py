@@ -167,7 +167,7 @@ class WobbleModel(jabble.model.AdditiveModel):
         with h5py.File(filename,'w') as file:
             group = file.create_group("RVs")
             group.create_dataset("RVs",data=self.get_RV())
-            group.create_dataset("RV_err",data=self.get_RV_sigmas())
+            group.create_dataset("RV_err",data=self.get_RV_sigmas(data))
             if mode == 2:
                 res_group = file.create_group("residuals")
                 res_group.create_dataset("residuals",data=data)
