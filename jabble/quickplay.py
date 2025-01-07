@@ -76,7 +76,7 @@ class StellarModel(jabble.model.CompositeModel):
         return np.sqrt(1 / f_info) * dvddx
 
     def __getitem__(self, *args):
-        
+
         return _getitem__(self, args)
     
 
@@ -102,14 +102,17 @@ class TelluricsModel(jabble.model.CompositeModel):
 
     """
 
-    def __init__(self, init_airmass, model_grid, p_val):
+    def __init__(self, init_airmass, model_grid, p_val, rest_shifts=None):
+        if rest_shifts is None:
+            rest_shifts = np.zeros(init_airmass.shape)
         super(TelluricsModel, self).__init__(
             [
-                jabble.model.StretchingModel(init_airmass),
+                jabble.model.ShiftingModel(rest_shifts),
                 jabble.model.CardinalSplineMixture(model_grid, p_val),
+                jabble.model.StretchingModel(init_airmass),
             ]
         )
-        self.keys = np.array(["Airmass", "Template"])
+        self.keys = np.array(["RestShifts", "Template","Airmass"])
 
     def __getitem__(self, *args):
 
