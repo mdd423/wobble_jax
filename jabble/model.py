@@ -266,11 +266,11 @@ class Model:
             file.create_dataset("metadata",data= [item['loss'] for item in self.results])
             pass
 
-    def save_hdf(self,file,index=[]):
-        index_name = ""
-        for x in index:
-            index_name += "[{}]".format(x) 
-        group = file.create_group(index_name + self.__class__.__name__)
+    def save_hdf(self,file):
+        # index_name = ""
+        # for x in index:
+        #     index_name += "[{}]".format(x) 
+        group = file.create_group(self.__class__.__name__)
         group.create_dataset("parameters", data=self.p)
         return group
     
@@ -452,19 +452,17 @@ class ContainerModel(Model):
         """
         return self._param_bool[i]
 
-    def save_hdf(self,file,index=[]):
-        index_name = ""
-        for x in index:
-            index_name += "[{}]".format(x) 
-        group = file.create_group(index_name + self.__class__.__name__)
+    def save_hdf(self,file):
+        
+        group = file.create_group(self.__class__.__name__)
         for i,model in enumerate(self.models):
-            model.save_hdf(group,index + [i])
+            model.save_hdf(group)
         return group
     
     def load_hdf(cls,group):
         model_list = []
         for key in group.keys():
-            cls_sub = eval(key.split(']')[-1])
+            cls_sub = eval(key)
             model_list.append(cls_sub.load_hdf(cls_sub,group[key]))
         return cls(model_list)
 
