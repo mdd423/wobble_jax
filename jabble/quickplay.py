@@ -172,7 +172,7 @@ class WobbleModel(jabble.model.AdditiveModel):
         '''
         if mode == 1 or mode == 2:
             super().save(filename)
-        with h5py.File(filename,'w') as file:
+        with h5py.File(filename,'a') as file:
 
             datablock, metablock, meta_keys = data.blockify(return_keys=True)
 
