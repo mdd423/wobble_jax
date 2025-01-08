@@ -75,9 +75,9 @@ class StellarModel(jabble.model.CompositeModel):
         )
         return np.sqrt(1 / f_info) * dvddx
 
-    def __getitem__(self, *args):
+    def __getitem__(self, key: str | int):
 
-        return _getitem__(self, args)
+        return _getitem__(self, key)
     
 
 
@@ -114,9 +114,9 @@ class TelluricsModel(jabble.model.CompositeModel):
         )
         self.keys = np.array(["RestShifts", "Template","Airmass"])
 
-    def __getitem__(self, *args):
+    def __getitem__(self, key: str | int):
 
-        return _getitem__(self, args)
+        return _getitem__(self, key)
 
 
 class WobbleModel(jabble.model.AdditiveModel):
@@ -158,9 +158,9 @@ class WobbleModel(jabble.model.AdditiveModel):
 
         return self["Stellar"].get_RV_sigmas(dataset, self)
 
-    def __getitem__(self, *args):
+    def __getitem__(self, key: str | int):
 
-        return _getitem__(self, args)
+        return _getitem__(self, key)
     
     def save(self,filename: str,mode: str, data) -> None:
         '''
@@ -192,6 +192,6 @@ class PseudoNormalModel(jabble.model.AdditiveModel):
         )
         self.keys = np.array(["Stellar", "Tellurics", "Normal"])
 
-    def __getitem__(self, *args):
+    def __getitem__(self, key: str | int):
 
-        return _getitem__(self, args)
+        return _getitem__(self, key)
