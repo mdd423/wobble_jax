@@ -258,7 +258,7 @@ class Model:
     def copy(self):
         return copy.deepcopy(self)
 
-    def save(self,filename: str, device) -> None:
+    def save(self,filename: str) -> None:
         import h5py
         with h5py.File(filename,'w') as file:
             group = file.create_group("model")
