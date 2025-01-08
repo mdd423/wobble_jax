@@ -97,8 +97,9 @@ class Data:
         for dataframe in self.dataframes:
             dataframe.to_device(device)
 
-    def blockify(data, device, return_keys=False):
-
+    def blockify(data, device=None, return_keys=False):
+        if device is None:
+            device = data[0].xs.device()
         max_ind = np.max([len(dataframe.xs) for dataframe in data])
         xs = np.zeros((len(data), max_ind))
         ys = np.zeros((len(data), max_ind))
