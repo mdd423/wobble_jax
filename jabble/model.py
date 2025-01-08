@@ -258,7 +258,7 @@ class Model:
     def copy(self):
         return copy.deepcopy(self)
 
-    def save(self,filename: str) -> None:
+    def save(self,filename: str, device) -> None:
         import h5py
         with h5py.File(filename,'w') as file:
             group = file.create_group("model")
@@ -731,7 +731,7 @@ class EpochSpecificModel(Model):
         else:
             return jnp.array([])
 
-    def f_info(self, model, data, loss, device):
+    def f_info(self, model, data, device):
         """
         Get fischer information on parameters of the model.
         Since each parameter is independent of all other epochs, fischer information matrix is diagonal,

@@ -56,7 +56,7 @@ class StellarModel(jabble.model.CompositeModel):
         """
         return jabble.physics.velocities(self["RV"].p)
 
-    def get_RV_sigmas(self, dataset, model=None):
+    def get_RV_sigmas(self, dataset, model=None, device=None):
         """
         Return errorbar on radial velocities using fischer information
 
@@ -69,7 +69,9 @@ class StellarModel(jabble.model.CompositeModel):
         """
         if model is None:
             model = self
-        f_info = self["RV"].f_info(model, dataset)
+        if device is None:
+            device = dataset[0].xs.device()
+        f_info = self["RV"].f_info(model, dataset, device)
         dvddx = jnp.array(
             [jax.grad(jabble.physics.velocities)(x) for x in self["RV"].p]
         )
@@ -154,15 +156,15 @@ class WobbleModel(jabble.model.AdditiveModel):
     def get_RV(self):
         return self["Stellar"].get_RV()
 
-    def get_RV_sigmas(self, dataset):
+    def get_RV_sigmas(self, *args):
 
-        return self["Stellar"].get_RV_sigmas(dataset, self)
+        return self["Stellar"].get_RV_sigmas(*args)
 
     def __getitem__(self, key: str | int):
 
         return _getitem__(self, key)
     
-    def save(self,filename: str,mode: str, data) -> None:
+    def save(self,filename: str,mode: str, data, device) -> None:
         '''
             mode: 0, just RVs
             mode: 1, RVs and template
@@ -176,7 +178,7 @@ class WobbleModel(jabble.model.AdditiveModel):
 
             group = file.create_group("RVs")
             group.create_dataset("RVs",data=self.get_RV())
-            group.create_dataset("RV_err",data=self.get_RV_sigmas(data))
+            group.create_dataset("RV_err",data=self.get_RV_sigmas(data, device=device))
             group.create_dataset("Times",data=meta_keys['times'])
             if mode == 2:
                 res_group = file.create_group("residuals")
