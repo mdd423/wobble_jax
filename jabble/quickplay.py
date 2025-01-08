@@ -156,9 +156,9 @@ class WobbleModel(jabble.model.AdditiveModel):
     def get_RV(self):
         return self["Stellar"].get_RV()
 
-    def get_RV_sigmas(self, *args):
+    def get_RV_sigmas(self, *args, **kwargs):
 
-        return self["Stellar"].get_RV_sigmas(*args)
+        return self["Stellar"].get_RV_sigmas(*args, **kwargs)
 
     def __getitem__(self, key: str | int):
 
