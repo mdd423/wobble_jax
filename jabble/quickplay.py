@@ -158,7 +158,7 @@ class WobbleModel(jabble.model.AdditiveModel):
 
     def get_RV_sigmas(self, *args, **kwargs):
 
-        return self["Stellar"].get_RV_sigmas(model=self,*args, **kwargs)
+        return self["Stellar"].get_RV_sigmas(*args, **kwargs)
 
     def __getitem__(self, key: str | int):
 
@@ -178,7 +178,7 @@ class WobbleModel(jabble.model.AdditiveModel):
 
             group = file.create_group("RVs")
             group.create_dataset("RVs",data=self.get_RV())
-            group.create_dataset("RV_err",data=self.get_RV_sigmas(data, device=device))
+            group.create_dataset("RV_err",data=self.get_RV_sigmas(data, device=device,model=self))
             group.create_dataset("Times",data=meta_keys['times'])
             if mode == 2:
                 res_group = file.create_group("residuals")
