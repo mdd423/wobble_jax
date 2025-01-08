@@ -939,8 +939,8 @@ class CardinalSplineMixture(Model):
         y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
         return y
     
-    def save_hdf(self,file,index):
-        group = super(CardinalSplineMixture,self).save_hdf(file,index)
+    def save_hdf(self,file):
+        group = super(CardinalSplineMixture,self).save_hdf(file)
         group.create_dataset("xs",data = self.xs)
         group.create_dataset("alphas", data = self.spline.alphas)
         group.create_dataset("p",data= self.p_val)
