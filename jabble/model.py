@@ -270,8 +270,8 @@ class Model:
         elif type(filename) == h5py.File:
             group       = filename.create_group("model")
             model_group = self.save_hdf(group)
-            file.create_dataset("metadata",data= [item['loss'] for item in self.results])
-            return file
+            filename.create_dataset("metadata",data= [item['loss'] for item in self.results])
+            return filename
 
     def save_hdf(self,file):
         # index_name = ""
