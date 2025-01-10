@@ -950,7 +950,7 @@ class CardinalSplineMixture(Model):
         group = super(CardinalSplineMixture,self).save_hdf(file)
         group.create_dataset("xs",data = self.xs)
         group.create_dataset("alphas", data = self.spline.alphas)
-        group.create_dataset("p",data= self.p_val)
+        group.create_dataset("p_val",data= self.p_val)
         return group
     
     def load_hdf(cls,group):
