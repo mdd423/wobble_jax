@@ -12,6 +12,7 @@ import scipy.constants
 import sys
 from functools import partial
 from jax import jit
+import h5py
 
 import copy
 
@@ -258,13 +259,19 @@ class Model:
     def copy(self):
         return copy.deepcopy(self)
 
-    def save(self,filename: str) -> None:
-        import h5py
-        with h5py.File(filename,'w') as file:
-            group = file.create_group("model")
+    
+    def save(self,filename: str | h5py.File) -> None:
+        if type(filename) == str:
+            with h5py.File(filename,'w') as file:
+                group = file.create_group("model")
+                model_group = self.save_hdf(group)
+                file.create_dataset("metadata",data= [item['loss'] for item in self.results])
+                pass
+        elif type(filename) == h5py.File:
+            group       = file.create_group("model")
             model_group = self.save_hdf(group)
             file.create_dataset("metadata",data= [item['loss'] for item in self.results])
-            pass
+            return file
 
     def save_hdf(self,file):
         # index_name = ""

@@ -114,7 +114,7 @@ class TelluricsModel(jabble.model.CompositeModel):
                 jabble.model.StretchingModel(init_airmass),
             ]
         )
-        self.keys = np.array(["RestShifts", "Template","Airmass"])
+        self.keys = np.array(["RestShifts", "Template", "Airmass"])
 
     def __getitem__(self, key: str | int):
 
@@ -184,6 +184,13 @@ class WobbleModel(jabble.model.AdditiveModel):
                 res_group = file.create_group("residuals")
                 res_group.create_dataset("residuals",data=data)
             pass
+
+    def load_hdf(cls,group):
+        model = cls(group["StellarModel"]["EpochShiftingModel"]["parameters"],group["TelluricsModel"]["StretchingModel"]["parameters"],\
+                   group["TelluricsModel"]["CardinalSplineMixture"]["xs"],group["TelluricsModel"]["CardinalSplineMixture"]["p_val"])
+        model["Stellar"]["Template"].p = group["StellarModel"]["CardinalSplineMixture"]["parameters"]
+        model["Tellurics"]["Template"].p = group["TelluricsModel"]["CardinalSplineMixture"]["parameters"]
+        return model
 
 
 class PseudoNormalModel(jabble.model.AdditiveModel):
