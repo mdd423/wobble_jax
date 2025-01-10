@@ -186,10 +186,10 @@ class WobbleModel(jabble.model.AdditiveModel):
             pass
 
     def load_hdf(cls,group):
-        model = cls(group["StellarModel"]["EpochShiftingModel"]["parameters"],group["TelluricsModel"]["StretchingModel"]["parameters"],\
-                   group["TelluricsModel"]["CardinalSplineMixture"]["xs"],group["TelluricsModel"]["CardinalSplineMixture"]["p_val"])
-        model["Stellar"]["Template"].p = group["StellarModel"]["CardinalSplineMixture"]["parameters"]
-        model["Tellurics"]["Template"].p = group["TelluricsModel"]["CardinalSplineMixture"]["parameters"]
+        model = cls(np.array(group["StellarModel"]["EpochShiftingModel"]["parameters"]),np.array(group["TelluricsModel"]["StretchingModel"]["parameters"]),\
+                   np.array(group["TelluricsModel"]["CardinalSplineMixture"]["xs"]),np.array(group["TelluricsModel"]["CardinalSplineMixture"]["p_val"]))
+        model["Stellar"]["Template"].p = np.array(group["StellarModel"]["CardinalSplineMixture"]["parameters"])
+        model["Tellurics"]["Template"].p = np.array(group["TelluricsModel"]["CardinalSplineMixture"]["parameters"])
         return model
 
 
