@@ -170,10 +170,10 @@ class WobbleModel(jabble.model.AdditiveModel):
             mode: 1, RVs and template
             mode: 2, RVs, template, and residuals
         '''
-        if mode == 1 or mode == 2:
-            super().save(filename)
+        
         with h5py.File(filename,'a') as file:
-
+            if mode == 1 or mode == 2:
+                file = super().save(file)
             datablock, metablock, meta_keys = data.blockify(return_keys=True)
 
             group = file.create_group("RVs")
