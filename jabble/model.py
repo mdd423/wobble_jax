@@ -261,16 +261,19 @@ class Model:
 
     
     def save(self,filename: str | h5py.File) -> None:
+        def saving_self(file):
+            group = file.create_group("model")
+            model_group = self.save_hdf(group)
+            meta_group = file.create_group("metadata")
+            meta_group.create_dataset("loss",data= [item['loss'] for item in self.results])
+            for key in self.metadata.keys():
+                meta_group.create_dataset(key,data=self.metadata[key])
+            return file
         if type(filename) == str:
             with h5py.File(filename,'w') as file:
-                group = file.create_group("model")
-                model_group = self.save_hdf(group)
-                file.create_dataset("metadata",data= [item['loss'] for item in self.results])
-                pass
+                saving_self(file)
         elif type(filename) == h5py.File:
-            group       = filename.create_group("model")
-            model_group = self.save_hdf(group)
-            filename.create_dataset("metadata",data= [item['loss'] for item in self.results])
+            filename = saving_self(filename)
             return filename
 
     def save_hdf(self,file):
