@@ -173,22 +173,22 @@ class WobbleModel(jabble.model.AdditiveModel):
             mode: 4, RVs, template, residuals in pickle
         '''
         
-        with h5py.File(filename,'w') as file:
-            if mode == 1 or mode == 2:
-                file = super().save(file)
+        if mode == 1 or mode == 2:
+            super().save(filename,mode="hdf")
+        if mode == 3 or mode == 4:
+            super().save(filename,mode="pkl")
+            
 
-            if mode == 3 or mode == 4:
-                jabble.model.save(filename,self)
+        with h5py.File(filename + "_RVS." + mode,'w') as file:
             datablock, metablock, meta_keys = data.blockify(return_keys=True)
-
-            group = file.create_group("RVs")
-            group.create_dataset("RVs",data=self.get_RV())
-            group.create_dataset("RV_err",data=self.get_RV_sigmas(data, device=device,model=self))
-            group.create_dataset("Times",data=meta_keys['times'])
-            if mode == 2:
-                res_group = file.create_group("residuals")
-                res_group.create_dataset("residuals",data=data)
-            pass
+            # group = file.create_group("RVs")
+            file.create_dataset("RVs",data=self.get_RV())
+            file.create_dataset("RV_err",data=self.get_RV_sigmas(data, device=device,model=self))
+            file.create_dataset("Times",data=meta_keys['times'])
+        # if mode == 2 or mode == 4:
+        #     res_group = file.create_group("residuals")
+        #     res_group.create_dataset("residuals",data=data)
+        pass
 
     def load_hdf(cls,group):
         model = cls(np.array(group["StellarModel"]["EpochShiftingModel"]["parameters"]),np.array(group["TelluricsModel"]["StretchingModel"]["parameters"]),\
