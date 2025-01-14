@@ -82,10 +82,10 @@ class Model:
         self.loss_history = []
         self.save_loss = []
 
-        self.results = []
-
-        self.metadata = np.array((0,6),dtype=[('task', str), ('nit', int), ('funcalls',int),('warnflag',int),\
+        self.results = np.array((0,6),dtype=[('task', str), ('nit', int), ('funcalls',int),('warnflag',int),\
                                                 ('value',np.double),('loss',str)])
+
+        self.metadata = {}
 
     def __call__(self, p, *args):
         """
