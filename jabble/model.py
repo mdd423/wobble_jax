@@ -302,10 +302,10 @@ class ContainerModel(Model):
     def __init__(self, models):
         super(ContainerModel, self).__init__()
         self.models = models
-        self.parameters_per_model = jnp.empty((len(models)), dtype=int)
+        self._parameters_per_model = jnp.empty((len(models)), dtype=int)
         self.size = len(models)
         for i in range(self.size):
-            self.parameters_per_model = self.parameters_per_model.at[i].set(
+            self._parameters_per_model = self._parameters_per_model.at[i].set(
                 len(self.models[i].get_parameters())
             )
         self.create_param_bool()
@@ -320,8 +320,8 @@ class ContainerModel(Model):
             Model to be added to the list of models
         """
         self.models.append(model)
-        self.parameters_per_model = jnp.concatenate(
-            (self.parameters_per_model, len(model.get_parameters()))
+        self._parameters_per_model = jnp.concatenate(
+            (self._parameters_per_model, len(model.get_parameters()))
         )
         self.create_param_bool()
 
@@ -358,7 +358,7 @@ class ContainerModel(Model):
         x = jnp.array([])
         for i in range(self.size):
             params = self.models[i].get_parameters()
-            self.parameters_per_model = self.parameters_per_model.at[i].set(
+            self._parameters_per_model = self._parameters_per_model.at[i].set(
                 params.shape[0]
             )
             x = jnp.concatenate((x, params))
@@ -366,17 +366,17 @@ class ContainerModel(Model):
         return x
 
     def create_param_bool(self):
-        self._param_bool = np.zeros((self.size, int(np.sum(self.parameters_per_model))))
+        self._param_bool = np.zeros((self.size, int(np.sum(self._parameters_per_model))))
         for i in range(self.size):
             self._param_bool[
                 i,
-                int(jnp.sum(self.parameters_per_model[:i])) : int(
-                    jnp.sum(self.parameters_per_model[: i + 1])
+                int(jnp.sum(self._parameters_per_model[:i])) : int(
+                    jnp.sum(self._parameters_per_model[: i + 1])
                 ),
             ] = jnp.ones(
                 (
-                    int(jnp.sum(self.parameters_per_model[: i + 1]))
-                    - int(jnp.sum(self.parameters_per_model[:i]))
+                    int(jnp.sum(self._parameters_per_model[: i + 1]))
+                    - int(jnp.sum(self._parameters_per_model[:i]))
                 ),
                 dtype=bool,
             )
@@ -394,12 +394,12 @@ class ContainerModel(Model):
         if i is None:
             for j in range(self.size):
                 self.models[j].fit()
-                self.parameters_per_model = self.parameters_per_model.at[j].set(
+                self._parameters_per_model = self._parameters_per_model.at[j].set(
                     self.models[j].get_parameters().shape[0]
                 )
         else:
             self[i].fit(*args)
-            self.parameters_per_model = self.parameters_per_model.at[i].set(
+            self._parameters_per_model = self._parameters_per_model.at[i].set(
                 self[i].get_parameters().shape[0]
             )
         self.create_param_bool()
@@ -416,10 +416,10 @@ class ContainerModel(Model):
         if i is None:
             for j, model in enumerate(self.models):
                 model.fix()
-                self.parameters_per_model = self.parameters_per_model.at[j].set(0)
+                self._parameters_per_model = self._parameters_per_model.at[j].set(0)
         else:
             self[i].fix(*args)
-            self.parameters_per_model = self.parameters_per_model.at[i].set(0)
+            self._parameters_per_model = self._parameters_per_model.at[i].set(0)
         self.create_param_bool()
 
     def to_device(self, device):
@@ -440,7 +440,7 @@ class ContainerModel(Model):
             string = string[: -len(tab)]
 
     def split_p(self, p):
-        p_list = [p[self.get_indices(k)] for k in range(len(self.parameters_per_model))]
+        p_list = [p[self.get_indices(k)] for k in range(len(self._parameters_per_model))]
 
         return p_list
 
