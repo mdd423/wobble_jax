@@ -179,12 +179,14 @@ class WobbleModel(jabble.model.AdditiveModel):
             super().save(filename,mode="pkl")
             
 
-        with h5py.File(filename + "_RVS." + mode,'w') as file:
+        with h5py.File(filename + "_RVS.hdf",'w') as file:
             datablock, metablock, meta_keys = data.blockify(return_keys=True)
             # group = file.create_group("RVs")
             file.create_dataset("RVs",data=self.get_RV())
             file.create_dataset("RV_err",data=self.get_RV_sigmas(data, device=device,model=self))
             file.create_dataset("Times",data=meta_keys['times'])
+
+            file["model"] = h5py.ExternalLink(filename + "." + mode)
         # if mode == 2 or mode == 4:
         #     res_group = file.create_group("residuals")
         #     res_group.create_dataset("residuals",data=data)

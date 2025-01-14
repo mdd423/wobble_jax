@@ -84,7 +84,8 @@ class Model:
 
         self.results = []
 
-        self.metadata = {}
+        self.metadata = np.array((0,6),dtype=[('task', str), ('nit', int), ('funcalls',int),('warnflag',int),\
+                                                ('value',np.double),('loss',str)])
 
     def __call__(self, p, *args):
         """
@@ -187,7 +188,9 @@ class Model:
             (datablock, metablock, self, device_op, batch_size),
             **options,
         )
-        self.results.append({"out": d, "value": f, "loss": repr(loss)})
+        self.results = np.append(self.results, {'task': d['task'], 'nit':d['nit'], 'funcalls':d['funcalls'],'warnflag':d'warnflag',\
+                                                'value':f,'loss':repr(loss)}, axis=0)
+        # self.results.append({"out": d, "value": f, "loss": repr(loss)})
         self._unpack(jax.device_put(jnp.array(x), device_op))
         return d
 
