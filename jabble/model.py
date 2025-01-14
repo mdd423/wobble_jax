@@ -456,8 +456,8 @@ class ContainerModel(Model):
 
     def save_hdf(self,file):
         
-        group = file.create_group(self.__class__.__name__)
-        super().save_hdf(file)
+        # group = file.create_group(self.__class__.__name__)
+        group = super().save_hdf(file)
         for i,model in enumerate(self.models):
             model.save_hdf(group)
         return group
