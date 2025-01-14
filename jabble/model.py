@@ -188,8 +188,7 @@ class Model:
             (datablock, metablock, self, device_op, batch_size),
             **options,
         )
-        self.results = np.append(self.results, {'task': d['task'], 'nit':d['nit'], 'funcalls':d['funcalls'],'warnflag':d['warnflag'],\
-                                                'value':f,'loss':repr(loss)}, axis=0)
+        self.results = np.append(self.results, np.array([d['task'],d['nit'],d['funcalls'],d['warnflag'],f,repr(loss)])[:,None], axis=0) #{'task': d['task'], 'nit':d['nit'], 'funcalls':d['funcalls'],'warnflag':d['warnflag'],\'value':f,'loss':repr(loss)}
         # self.results.append({"out": d, "value": f, "loss": repr(loss)})
         self._unpack(jax.device_put(jnp.array(x), device_op))
         return d
