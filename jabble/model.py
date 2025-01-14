@@ -82,7 +82,7 @@ class Model:
         self.loss_history = []
         self.save_loss = []
 
-        results = np.empty(shape=(0),dtype=[('task', 'U10'), ('nit', int), ('funcalls',int),('warnflag',int),\
+        self.results = np.empty(shape=(0),dtype=[('task', 'U10'), ('nit', int), ('funcalls',int),('warnflag',int),\
                                                 ('value',np.double),('loss','U10')])
 
         self.metadata = {}
