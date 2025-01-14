@@ -273,8 +273,9 @@ class Model:
         group = file.create_group(self.__class__.__name__)
         for key in self.__dict__:
             if key != "models":
+                print(key)
                 if self.__dict__[key]:
-                    print(key)
+                    
                     group.create_dataset(key, data=self.__dict__[key])
         return group
     
