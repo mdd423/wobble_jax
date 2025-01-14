@@ -82,8 +82,8 @@ class Model:
         self.loss_history = []
         self.save_loss = []
 
-        self.results = np.empty(shape=(0,6),dtype=[('task', str), ('nit', int), ('funcalls',int),('warnflag',int),\
-                                                ('value',np.double),('loss',str)])
+        results = np.empty(shape=(0),dtype=[('task', 'U10'), ('nit', int), ('funcalls',int),('warnflag',int),\
+                                                ('value',np.double),('loss','U10')])
 
         self.metadata = {}
 
@@ -188,7 +188,9 @@ class Model:
             (datablock, metablock, self, device_op, batch_size),
             **options,
         )
-        self.results = np.append(self.results, np.array([d['task'],d['nit'],d['funcalls'],d['warnflag'],f,repr(loss)])[:,None], axis=0) #{'task': d['task'], 'nit':d['nit'], 'funcalls':d['funcalls'],'warnflag':d['warnflag'],\'value':f,'loss':repr(loss)}
+
+        self.results = np.append(self.results, np.array([(d['task'],d['nit'],d['funcalls'],d['warnflag'],f,repr(loss)),],\
+                                                        dtype=[('task', 'U10'), ('nit', int), ('funcalls',int),('warnflag',int),('value',np.double),('loss','U10')]), axis=0) #{'task': d['task'], 'nit':d['nit'], 'funcalls':d['funcalls'],'warnflag':d['warnflag'],\'value':f,'loss':repr(loss)}
         # self.results.append({"out": d, "value": f, "loss": repr(loss)})
         self._unpack(jax.device_put(jnp.array(x), device_op))
         return d
