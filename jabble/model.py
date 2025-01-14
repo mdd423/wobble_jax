@@ -260,28 +260,20 @@ class Model:
         return copy.deepcopy(self)
 
     
-    def save(self,filename: str | h5py.File) -> None:
-        def saving_self(file):
-            group = file.create_group("model")
-            model_group = self.save_hdf(group)
-            meta_group = file.create_group("metadata")
-            meta_group.create_dataset("loss",data= [item['loss'] for item in self.results])
-            for key in self.metadata.keys():
-                meta_group.create_dataset(key,data=self.metadata[key])
-            return file
-        if type(filename) == str:
-            with h5py.File(filename,'w') as file:
-                saving_self(file)
-        elif type(filename) == h5py.File:
-            filename = saving_self(filename)
-            return filename
+    def save(self,filename: str, mode: str) -> None:
+        
+        if mode == "hdf":
+            with h5py.File(filename + "." + mode,'w') as file:
+                self.save_hdf(file)
+        elif mode == "pkl":
+            with open(filename + "." + mode, "wb") as output:  # Overwrites any existing file.
+                pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
     def save_hdf(self,file):
-        # index_name = ""
-        # for x in index:
-        #     index_name += "[{}]".format(x) 
         group = file.create_group(self.__class__.__name__)
-        group.create_dataset("parameters", data=self.p)
+        for key in self.__dict__:
+            if self.__dict__[key]:
+                group.create_dataset(key, data=self.__dict__[key])
         return group
     
     def load_hdf(cls,group):
@@ -465,6 +457,7 @@ class ContainerModel(Model):
     def save_hdf(self,file):
         
         group = file.create_group(self.__class__.__name__)
+        super().save_hdf(file)
         for i,model in enumerate(self.models):
             model.save_hdf(group)
         return group
