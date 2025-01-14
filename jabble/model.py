@@ -272,6 +272,7 @@ class Model:
     def save_hdf(self,file):
         group = file.create_group(self.__class__.__name__)
         for key in self.__dict__:
+            print(key)
             if self.__dict__[key]:
                 group.create_dataset(key, data=self.__dict__[key])
         return group
