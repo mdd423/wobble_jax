@@ -272,10 +272,10 @@ class Model:
     def save_hdf(self,file):
         group = file.create_group(self.__class__.__name__)
         for key in self.__dict__:
-            
-            if self.__dict__[key] and key != "models":
-                print(key)
-                group.create_dataset(key, data=self.__dict__[key])
+            if key != "models":
+                if self.__dict__[key]:
+                    print(key)
+                    group.create_dataset(key, data=self.__dict__[key])
         return group
     
     def load_hdf(cls,group):
