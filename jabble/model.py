@@ -73,7 +73,7 @@ class Model:
        List of results objects produced each call to optimize
     """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self._fit = False
         self.func_evals = []
         self.history = []
@@ -299,7 +299,7 @@ class ContainerModel(Model):
         Array with shape len(models), ith value of array is the number of parameters being fit in the ith model.
     """
 
-    def __init__(self, models):
+    def __init__(self, models, *args, **kwargs):
         super(ContainerModel, self).__init__()
         self.models = models
         self._parameters_per_model = jnp.empty((len(models)), dtype=int)
@@ -604,7 +604,7 @@ class ConvolutionalModel(Model):
     Model that convolves the input, x, with parameters, p, using jax function.
     """
 
-    def __init__(self, p=None):
+    def __init__(self, p=None, *args, **kwargs):
         super(ConvolutionalModel, self).__init__()
         if p is None:
             self.p = jnp.array([0, 1, 0])
@@ -626,10 +626,10 @@ class EpochSpecificModel(Model):
         Number of epochs
     """
 
-    def __init__(self, epoches):
+    def __init__(self, n, *args, **kwargs):
         super(EpochSpecificModel, self).__init__()
-        self.n = epoches
-        self._epoches = slice(0, epoches)
+        self.n = n
+        self._epoches = slice(0, n)
 
     def __call__(self, p, *args):
         # if there are no parameters coming in, then use the stored parameters
@@ -805,7 +805,7 @@ class EpochShiftingModel(EpochSpecificModel):
         N epoch length array of initial values of p.
     """
 
-    def __init__(self, p=None, epoches=0):
+    def __init__(self, p=None, epoches=0, *args, **kwargs):
         if p is None:
             self.p = jnp.zeros(epoches)
         else:
@@ -830,7 +830,7 @@ class ShiftingModel(EpochSpecificModel):
         N epoch length array of initial values of p.
     """
 
-    def __init__(self, p=None, epoches=0):
+    def __init__(self, p=None, epoches=0, *args, **kwargs):
         if p is None:
             self.p = jnp.zeros(epoches)
         else:
@@ -855,7 +855,7 @@ class StretchingModel(EpochSpecificModel):
         N epoch length array of initial values of p.
     """
 
-    def __init__(self, p=None, epoches=0):
+    def __init__(self, p=None, epoches=0, *args, **kwargs):
         if p is None:
             self.p = jnp.ones((epoches))
         else:
@@ -925,7 +925,7 @@ class CardinalSplineMixture(Model):
 
     """
 
-    def __init__(self, xs, p_val=2, p=None):
+    def __init__(self, xs, p_val=2, p=None, *args, **kwargs):
         super(CardinalSplineMixture, self).__init__()
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
@@ -982,7 +982,7 @@ def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
 
 
 class NormalizationModel(Model):
-    def __init__(self, model, size):
+    def __init__(self, model, size, *args, **kwargs):
         super(NormalizationModel, self).__init__()
         self.p = jnp.tile(model.p, size)
         self.model = model
