@@ -283,7 +283,8 @@ class Model:
                 # print(key)
         if self.results:
             group.create_dataset("results", data=self.results)
-        group.create_dataset("p",data=self.p)
+        if self.p:
+            group.create_dataset("p",data=self.p)
         # for key in self.__dict__:
         #     if key != "models":
         #         print(key)
