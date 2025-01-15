@@ -972,7 +972,7 @@ class CardinalSplineMixture(Model):
     
     def load_hdf(cls,group):
 
-        return cls(xs=group["xs"], p_val=group["p_val"], p=group["p"])
+        return cls(xs=np.array(group["xs"]), p_val=int(group["p_val"]), p=np.array(group["p"]))
     
 
 class NormalizationModel(Model):
