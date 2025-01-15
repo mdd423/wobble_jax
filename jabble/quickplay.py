@@ -79,9 +79,9 @@ def save(self,filename: str,mode: str, data, device) -> None:
         '''
         
         if mode == 1 or mode == 2:
-            super().save(filename,mode="hdf")
+            self.save(filename,mode="hdf")
         if mode == 3 or mode == 4:
-            super().save(filename,mode="pkl")
+            self.save(filename,mode="pkl")
             
 
         with h5py.File(filename + "_RVS.hdf",'w') as file:
