@@ -98,6 +98,18 @@ def save(self,filename: str,mode: str, data, device) -> None:
         #     res_group.create_dataset("residuals",data=data)
         pass
 
+def load(filename,mode:str):
+    if mode == "hdf":
+        with h5py.File(filename,'r') as file:
+            # print(model_name + '.hdf',file.keys())
+            for key in file.keys():
+                cls = eval('jabble.model.' + key)
+                model = cls.load_hdf(cls,file)
+                model.results = file[key]['results']
+
+    elif mode == "pkl":
+        model = jabble.model.load(filename)
+    return model
 
 # def _getitem__(self, key: str | int):
 #     if type(key) == int:

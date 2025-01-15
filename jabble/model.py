@@ -277,7 +277,7 @@ class Model:
         ind_str = ""
         for x in index:
             ind_str += '[{}]'.format(x)
-        print(ind_str + self.__class__.__name__)
+        # print(ind_str + self.__class__.__name__)
         group = file.create_group(ind_str + self.__class__.__name__)
         # for key in self.__dict__:
         #     if key[0] != "_":
