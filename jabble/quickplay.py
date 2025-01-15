@@ -86,8 +86,8 @@ def save(self,filename: str,mode: str, data, device) -> None:
 
         with h5py.File(filename + "_RVS.hdf",'w') as file:
             _, _, meta_keys = data.blockify(return_keys=True)
-            file.create_dataset("RVs",data=self.get_RV())
-            file.create_dataset("RV_err",data=self.get_RV_sigmas(data, device=device,model=self))
+            file.create_dataset("RVs",data=jabble.physics.velocities(self[0][0].p))
+            file.create_dataset("RV_err",data=get_RV_sigmas(self, data, device=device, model=self))
             file.create_dataset("Times",data=meta_keys['times'])
 
             file["model"] = h5py.ExternalLink(filename + "." + mode)
