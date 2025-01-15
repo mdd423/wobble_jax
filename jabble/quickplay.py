@@ -10,13 +10,13 @@ import h5py
 import astropy.units as u
 
 def get_stellar_model(init_rvs, model_grid, p_val):
-    return jabble.model.EpochShiftingModel(jabble.physics.shifts(init_rvs)) + jabble.model.CardinalSplineMixture(model_grid, p_val)
+    return jabble.model.CompositeModel([jabble.model.EpochShiftingModel(jabble.physics.shifts(init_rvs)), jabble.model.CardinalSplineMixture(model_grid, p_val)])
 
 def get_tellurics_model(init_airmass, model_grid, p_val, rest_vels=None):
     if rest_vels is None:
         rest_vels = np.zeros(init_airmass.shape) * u.m/u.s
-    return jabble.model.ShiftingModel(jabble.physics.shifts(rest_vels)) + jabble.model.CardinalSplineMixture(model_grid, p_val) \
-        + jabble.model.StretchingModel(init_airmass)
+    return jabble.model.CompositeModel([jabble.model.ShiftingModel(jabble.physics.shifts(rest_vels)), jabble.model.CardinalSplineMixture(model_grid, p_val), \
+                                        jabble.model.StretchingModel(init_airmass)])
 
 def get_wobble_model(init_rvs, init_airmass, model_grid, p_val,rest_vels=None):
 
