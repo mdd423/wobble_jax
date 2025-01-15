@@ -22,9 +22,30 @@ def get_wobble_model(init_rvs, init_airmass, model_grid, p_val,rest_vels=None):
 
     return get_stellar_model(init_rvs, model_grid, p_val) + get_tellurics_model(init_airmass, model_grid, p_val, rest_vels)
 
-def get_pseudo_norm_model(init_rvs, init_airmass, model_grid, p_val,rest_vels=None):
+def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
+    len_xs = np.max(
+        [np.max(dataframe.xs) - np.min(dataframe.xs) for dataframe in dataset]
+    )
+    min_xs = np.min([np.min(dataframe.xs) for dataframe in dataset])
+    max_xs = np.max([np.max(dataframe.xs) for dataframe in dataset])
 
-    return get_stellar_model(init_rvs, model_grid, p_val) + get_tellurics_model(init_airmass, model_grid, p_val, rest_vels) + jabble.model.get_normalization_model()
+    shifts = jnp.array([dataframe.xs.min() - min_xs for dataframe in dataset])
+
+    x_num = int((np.exp(max_xs) - np.exp(min_xs)) * pts_per_wavelength)
+    x_spacing = len_xs / x_num
+    x_grid = jnp.linspace(-x_spacing, len_xs + x_spacing, x_num + 2) + min_xs
+
+    model = jabble.model.CardinalSplineMixture(x_grid, norm_p_val)
+    size = len(dataset)
+
+    p = jnp.tile(model.p, size)
+    norm_model = jabble.model.NormalizationModel(p, model, size)
+    return jabble.model.ShiftingModel(shifts).composite(norm_model)
+
+def get_pseudo_norm_model(init_rvs, init_airmass, model_grid, p_val,dataset,norm_p_val, pts_per_wavelength,rest_vels=None,):
+
+    return get_stellar_model(init_rvs, model_grid, p_val) + get_tellurics_model(init_airmass, model_grid, p_val, rest_vels) + \
+        get_normalization_model(dataset,norm_p_val, pts_per_wavelength)
 
 
 def get_RV_sigmas(self, dataset, model=None, device=None):

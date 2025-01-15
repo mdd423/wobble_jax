@@ -969,27 +969,6 @@ class CardinalSplineMixture(Model):
         return cls(xs=group["xs"], p_val=group["p_val"], p=group["p"])
     
 
-def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
-    len_xs = np.max(
-        [np.max(dataframe.xs) - np.min(dataframe.xs) for dataframe in dataset]
-    )
-    min_xs = np.min([np.min(dataframe.xs) for dataframe in dataset])
-    max_xs = np.max([np.max(dataframe.xs) for dataframe in dataset])
-
-    shifts = jnp.array([dataframe.xs.min() - min_xs for dataframe in dataset])
-
-    x_num = int((np.exp(max_xs) - np.exp(min_xs)) * pts_per_wavelength)
-    x_spacing = len_xs / x_num
-    x_grid = jnp.linspace(-x_spacing, len_xs + x_spacing, x_num + 2) + min_xs
-
-    model = CardinalSplineMixture(x_grid, norm_p_val)
-    size = len(dataset)
-
-    p = jnp.tile(model.p, size)
-    norm_model = NormalizationModel(p, model, size)
-    return ShiftingModel(shifts).composite(norm_model)
-
-
 class NormalizationModel(Model):
     def __init__(self, p, model, size, *args, **kwargs):
         super(NormalizationModel, self).__init__()
