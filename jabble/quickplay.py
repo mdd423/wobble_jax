@@ -6,6 +6,7 @@ import jax
 import numpy as np
 import jabble.model
 import h5py
+import os
 
 import astropy.units as u
 
