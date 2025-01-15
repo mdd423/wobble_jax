@@ -283,8 +283,10 @@ class Model:
                 # print(key)
         if self.results:
             group.create_dataset("results", data=self.results)
-        if self.p:
+        try:
             group.create_dataset("p",data=self.p)
+        except AttributeError:
+            pass
         # for key in self.__dict__:
         #     if key != "models":
         #         print(key)
