@@ -273,19 +273,27 @@ class Model:
             with open(filename + "." + mode, "wb") as output:  # Overwrites any existing file.
                 pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
 
-    def save_hdf(self,file):
-        group = file.create_group(self.__class__.__name__)
-        for key in self.__dict__:
-            if key != "models":
-                print(key)
-                if self.__dict__[key]:
+    def save_hdf(self,file,index=[]):
+        ind_str = np.sum(['[{}]'.format(x) for x in index])
+        group = file.create_group(ind_str + self.__class__.__name__)
+        # for key in self.__dict__:
+        #     if key[0] != "_":
+                # print(key)
+        if self.results:
+            group.create_dataset("results", data=self.results)
+        group.create_dataset("p",data=self.p)
+        # for key in self.__dict__:
+        #     if key != "models":
+        #         print(key)
+        #         if self.__dict__[key]:
                     
-                    group.create_dataset(key, data=self.__dict__[key])
+        #             group.create_dataset(key, data=self.__dict__[key])
         return group
     
     def load_hdf(cls,group):
 
-        return cls(p=group["parameters"])
+        return cls(p=group["p"])
+
 
 class ContainerModel(Model):
     """
@@ -461,18 +469,18 @@ class ContainerModel(Model):
         """
         return self._param_bool[i]
 
-    def save_hdf(self,file):
+    def save_hdf(self,file,index=[]):
         
         # group = file.create_group(self.__class__.__name__)
         group = super().save_hdf(file)
         for i,model in enumerate(self.models):
-            model.save_hdf(group)
+            model.save_hdf(group,index=index+[i])
         return group
     
     def load_hdf(cls,group):
         model_list = []
         for key in group.keys():
-            cls_sub = eval(key)
+            cls_sub = eval(key.split(']')[-1])
             model_list.append(cls_sub.load_hdf(cls_sub,group[key]))
         return cls(model_list)
 
@@ -958,7 +966,7 @@ class CardinalSplineMixture(Model):
     
     def load_hdf(cls,group):
 
-        return cls(xs=group["xs"], p_val=group["p_val"], p=group["parameters"])
+        return cls(xs=group["xs"], p_val=group["p_val"], p=group["p"])
     
 
 def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
@@ -977,14 +985,15 @@ def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
     model = CardinalSplineMixture(x_grid, norm_p_val)
     size = len(dataset)
 
-    norm_model = NormalizationModel(model, size)
+    p = jnp.tile(model.p, size)
+    norm_model = NormalizationModel(p, model, size)
     return ShiftingModel(shifts).composite(norm_model)
 
 
 class NormalizationModel(Model):
-    def __init__(self, model, size, *args, **kwargs):
+    def __init__(self, p, model, size, *args, **kwargs):
         super(NormalizationModel, self).__init__()
-        self.p = jnp.tile(model.p, size)
+        self.p = p#jnp.tile(model.p, size)
         self.model = model
 
         self.model_p_size = len(model.p)
@@ -999,3 +1008,19 @@ class NormalizationModel(Model):
             *args,
         )
         return x
+
+    def save_hdf(self,file,index=[]):
+        group = file.create_group(self.model.__class__.__name__)
+        group = super(type(self.model),self.model).save_hdf(group,index)
+        
+        file = super(NormalizationModel, self).save_hdf(file,index)
+        file.create_dataset("size",data = self.size)
+        return file
+    
+    def load_hdf(cls,group):
+        for key in group.keys():
+            if key != "size":
+                if key != "p":
+                    cls_sub = eval(key.split(']')[-1])
+                    temp_model = cls_sub.load_hdf(cls_sub,group[key])
+        return cls(p=group["p"], model=temp_model, size=group["size"])
