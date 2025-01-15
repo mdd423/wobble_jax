@@ -78,10 +78,10 @@ def save(self,filename: str,mode: str, data, device) -> None:
             mode: 4, RVs, template, residuals in pickle
         '''
         
-        if mode == 1 or mode == 2:
-            self.save(filename,mode="hdf")
-        if mode == 3 or mode == 4:
-            self.save(filename,mode="pkl")
+        # if mode == 1 or mode == 2:
+        self.save(filename,mode=mode)
+        # if mode == 3 or mode == 4:
+            # self.save(filename,mode="pkl")
             
 
         with h5py.File(filename + "_RVS.hdf",'w') as file:
