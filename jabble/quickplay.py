@@ -90,7 +90,8 @@ def save(self,filename: str,mode: str, data, device) -> None:
             file.create_dataset("RV_err",data=get_RV_sigmas(self, data, device=device, model=self))
             file.create_dataset("Times",data=meta_keys['times'])
 
-            file["model"] = h5py.ExternalLink(filename + "." + mode)
+            head, tail = os.path.split(filename + "." + mode)
+            file["model"] = h5py.ExternalLink(tail,head)
         # if mode == 2 or mode == 4:
         #     res_group = file.create_group("residuals")
         #     res_group.create_dataset("residuals",data=data)
