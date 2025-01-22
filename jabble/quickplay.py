@@ -129,9 +129,10 @@ def load(filename,mode:str):
         with h5py.File(filename,'r') as file:
             # print(model_name + '.hdf',file.keys())
             for key in file.keys():
-                cls = eval('jabble.model.' + key)
-                model = cls.load_hdf(cls,file)
-                load_results(model,file['results'])
+                if key in dir(jabble.model):
+                    cls = eval('jabble.model.' + key)
+                    model = cls.load_hdf(cls,file)
+                    load_results(model,file['results'])
 
     elif mode == "pkl":
         model = jabble.model.load(filename)
