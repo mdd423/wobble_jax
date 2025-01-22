@@ -99,13 +99,39 @@ def save(self,filename: str,mode: str, data, device) -> None:
         pass
 
 def load(filename,mode:str):
+    def load_results(model,file):
+        results_row = []
+        str_dtype = '<U100'
+        results_dtype = []
+        for key,ele in file.attrs.items():
+            
+            arr = np.array(file.attrs[key]).astype(str_dtype)
+            results_dtype.append((key,str_dtype))
+            results_row.append(arr)
+            
+        for key in file.keys():
+            results_dtype.append((key,file[key].dtype))
+            results_row.append(np.array(file[key]))
+
+        # put named columns in the same order as in model.results
+        temp = list(map(tuple, zip(*results_dtype)))
+        index_1 = np.argsort(temp[0])
+        index_2 = np.argsort(model.results.dtype.names)
+        invindex_2 = np.argsort(index_2)
+
+        data = list(map(tuple, zip(*np.array(results_row)[index_1][invindex_2])))
+        thing = list(map(tuple,np.array(results_dtype)[index_1][invindex_2]))
+        # create results array and append to existing results named array
+        results_arr = np.array(data,dtype=thing)
+        model.results = np.append(model.results,results_arr, axis=0) 
+
     if mode == "hdf":
         with h5py.File(filename,'r') as file:
             # print(model_name + '.hdf',file.keys())
             for key in file.keys():
                 cls = eval('jabble.model.' + key)
                 model = cls.load_hdf(cls,file)
-                model.results = file[key]['results']
+                load_results(model,file['results'])
 
     elif mode == "pkl":
         model = jabble.model.load(filename)

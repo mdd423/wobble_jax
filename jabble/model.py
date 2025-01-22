@@ -82,8 +82,8 @@ class Model:
         self.loss_history = []
         self.save_loss = []
 
-        self.results = np.empty(shape=(0),dtype=[('task', 'U10'), ('nit', int), ('funcalls',int),('warnflag',int),\
-                                                ('value',np.double),('loss','U10')])
+        self.results = np.empty(shape=(0),dtype=[('task', 'U64'), ('nit', int), ('funcalls',int),('warnflag',int),\
+                                                ('value',np.double),('loss','U64')])
 
         self.metadata = {}
 
@@ -190,7 +190,7 @@ class Model:
         )
 
         self.results = np.append(self.results, np.array([(d['task'],d['nit'],d['funcalls'],d['warnflag'],f,repr(loss)),],\
-                                                        dtype=[('task', 'U10'), ('nit', int), ('funcalls',int),('warnflag',int),('value',np.double),('loss','U10')]), axis=0) #{'task': d['task'], 'nit':d['nit'], 'funcalls':d['funcalls'],'warnflag':d['warnflag'],\'value':f,'loss':repr(loss)}
+                                                        dtype=[('task', 'U64'), ('nit', int), ('funcalls',int),('warnflag',int),('value',np.double),('loss','U64')]), axis=0) #{'task': d['task'], 'nit':d['nit'], 'funcalls':d['funcalls'],'warnflag':d['warnflag'],\'value':f,'loss':repr(loss)}
         # self.results.append({"out": d, "value": f, "loss": repr(loss)})
         self._unpack(jax.device_put(jnp.array(x), device_op))
         return d
@@ -263,7 +263,6 @@ class Model:
     def copy(self):
         return copy.deepcopy(self)
 
-    
     def save(self,filename: str, mode: str) -> None:
         
         if mode == "hdf":
@@ -282,8 +281,13 @@ class Model:
         # for key in self.__dict__:
         #     if key[0] != "_":
                 # print(key)
-        if self.results:
-            group.create_dataset("results", data=self.results)
+        if np.any(self.results):
+            group = file.create_group('results')
+            for item in self.results.dtype.names:
+                if self.results[item].dtype == '<U10':
+                    group.attrs[item] = np.array(self.results[item], dtype=h5py.string_dtype(encoding='utf-8'))
+                else:
+                    group.create_dataset(item,data=self.results[item])
         try:
             group.create_dataset("p",data=self.p)
         except AttributeError:
