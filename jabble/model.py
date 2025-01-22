@@ -284,7 +284,7 @@ class Model:
         if len(self.results) > 0:
             group = file.create_group('results')
             for item in self.results.dtype.names:
-                if self.results[item].dtype == '<U10':
+                if self.results[item].dtype == '<U64':
                     group.attrs[item] = np.array(self.results[item], dtype=h5py.string_dtype(encoding='utf-8'))
                 else:
                     group.create_dataset(item,data=self.results[item])
