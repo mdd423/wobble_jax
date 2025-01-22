@@ -281,7 +281,7 @@ class Model:
         # for key in self.__dict__:
         #     if key[0] != "_":
                 # print(key)
-        if self.results:
+        if len(self.results) > 0:
             group = file.create_group('results')
             for item in self.results.dtype.names:
                 if self.results[item].dtype == '<U10':
