@@ -1005,8 +1005,8 @@ class NormalizationModel(Model):
         group = self.model.save_hdf(group,index)
         
         # file = super(NormalizationModel, self).save_hdf(file,index)
-        group.create_dataset("size",data = self.size)
-        group.create_dataset("p",data = self.p)
+        group.create_dataset("param1",data = self.size)
+        group.create_dataset("param2",data = self.p)
         return file
     
     def load_hdf(cls,group):
