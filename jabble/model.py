@@ -1006,6 +1006,7 @@ class NormalizationModel(Model):
         
         # file = super(NormalizationModel, self).save_hdf(file,index)
         file.create_dataset("size",data = self.size)
+        file.create_dataset("p",data = self.p)
         return file
     
     def load_hdf(cls,group):
