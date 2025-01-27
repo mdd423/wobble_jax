@@ -92,7 +92,10 @@ def save(self,filename: str,mode: str, data, device) -> None:
             file.create_dataset("Times",data=meta_keys['times'])
 
             head, tail = os.path.split(filename + "." + mode)
-            file["model"] = h5py.ExternalLink(tail,head)
+            if mode == 'hdf':
+                file["model"] = h5py.SoftLink(filename + "." + mode)
+            elif mode == 'pkl':
+                file.attrs['model'] = filename + "." + mode
         # if mode == 2 or mode == 4:
         #     res_group = file.create_group("residuals")
         #     res_group.create_dataset("residuals",data=data)
