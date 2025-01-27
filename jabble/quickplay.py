@@ -131,8 +131,10 @@ def load(filename,mode:str):
     if mode == "hdf":
         with h5py.File(filename,'r') as file:
             # print(model_name + '.hdf',file.keys())
+            print(file.keys())
             for key in file.keys():
                 if key in dir(jabble.model):
+                    print(key)
                     cls = eval('jabble.model.' + key)
                     model = cls.load_hdf(cls,file)
                     load_results(model,file['results'])
