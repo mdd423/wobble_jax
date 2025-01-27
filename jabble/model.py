@@ -491,7 +491,7 @@ class ContainerModel(Model):
         model_list = []
         for key in group.keys():
             cls_sub = eval(key.split(']')[-1])
-            print(group[key].keys())
+            # print(group[key].keys())
             model_list.append(cls_sub.load_hdf(cls_sub,group[key]))
         return cls(model_list)
 
