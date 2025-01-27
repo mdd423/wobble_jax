@@ -136,7 +136,7 @@ def load(filename,mode:str):
                 if key in dir(jabble.model):
                     print(key)
                     cls = eval('jabble.model.' + key)
-                    model = cls.load_hdf(cls,file)
+                    model = cls.load_hdf(cls,file[key])
                     load_results(model,file['results'])
 
     elif mode == "pkl":
