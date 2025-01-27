@@ -1001,7 +1001,7 @@ class NormalizationModel(Model):
 
     def save_hdf(self,file,index=[]):
         # group = file.create_group(self.model.__class__.__name__)
-        file = super(NormalizationModel, self).save_hdf(file,index)
+        group = super(NormalizationModel, self).save_hdf(file,index)
         group = self.model.save_hdf(group,index)
         
         # file = super(NormalizationModel, self).save_hdf(file,index)
