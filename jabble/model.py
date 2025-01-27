@@ -1003,6 +1003,7 @@ class NormalizationModel(Model):
         # group = file.create_group(self.model.__class__.__name__)
         group = super(NormalizationModel, self).save_hdf(file,index)
         model_group = self.model.save_hdf(group,index)
+        # del model_group["p"]
         
         # file = super(NormalizationModel, self).save_hdf(file,index)
         group.create_dataset("size",data = self.size)
