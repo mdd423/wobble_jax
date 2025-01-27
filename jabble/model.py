@@ -282,12 +282,12 @@ class Model:
         #     if key[0] != "_":
                 # print(key)
         if len(self.results) > 0:
-            group = file.create_group('results')
+            res_group = file.create_group('results')
             for item in self.results.dtype.names:
                 if self.results[item].dtype == '<U64':
-                    group.attrs[item] = np.array(self.results[item], dtype=h5py.string_dtype(encoding='utf-8'))
+                    res_group.attrs[item] = np.array(self.results[item], dtype=h5py.string_dtype(encoding='utf-8'))
                 else:
-                    group.create_dataset(item,data=self.results[item])
+                    res_group.create_dataset(item,data=self.results[item])
         try:
             group.create_dataset("p",data=self.p)
         except AttributeError:
