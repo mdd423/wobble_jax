@@ -93,7 +93,7 @@ def save(self,filename: str,mode: str, data, device) -> None:
 
             head, tail = os.path.split(filename + "." + mode)
             if mode == 'hdf':
-                file["model"] = h5py.SoftLink(filename + "." + mode)
+                file["model"] = h5py.ExternalLink(filename + "." + mode,'/')
             elif mode == 'pkl':
                 file.attrs['model'] = filename + "." + mode
         # if mode == 2 or mode == 4:
