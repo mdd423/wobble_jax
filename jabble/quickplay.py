@@ -128,16 +128,24 @@ def load(filename,mode:str):
         results_arr = np.array(data,dtype=thing)
         model.results = np.append(model.results,results_arr, axis=0) 
 
+        return model
+    
+    def load_metadata(model,file):
+        for key in file.keys():
+            model.metadata[key] = np.array(file[key])
+        return model
+
     if mode == "hdf":
         with h5py.File(filename,'r') as file:
             # print(model_name + '.hdf',file.keys())
-            print(file.keys())
+            # print(file.keys())
             for key in file.keys():
                 if key in dir(jabble.model):
-                    print(key)
+                    # print(key)
                     cls = eval('jabble.model.' + key)
                     model = cls.load_hdf(cls,file[key])
-                    load_results(model,file['results'])
+                    model = load_results(model,file['results'])
+                    model = load_metadata(model,file['metadata'])
 
     elif mode == "pkl":
         model = jabble.model.load(filename)

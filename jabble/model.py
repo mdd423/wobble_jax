@@ -288,6 +288,10 @@ class Model:
                     res_group.attrs[item] = np.array(self.results[item], dtype=h5py.string_dtype(encoding='utf-8'))
                 else:
                     res_group.create_dataset(item,data=self.results[item])
+        if len(self.metadata) > 0:
+            meta_group = file.create_group('metadata')
+            for key in self.metadata.keys():
+                meta_group.create_dataset(key,data=self.metadata[key])
         try:
             group.create_dataset("p",data=self.p)
         except AttributeError:
