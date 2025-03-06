@@ -131,6 +131,8 @@ def load(filename,mode:str):
         return model
     
     def load_metadata(model,file):
+        # I HATE MY CODE THIS IS SO FUCKING STUPID 
+        # I SHOULD JUST MAKE A GENERIC
         for key in file.keys():
             model.metadata[key] = np.array(file[key])
         return model

@@ -661,7 +661,7 @@ class EpochSpecificModel(Model):
         else:
             return self.call(p, *args)
 
-    def grid_search(self, grid, loss, model, data, epoches=None):
+    def grid_search(self, grid, loss, model, data, device, epoches=None):
         """
         Function that will individually grid search each parameter.
 
@@ -690,6 +690,8 @@ class EpochSpecificModel(Model):
         if isinstance(model, ContainerModel):
             model.get_parameters()
 
+
+        datablock, metablock = data.blockify(device)
         def _internal(grid, j):
 
             return jnp.array(
@@ -806,9 +808,10 @@ class EpochSpecificModel(Model):
             metarow = get_dict(metablock, i)
             # sum over pixels
             # assumes diagonal variance in pixel, and time
-            f_info[i, :] += (
+            f_info[i, :] += jnp.where(~datarow["mask"],
                 (duddx(model.get_parameters(), datarow["xs"], metarow) ** 2)
-                * datarow["yivar"][:, None]
+                * datarow["yivar"][:, None],
+                0.0
             ).sum(axis=0)
 
             # f_info[i,:] += ((duddx(model.get_parameters(),datarow,metarow,model)**2) * datarow['yivar'][:,None]).sum(axis=0)
