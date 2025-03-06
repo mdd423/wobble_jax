@@ -808,7 +808,7 @@ class EpochSpecificModel(Model):
             metarow = get_dict(metablock, i)
             # sum over pixels
             # assumes diagonal variance in pixel, and time
-            f_info[i, :] += jnp.where(~datarow["mask"],
+            f_info[i, :] += jnp.where(~datarow["mask"][:, None]*np.ones(len(model.get_parameters()))[None, :],
                 (duddx(model.get_parameters(), datarow["xs"], metarow) ** 2)
                 * datarow["yivar"][:, None],
                 0.0
