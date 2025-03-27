@@ -692,18 +692,18 @@ class EpochSpecificModel(Model):
 
 
         datablock, metablock = data.blockify(device)
-        def _internal(grid, j):
+        def _internal(grid, datarow, metarow):
 
             return jnp.array(
                 [jnp.sum(loss(grid, data, i, model)) for i in range(self.n)]
             )
 
         loss_arr = jax.vmap(_internal, in_axes=(1, 0), out_axes=1)(
-            grid, np.arange(0, grid.shape[1])
+            grid, datablock, metablock
         )
         return loss_arr
 
-    def parabola_fit(self, array1d, loss, model, data):
+    def parabola_fit(self, array1d, loss, model, data, device):
         """
         Finds parabolic minima of the grid search of parameters. Sets parameters to optimized result.
 
@@ -722,7 +722,7 @@ class EpochSpecificModel(Model):
 
         # First use grid search function to get loss grid.
         grid = np.array(self.p[:, None] + array1d[None, :])
-        loss = np.array(self.grid_search(grid, loss, model, data))
+        loss = np.array(self.grid_search(grid, loss, model, data, device))
 
         # Loop lowest value on loss grid and its 2 neighbors.
         # Fit a parabola, take derivative, then find root.
