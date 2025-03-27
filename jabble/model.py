@@ -698,7 +698,7 @@ class EpochSpecificModel(Model):
                 [jnp.sum(loss(grid, data, i, model)) for i in range(self.n)]
             )
 
-        loss_arr = jax.vmap(_internal, in_axes=(1, 0), out_axes=1)(
+        loss_arr = jax.vmap(_internal, in_axes=(1, 0, 0), out_axes=1)(
             grid, datablock, metablock
         )
         return loss_arr
