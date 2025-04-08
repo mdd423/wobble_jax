@@ -698,9 +698,9 @@ class EpochSpecificModel(Model):
 
             uniques = np.unique(metablock[self.which_index])
 
-            out = np.zeros((len(uniques)))
+            out = np.zeros(self.p.shape)
             for iii,unq in enumerate(uniques):
-                out[iii] = Q[np.where(metablock[self.which_key] == unq)].mean()
+                out[iii] = Q[np.where(metablock[self.which_key] == unq)].sum()
             return out
 
         loss_arr = jax.vmap(_internal, in_axes=(1), out_axes=1)(
