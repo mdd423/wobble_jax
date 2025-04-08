@@ -693,8 +693,10 @@ class EpochSpecificModel(Model):
         datablock, metablock, keys = data.blockify(device,return_keys=True)
         def _internal(grid):
             Q = np.zeros((len(datablock)))
-            for iii, (datarow, metarow) in enumerate(zip(datablock,metablock)):
-                print(datarow,metarow)
+
+            for iii in range(len(Q)):
+                datarow = jabble.loss.dict_ele(datablock)
+                metarow = jabble.loss.dict_ele(metablock)
                 Q[iii] = loss(grid, datarow, metarow, model).sum()
 
             # uniques = np.unique(metablock[self.which_index])
