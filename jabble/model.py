@@ -694,6 +694,7 @@ class EpochSpecificModel(Model):
         def _internal(grid):
             Q = np.zeros((len(datablock)))
             for iii, (datarow, metarow) in enumerate(zip(datablock,metablock)):
+                print(datarow.dtype,metarow.dtype)
                 Q[iii] = loss(grid, datarow, metarow, model).sum()
 
             uniques = np.unique(metablock[self.which_index])
