@@ -690,18 +690,18 @@ class EpochSpecificModel(Model):
         if isinstance(model, ContainerModel):
             model.get_parameters()
 
-        datablock, metablock = data.blockify(device)
+        datablock, metablock, keys = data.blockify(device,return_keys=True)
         def _internal(grid):
             Q = np.zeros((len(datablock)))
             for iii, (datarow, metarow) in enumerate(zip(datablock,metablock)):
-                print(datarow.dtype,metarow.dtype)
+                print(datarow,metarow)
                 Q[iii] = loss(grid, datarow, metarow, model).sum()
 
-            uniques = np.unique(metablock[self.which_index])
+            # uniques = np.unique(metablock[self.which_index])
 
             out = np.zeros(self.p.shape)
-            for iii,unq in enumerate(uniques):
-                out[iii] = Q[np.where(metablock[self.which_key] == unq)].sum()
+            for iii,unq in enumerate(keys):
+                out[unq] = Q[np.where(metablock[self.which_key] == unq)].sum()
             return out
 
         loss_arr = jax.vmap(_internal, in_axes=(1), out_axes=1)(
