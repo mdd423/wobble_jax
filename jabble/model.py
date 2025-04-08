@@ -690,16 +690,21 @@ class EpochSpecificModel(Model):
         if isinstance(model, ContainerModel):
             model.get_parameters()
 
-
         datablock, metablock = data.blockify(device)
-        def _internal(grid, datarow, metarow):
+        def _internal(grid):
+            Q = np.zeros((len(datablock)))
+            for iii, (datarow, metarow) in enumerate(zip(datablock,metablock)):
+                Q[iii] = loss(grid, datarow, metarow, model).sum()
 
-            return jnp.array(
-                [jnp.sum(loss(grid, data, i, model)) for i in range(self.n)]
-            )
+            uniques = np.unique(metablock[self.which_index])
 
-        loss_arr = jax.vmap(_internal, in_axes=(1, 0, 0), out_axes=1)(
-            grid, datablock, metablock
+            out = np.zeros((len(uniques)))
+            for iii,unq in enumerate(uniques):
+                out[iii] = Q[np.where(metablock[self.which_key] == unq)].mean()
+            return out
+
+        loss_arr = jax.vmap(_internal, in_axes=(1), out_axes=1)(
+            grid
         )
         return loss_arr
 
@@ -819,31 +824,6 @@ class EpochSpecificModel(Model):
         return f_info.sum(axis=0)
 
 
-class EpochShiftingModel(EpochSpecificModel):
-    """
-    Model that adds different value to input at each epoch.
-    .. math::
-        f(p,x,i) = x + p[i]
-
-    Parameters
-    ----------
-    p : `np.ndarray`
-        N epoch length array of initial values of p.
-    """
-
-    def __init__(self, p=None, epoches=0, *args, **kwargs):
-        if p is None:
-            self.p = jnp.zeros(epoches)
-        else:
-            self.p = jnp.array(p)
-            epoches = len(p)
-        super(EpochShiftingModel, self).__init__(epoches)
-
-    def call(self, p, x, meta, *arg):
-
-        return x - p[meta["times"]]
-
-
 class ShiftingModel(EpochSpecificModel):
     """
     Model that adds different value to input at each epoch.
@@ -856,17 +836,43 @@ class ShiftingModel(EpochSpecificModel):
         N epoch length array of initial values of p.
     """
 
-    def __init__(self, p=None, epoches=0, *args, **kwargs):
+    def __init__(self, p=None, epoches=0,which_key='index' ,*args, **kwargs):
         if p is None:
             self.p = jnp.zeros(epoches)
         else:
             self.p = jnp.array(p)
             epoches = len(p)
+        self.which_key = which_key
         super(ShiftingModel, self).__init__(epoches)
 
     def call(self, p, x, meta, *arg):
 
-        return x - p[meta["index"]]
+        return x - p[meta[self.which_key]]
+
+
+# class ShiftingModel(EpochSpecificModel):
+#     """
+#     Model that adds different value to input at each epoch.
+#     .. math::
+#         f(p,x,i) = x + p[i]
+
+#     Parameters
+#     ----------
+#     p : `np.ndarray`
+#         N epoch length array of initial values of p.
+#     """
+
+#     def __init__(self, p=None, epoches=0, *args, **kwargs):
+#         if p is None:
+#             self.p = jnp.zeros(epoches)
+#         else:
+#             self.p = jnp.array(p)
+#             epoches = len(p)
+#         super(ShiftingModel, self).__init__(epoches)
+
+#     def call(self, p, x, meta, *arg):
+
+#         return x - p[meta["index"]]
 
 
 class StretchingModel(EpochSpecificModel):
