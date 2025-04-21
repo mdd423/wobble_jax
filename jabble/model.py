@@ -731,7 +731,7 @@ class EpochSpecificModel(Model):
 
         # First use grid search function to get loss grid.
         grid = np.array(self.p[:, None] + array1d[None, :])
-        loss = np.array(grid_search(self, grid, loss, model, data, device_1))
+        loss = np.array(self.grid_search(grid, loss, model, data, device_1))
 
         # Loop lowest value on loss grid and its 2 neighbors.
         # Fit a parabola, take derivative, then find root.
