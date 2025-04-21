@@ -682,39 +682,37 @@ class EpochSpecificModel(Model):
             (M,N) loss evaluated on full model at all grid values at their respective epochs.
         """
 
-        if epoches is None:
-            epoches = slice(0, self.n)
+    if epoches is None:
+        epoches = slice(0, self.n)
 
-        model.fix()
-        self.fit(epoches=epoches)
-        if isinstance(model, ContainerModel):
-            model.get_parameters()
+    model.fix()
+    self.fit(epoches=epoches)
+    if isinstance(model, jabble.model.ContainerModel):
+        model.get_parameters()
 
-        datablock, metablock, keys = data.blockify(device,return_keys=True)
-        def _internal(grid):
-            Q = np.zeros((len(datablock)))
+    datablock, metablock, keys = data.blockify(device,return_keys=True)
+    def _internal(grid):
+        Q = jnp.zeros((len(data)))
 
-            for iii in range(len(Q)):
-                datarow = jabble.loss.dict_ele(datablock,iii,device)
-                metarow = jabble.loss.dict_ele(metablock,iii,device)
-                temp = loss(grid, datarow, metarow, model).sum()
-                print(temp)
-                print(Q.shape)
-                Q[iii] = temp
+        for iii in range(len(Q)):
+            datarow = jabble.loss.dict_ele(datablock,iii,device)
+            metarow = jabble.loss.dict_ele(metablock,iii,device)
+            
+            Q = Q.at[iii].set(loss(grid, datarow, metarow, model).sum().astype(np.double))
 
-            # uniques = np.unique(metablock[self.which_index])
+        uniques = np.unique(metablock[self.which_key])
 
-            out = np.zeros(self.p.shape)
-            for iii,unq in enumerate(keys):
-                out[unq] = Q[np.where(metablock[self.which_key] == unq)].sum()
-            return out
+        out = jnp.zeros(self.p.shape)
+        for iii,unq in enumerate(uniques):
+            out = out.at[unq].set(Q[np.where(metablock[self.which_key] == unq)].sum())
+        return out
 
         loss_arr = jax.vmap(_internal, in_axes=(1), out_axes=1)(
             grid
         )
         return loss_arr
 
-    def parabola_fit(self, array1d, loss, model, data, device):
+    def parabola_fit(self, array1d, loss, model, data, device_1, device_2):
         """
         Finds parabolic minima of the grid search of parameters. Sets parameters to optimized result.
 
@@ -733,25 +731,30 @@ class EpochSpecificModel(Model):
 
         # First use grid search function to get loss grid.
         grid = np.array(self.p[:, None] + array1d[None, :])
-        loss = np.array(self.grid_search(grid, loss, model, data, device))
+        loss = np.array(grid_search(self, grid, loss, model, data, device_1))
 
         # Loop lowest value on loss grid and its 2 neighbors.
         # Fit a parabola, take derivative, then find root.
         def _internal(g, l):
 
             poly = jnp.polyfit(g, l, deg=2)
-            lmin = jnp.roots(jnp.polyder(poly), strip_zeros=False).real
-            return lmin, jnp.polyval(poly, lmin)
+            g_min = jnp.roots(jnp.polyder(poly), strip_zeros=False).real
+            return g_min, jnp.polyval(poly, g_min)
 
         minima = np.argmin(loss, axis=1).astype(int)
-        inds_i = np.arange(0, loss.shape[0], dtype=int).repeat(3).reshape(-1, 3)
+        mask_ends = ((minima == 0) + (minima == loss.shape[1]-1)).astype(bool)
+        inds_i = np.arange(0, np.sum(~mask_ends), dtype=int).repeat(3).reshape(-1, 3)
+        
         inds_j = (
-            (minima[:, None] + np.array([-1, 0, 1])[None, :]).flatten().reshape(-1, 3)
+            (minima[~mask_ends, None] + np.array([-1, 0, 1])[None, :]).flatten().reshape(-1, 3)
         )
-        l_min, g_min = jax.vmap(_internal, in_axes=(0, 0), out_axes=0)(
+        loss = jax.device_put(loss,device_2)
+        grid = jax.device_put(grid,device_2)
+        g_min, l_min = jax.vmap(_internal, in_axes=(0, 0), out_axes=0)(
             grid[inds_i, inds_j], loss[inds_i, inds_j]
         )
-        self.p = jnp.array(jnp.squeeze(l_min))
+        g_min = jax.device_put(g_min,device_1)
+        self.p = jax.device_put(self.p.at[~mask_ends].set(jnp.array(jnp.squeeze(g_min))),device_1)
 
     def add_component(self, value=0.0, n=1):
         """
