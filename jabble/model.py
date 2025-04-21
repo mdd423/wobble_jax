@@ -665,47 +665,47 @@ class EpochSpecificModel(Model):
         """
         Function that will individually grid search each parameter.
 
-        Parameters
-        ----------
-        grid : `np.ndarray`
-            (M,N) M searches at each epoch, N epoch array
-        loss : `jabble.Loss`
-            Objective being optimized.
-        model : `jabble.Model`
-            The full model.
-        data : `jabble.Dataset`
-            The dataset being optimized with respect to.
+            Parameters
+            ----------
+            grid : `np.ndarray`
+                (M,N) M searches at each epoch, N epoch array
+            loss : `jabble.Loss`
+                Objective being optimized.
+            model : `jabble.Model`
+                The full model.
+            data : `jabble.Dataset`
+                The dataset being optimized with respect to.
 
-        Returns
-        -------
-        loss_arr : `jnp.array`
-            (M,N) loss evaluated on full model at all grid values at their respective epochs.
-        """
+            Returns
+            -------
+            loss_arr : `jnp.array`
+                (M,N) loss evaluated on full model at all grid values at their respective epochs.
+            """
 
-    if epoches is None:
-        epoches = slice(0, self.n)
+        if epoches is None:
+            epoches = slice(0, self.n)
 
-    model.fix()
-    self.fit(epoches=epoches)
-    if isinstance(model, jabble.model.ContainerModel):
-        model.get_parameters()
+        model.fix()
+        self.fit(epoches=epoches)
+        if isinstance(model, jabble.model.ContainerModel):
+            model.get_parameters()
 
-    datablock, metablock, keys = data.blockify(device,return_keys=True)
-    def _internal(grid):
-        Q = jnp.zeros((len(data)))
+        datablock, metablock, keys = data.blockify(device,return_keys=True)
+        def _internal(grid):
+            Q = jnp.zeros((len(data)))
 
-        for iii in range(len(Q)):
-            datarow = jabble.loss.dict_ele(datablock,iii,device)
-            metarow = jabble.loss.dict_ele(metablock,iii,device)
-            
-            Q = Q.at[iii].set(loss(grid, datarow, metarow, model).sum().astype(np.double))
+            for iii in range(len(Q)):
+                datarow = jabble.loss.dict_ele(datablock,iii,device)
+                metarow = jabble.loss.dict_ele(metablock,iii,device)
+                
+                Q = Q.at[iii].set(loss(grid, datarow, metarow, model).sum().astype(np.double))
 
-        uniques = np.unique(metablock[self.which_key])
+            uniques = np.unique(metablock[self.which_key])
 
-        out = jnp.zeros(self.p.shape)
-        for iii,unq in enumerate(uniques):
-            out = out.at[unq].set(Q[np.where(metablock[self.which_key] == unq)].sum())
-        return out
+            out = jnp.zeros(self.p.shape)
+            for iii,unq in enumerate(uniques):
+                out = out.at[unq].set(Q[np.where(metablock[self.which_key] == unq)].sum())
+            return out
 
         loss_arr = jax.vmap(_internal, in_axes=(1), out_axes=1)(
             grid
