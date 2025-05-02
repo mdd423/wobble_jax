@@ -70,7 +70,15 @@ def get_RV_sigmas(self, dataset, model=None, device=None):
         )
         return np.sqrt(1 / f_info) * dvddx
 
-def save(self,filename: str,mode: str, data, device) -> None:
+def get_loss_array(model,datablock,metablock,loss,device):
+    loss_array = np.zeros((datablock['xs'].shape))
+    for jjj in range(datablock['xs'].shape[0]):
+        datarow = jabble.loss.dict_ele(datablock,jjj,device)
+        metarow = jabble.loss.dict_ele(metablock,jjj,device)
+        loss_array[jjj,:] = loss(model.get_parameters(),datarow,metarow,model)
+    return loss_array    
+    
+def save(self, filename: str, dataname: str, mode: str, data, shifts, loss, device) -> None:
         '''
             mode: 0, just RVs
             mode: 1, RVs and template
@@ -80,22 +88,26 @@ def save(self,filename: str,mode: str, data, device) -> None:
         '''
         
         # if mode == 1 or mode == 2:
-        self.save(filename,mode=mode)
+        jabble.model.save(filename,self)
+        jabble.model.save(dataname,data)
         # if mode == 3 or mode == 4:
             # self.save(filename,mode="pkl")
             
 
         with h5py.File(filename + "_RVS.hdf",'w') as file:
-            _, _, meta_keys = data.blockify(return_keys=True)
-            file.create_dataset("RVs",data=jabble.physics.velocities(self[0][0].p))
+            datablock, metablock, meta_keys = data.blockify(return_keys=True)
+            file.create_dataset("RVs",data=jabble.physics.velocities(shifts))
             file.create_dataset("RV_err",data=get_RV_sigmas(self, data, device=device, model=self))
             file.create_dataset("Times",data=meta_keys['times'])
 
-            head, tail = os.path.split(filename + "." + mode)
-            if mode == 'hdf':
-                file["model"] = h5py.ExternalLink(filename + "." + mode,'/')
-            elif mode == 'pkl':
-                file.attrs['model'] = filename + "." + mode
+            head, tail = os.path.split(filename)
+            file.attrs['model'] = filename
+
+            loss_array = get_loss_array(self,datablock,metablock,loss)
+            file.create_dataset("Loss",data=loss_array)
+
+            head,tail = os.path.split(dataname)
+            file.attrs['dataset'] = data
         # if mode == 2 or mode == 4:
         #     res_group = file.create_group("residuals")
         #     res_group.create_dataset("residuals",data=data)

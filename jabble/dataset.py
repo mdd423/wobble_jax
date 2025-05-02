@@ -124,14 +124,18 @@ class Data:
         datablock["yivar"] = yivar
         datablock["mask"] = mask
 
+        datablock = np.array(*zip(xs,ys,yivar,mask),dtype=[("xs",np.double),("ys",np.double),("yivar",np.double),("mask",np.double)])
+        # rv_array = np.array([*zip(comb_rv,comb_err,comb_time)],dtype=[("RV_comb",np.double),("RV_err_comb",np.double),("Time_comb",np.double)])
+    
         ###########################################################
 
-        metablock = {}
+        meta_dtype = [("index",int)]
+        mdata = []
         meta_keys = {}
-        metablock["index"] = jnp.arange(0, len(data), dtype=int)
+        index_span = jnp.arange(0, len(data), dtype=int)
         for key in data.metadata:
             if key in data.metakeys:
-                epoch_indices = np.array(metablock["index"])
+                epoch_indices = jnp.array(index_span)
                 for i, ele in enumerate(data.metakeys[key]):
                     epoch_indices[data.metadata[key] == ele] = i
                     epoch_uniques = data.metakeys[key]
@@ -139,8 +143,12 @@ class Data:
                 epoch_uniques, epoch_indices = np.unique(
                     data.metadata[key], return_inverse=True
                 )
-            metablock[key] = jax.device_put(jnp.array(epoch_indices), device)
+            meta_dtype.append((key,type(epoch_indices)))
+            mdata.append(epoch_indices)
+            # metablock[key] = jax.device_put(jnp.array(epoch_indices), device)
             meta_keys[key] = epoch_uniques
+
+        metablock = jnp.array(*zip(mdata),dtype=meta_dtype)
 
         if return_keys:
             return datablock, metablock, meta_keys
