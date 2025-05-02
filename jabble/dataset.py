@@ -124,7 +124,9 @@ class Data:
         # datablock["yivar"] = yivar
         # datablock["mask"] = mask
 
-        datablock = np.array([*zip(xs,ys,yivar,mask)],dtype=[("xs",np.double),("ys",np.double),("yivar",np.double),("mask",np.double)])
+        datablock = np.array([*zip(xs,ys,yivar,mask)],\
+                             dtype=[("xs",np.double,(xs.shape[1])),("ys",np.double,(xs.shape[1])),\
+                                    ("yivar",np.double,(xs.shape[1])),("mask",np.double,(xs.shape[1]))])
         # rv_array = np.array([*zip(comb_rv,comb_err,comb_time)],dtype=[("RV_comb",np.double),("RV_err_comb",np.double),("Time_comb",np.double)])
     
         ###########################################################
