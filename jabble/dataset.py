@@ -145,7 +145,7 @@ class Data:
                 epoch_uniques, epoch_indices = np.unique(
                     data.metadata[key], return_inverse=True
                 )
-            meta_dtype.append((key,type(epoch_indices)))
+            meta_dtype.append((key,epoch_indices.dtype))
             mdata.append(jnp.array(epoch_indices))
             # metablock[key] = jax.device_put(jnp.array(epoch_indices), device)
             meta_keys[key] = epoch_uniques
