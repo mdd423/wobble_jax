@@ -118,11 +118,11 @@ class Data:
         yivar = jax.device_put(jnp.array(yivar), device)
         mask = jax.device_put(jnp.array(mask, dtype=bool), device)
 
-        datablock = {}
-        datablock["xs"] = xs
-        datablock["ys"] = ys
-        datablock["yivar"] = yivar
-        datablock["mask"] = mask
+        # datablock = {}
+        # datablock["xs"] = xs
+        # datablock["ys"] = ys
+        # datablock["yivar"] = yivar
+        # datablock["mask"] = mask
 
         datablock = np.array([*zip(xs,ys,yivar,mask)],dtype=[("xs",np.double),("ys",np.double),("yivar",np.double),("mask",np.double)])
         # rv_array = np.array([*zip(comb_rv,comb_err,comb_time)],dtype=[("RV_comb",np.double),("RV_err_comb",np.double),("Time_comb",np.double)])
