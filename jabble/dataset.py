@@ -131,23 +131,22 @@ class Data:
     
         ###########################################################
 
-        meta_dtype = [("index",int)]
-        
         meta_keys = {}
+        meta_dtype = [("index",int)]
         index_span = jnp.arange(0, len(data), dtype=int)
         mdata = [index_span]
         for key in data.metadata:
             if key in data.metakeys:
-                epoch_indices = jnp.array(index_span)
+                epoch_indices = np.zeros(index_span.shape)
                 for i, ele in enumerate(data.metakeys[key]):
                     epoch_indices[data.metadata[key] == ele] = i
-                    epoch_uniques = data.metakeys[key]
+                epoch_uniques = data.metakeys[key]
             else:
                 epoch_uniques, epoch_indices = np.unique(
                     data.metadata[key], return_inverse=True
                 )
             meta_dtype.append((key,type(epoch_indices)))
-            mdata.append(epoch_indices)
+            mdata.append(jnp.array(epoch_indices))
             # metablock[key] = jax.device_put(jnp.array(epoch_indices), device)
             meta_keys[key] = epoch_uniques
 
