@@ -68,8 +68,8 @@ class LossFunc:
             top = np.min([(iii + 1) * batch_size, datablock["xs"].shape[0]])
 
             temp = jax.vmap(_internal, in_axes=(0, 0), out_axes=0)(
-                dict_slice(datablock, (iii * batch_size), top, device_op),
-                dict_slice(metablock, (iii * batch_size), top, device_op),
+                jax.device_put(datablock[(iii * batch_size):top],device_op),
+                jax.device_put(metablock[(iii * batch_size):top],device_op)
             )
             out += temp.sum()
         return out
