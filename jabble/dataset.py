@@ -124,7 +124,7 @@ class Data:
         # datablock["yivar"] = yivar
         # datablock["mask"] = mask
 
-        datablock = jnp.array([*zip(xs,ys,yivar,mask)],\
+        datablock = np.array([*zip(xs,ys,yivar,mask)],\
                              dtype=[("xs",np.double,(xs.shape[1])),("ys",np.double,(xs.shape[1])),\
                                     ("yivar",np.double,(xs.shape[1])),("mask",np.double,(xs.shape[1]))])
         # rv_array = np.array([*zip(comb_rv,comb_err,comb_time)],dtype=[("RV_comb",np.double),("RV_err_comb",np.double),("Time_comb",np.double)])
@@ -150,7 +150,7 @@ class Data:
             # metablock[key] = jax.device_put(jnp.array(epoch_indices), device)
             meta_keys[key] = epoch_uniques
 
-        metablock = jnp.array([*zip(*mdata)],dtype=meta_dtype)
+        metablock = np.array([*zip(*mdata)],dtype=meta_dtype)
 
         if return_keys:
             return datablock, metablock, meta_keys
