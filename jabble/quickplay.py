@@ -108,7 +108,7 @@ def save(self, filename: str, dataname: str, data, shifts, loss, device) -> None
             file.create_dataset("Loss",data=loss_array)
 
             head,tail = os.path.split(dataname)
-            file.attrs['dataset'] = data
+            file.attrs['dataset'] = dataname
         # if mode == 2 or mode == 4:
         #     res_group = file.create_group("residuals")
         #     res_group.create_dataset("residuals",data=data)
