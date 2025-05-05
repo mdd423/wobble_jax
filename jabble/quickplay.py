@@ -71,6 +71,7 @@ def get_RV_sigmas(self, dataset, model=None, device=None):
         return np.sqrt(1 / f_info) * dvddx
 
 def get_loss_array(model,datablock,metablock,loss,device):
+    loss.ready_indices(model)
     loss_array = np.zeros((datablock['xs'].shape))
     for jjj in range(datablock['xs'].shape[0]):
         datarow = jabble.loss.dict_ele(datablock,jjj,device)
