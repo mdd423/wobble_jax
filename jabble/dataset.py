@@ -150,7 +150,7 @@ class Data:
             # mdata.append(jnp.array(epoch_indices))
             # metablock[key] = jax.device_put(jnp.array(epoch_indices), device)
             meta_keys[key] = epoch_uniques
-            metablock[key] = epoch_indices
+            metablock[key] = epoch_indices.astype(int)
 
         # metablock = np.array([*zip(*mdata)],dtype=meta_dtype)
 
