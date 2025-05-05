@@ -78,7 +78,7 @@ def get_loss_array(model,datablock,metablock,loss,device):
         loss_array[jjj,:] = loss(model.get_parameters(),datarow,metarow,model)
     return loss_array    
     
-def save(self, filename: str, dataname: str, mode: str, data, shifts, loss, device) -> None:
+def save(self, filename: str, dataname: str, data, shifts, loss, device) -> None:
         '''
             mode: 0, just RVs
             mode: 1, RVs and template
