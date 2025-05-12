@@ -125,7 +125,7 @@ def load_model_dir(file,path,dir_files,device,force_run=False):
         all_rv_array = np.load(os.path.join(path,'RV_all_Summary.npy'))
 
     order_by_orders = np.argsort(min_order_of_chunk)
-    return rv_array, all_models[order_by_orders], all_rv_array[order_by_orders], all_data[order_by_orders]
+    return rv_array, [all_models[iii] for iii in order_by_orders], all_rv_array[order_by_orders], [all_data[iii] for iii in order_by_orders]
 
 def get_stellar_model(init_rvs, model_grid, p_val):
     return jabble.model.CompositeModel([jabble.model.EpochShiftingModel(jabble.physics.shifts(init_rvs)), jabble.model.CardinalSplineMixture(model_grid, p_val)])
