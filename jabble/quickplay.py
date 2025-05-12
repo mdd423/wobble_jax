@@ -106,6 +106,7 @@ def load_model_dir(file,path,dir_files,device,force_run=False):
     else:
         rv_array = load_summary_hdf(os.path.join(path,'RV_Summary.hdf'))
 
+    min_order_of_chunk = np.array([np.unique(model.metadata["orders"]) for model in all_models]).min(axis=1)
     # Reorder RV all array by min order and times
     if not os.path.isfile(os.path.join(path,'RV_all_Summary.npy')) or force_run:
         rv_difference = np.zeros((len(rv_list),rv_array["RV_comb"].shape[0]))
@@ -123,7 +124,6 @@ def load_model_dir(file,path,dir_files,device,force_run=False):
     else:
         all_rv_array = np.load(os.path.join(path,'RV_all_Summary.npy'))
 
-    min_order_of_chunk = np.array([np.unique(model.metadata["orders"]) for model in all_models]).min(axis=1)
     order_by_orders = np.argsort(min_order_of_chunk)
     return rv_array, all_models[order_by_orders], all_rv_array[order_by_orders], all_data[order_by_orders]
 
