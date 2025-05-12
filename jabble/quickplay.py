@@ -6,6 +6,7 @@ import jax
 import numpy as np
 import jabble.model
 import h5py
+import glob
 import os
 
 import astropy.units as u
@@ -63,8 +64,7 @@ def load_summary_hdf(filename):
                             dtype=[("RV_comb",np.double),("RV_err_comb",np.double),("Time_comb",np.double)])
     return rv_array
 
-def load_model_dir(file,dir,loss,device,force_run=False):
-    dir_files = glob.glob(os.path.join(dir,'*_RVS.hdf'))
+def load_model_dir(file,path,dir_files,device,force_run=False):
    
     all_models = []
     all_data   = []
@@ -96,18 +96,18 @@ def load_model_dir(file,dir,loss,device,force_run=False):
                 loss_array[iii,jjj] = loss_temp[metablock["times"] == time_unq].mean()
 
     # Combine RVs and create HDF summary in directory
-    if not os.path.isfile(os.path.join(dir,'RV_Summary.hdf')) or force_run:
+    if not os.path.isfile(os.path.join(path,'RV_Summary.hdf')) or force_run:
         
         comb_rv, comb_err, comb_time = combine_rvs(rv_list,err_list,time_list)
         
         rv_array = np.array([*zip(comb_rv,comb_err,comb_time)],\
                             dtype=[("RV_comb",np.double),("RV_err_comb",np.double),("Time_comb",np.double)])
-        create_summary_hdf(os.path.join(dir,'RV_Summary.hdf'),rv_array,dir_files,dir)
+        create_summary_hdf(os.path.join(path,'RV_Summary.hdf'),rv_array,dir_files,path)
     else:
-        rv_array = load_summary_hdf(os.path.join(dir,'RV_Summary.hdf'))
+        rv_array = load_summary_hdf(os.path.join(path,'RV_Summary.hdf'))
 
     # Reorder RV all array by min order and times
-    if not os.path.isfile(os.path.join(dir,'RV_all_Summary.npy')) or force_run:
+    if not os.path.isfile(os.path.join(path,'RV_all_Summary.npy')) or force_run:
         rv_difference = np.zeros((len(rv_list),rv_array["RV_comb"].shape[0]))
         for iii,sub_lists in enumerate(zip(rv_list,time_list)):
             rv_list_sub,time_list_sub = sub_lists
@@ -119,9 +119,9 @@ def load_model_dir(file,dir,loss,device,force_run=False):
                                 dtype=[("RV_all",np.double,(loss_array.shape[1])),("RV_err_all",np.double,(loss_array.shape[1])),\
                                        ("Time_all",np.double,(loss_array.shape[1])),("Loss_Avg",np.double,(loss_array.shape[1])),
                                        ("RV_difference",np.double,(loss_array.shape[1])),("min_order",int)])
-        np.save(os.path.join(dir,'RV_all_Summary.npy'),all_rv_array)
+        np.save(os.path.join(path,'RV_all_Summary.npy'),all_rv_array)
     else:
-        all_rv_array = np.load(os.path.join(dir,'RV_all_Summary.npy'))
+        all_rv_array = np.load(os.path.join(path,'RV_all_Summary.npy'))
 
     min_order_of_chunk = np.array([np.unique(model.metadata["orders"]) for model in all_models]).min(axis=1)
     order_by_orders = np.argsort(min_order_of_chunk)
