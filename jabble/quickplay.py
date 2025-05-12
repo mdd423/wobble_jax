@@ -64,7 +64,7 @@ def load_summary_hdf(filename):
                             dtype=[("RV_comb",np.double),("RV_err_comb",np.double),("Time_comb",np.double)])
     return rv_array
 
-def load_model_dir(file,path,dir_files,device,force_run=False):
+def load_model_dir(path,dir_files,device,force_run=False):
    
     all_models = []
     all_data   = []
