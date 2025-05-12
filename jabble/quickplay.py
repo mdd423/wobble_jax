@@ -10,6 +10,123 @@ import os
 
 import astropy.units as u
 
+def combine_rvs(rv_list,err_list,time_list,max_info=1e30,min_info=0.0):
+    out_time = np.unique(np.concatenate(time_list))
+    out_rv = np.zeros(out_time.shape)
+    out_err = np.zeros(out_time.shape)
+
+    all_rvs = np.concatenate(rv_list)
+    all_info = 1/np.concatenate(err_list)**2
+    all_times = np.concatenate(time_list)
+    for ii,this_time in enumerate(out_time):
+        # Filter RVs by information minimum and maximum
+        rv_temp   = all_rvs[all_times==this_time]
+        info_temp = all_info[all_times==this_time]
+        
+        rv_temp   = rv_temp[info_temp < max_info]
+        info_temp = info_temp[info_temp < max_info]
+
+        rv_temp   = rv_temp[info_temp > min_info]
+        info_temp = info_temp[info_temp > min_info]
+
+        rv_temp   = rv_temp[~np.isnan(info_temp)]
+        info_temp = info_temp[~np.isnan(info_temp)]
+
+        rv_temp   = rv_temp[~np.isinf(info_temp)]
+        info_temp = info_temp[~np.isinf(info_temp)]
+        # Combine RVs
+        out_rv[ii]  = np.average(rv_temp,weights=info_temp)
+        # Combined Errors
+        out_err[ii] = np.sqrt(np.average(rv_temp**2,weights=info_temp) - out_rv[ii]**2)
+
+    return out_rv, out_err, out_time
+
+def create_summary_hdf(filename,rv_array,dir_files,dir):
+    
+    with h5py.File(filename,'w') as file:
+        group = file.create_group("RVs")
+        group.create_dataset("RV_comb",data=rv_array["RV_comb"])
+        group.create_dataset("RV_err_comb",data=rv_array["RV_err_comb"])
+        group.create_dataset("Time_comb",data=rv_array["Time_comb"])
+
+        link_group = file.create_group("links")
+        for dir_file in dir_files:
+            
+            head, tail = os.path.split(dir_file)
+            link_group[tail] = h5py.ExternalLink(os.path.join(dir,dir_file),'/')
+
+def load_summary_hdf(filename):
+
+    with h5py.File(filename,'r') as file:
+        # print(file.keys())
+        rv_array = np.array([*zip(file["RVs"]["RV_comb"],file["RVs"]["RV_err_comb"],file["RVs"]["Time_comb"])],\
+                            dtype=[("RV_comb",np.double),("RV_err_comb",np.double),("Time_comb",np.double)])
+    return rv_array
+
+def load_model_dir(file,dir,loss,device,force_run=False):
+    dir_files = glob.glob(os.path.join(dir,'*_RVS.hdf'))
+   
+    all_models = []
+    all_data   = []
+    with h5py.File(dir_files[0],'r') as file:
+        time_length = len(np.array(file["Times"]))
+    loss_array = np.zeros((len(dir_files),time_length))
+
+    rv_list = []
+    err_list = []
+    time_list = []
+    
+    for iii,filename in enumerate(dir_files):
+        with h5py.File(filename,'r') as file:
+            # Extract velocities, errors, and times
+            rv_list.append(np.array(file["RVs"]))
+            err_list.append(np.array(file["RV_err"]))
+            time_list.append(np.array(file["Times"]))
+            
+            model = jabble.model.load(file.attrs["model"])
+            dataset = jabble.model.load(file.attrs["dataset"])
+
+            all_models.append(model)
+            all_data.append(dataset)
+
+            loss_temp = np.array(file['Loss']).mean(axis=1)
+            datablock, metablock = dataset.blockify(device)
+            
+            for jjj,time_unq in enumerate(np.unique(metablock["times"])):
+                loss_array[iii,jjj] = loss_temp[metablock["times"] == time_unq].mean()
+
+    # Combine RVs and create HDF summary in directory
+    if not os.path.isfile(os.path.join(dir,'RV_Summary.hdf')) or force_run:
+        
+        comb_rv, comb_err, comb_time = combine_rvs(rv_list,err_list,time_list)
+        
+        rv_array = np.array([*zip(comb_rv,comb_err,comb_time)],\
+                            dtype=[("RV_comb",np.double),("RV_err_comb",np.double),("Time_comb",np.double)])
+        create_summary_hdf(os.path.join(dir,'RV_Summary.hdf'),rv_array,dir_files,dir)
+    else:
+        rv_array = load_summary_hdf(os.path.join(dir,'RV_Summary.hdf'))
+
+    # Reorder RV all array by min order and times
+    if not os.path.isfile(os.path.join(dir,'RV_all_Summary.npy')) or force_run:
+        rv_difference = np.zeros((len(rv_list),rv_array["RV_comb"].shape[0]))
+        for iii,sub_lists in enumerate(zip(rv_list,time_list)):
+            rv_list_sub,time_list_sub = sub_lists
+            time_list_indi = np.argsort(np.argsort(time_list_sub))
+            rv_difference[iii,:] = rv_list_sub - rv_array["RV_comb"][np.argsort(rv_array["Time_comb"])][time_list_indi]
+        
+        all_rv_array = np.array([*zip(np.stack(rv_list),np.stack(err_list),
+                                      np.stack(time_list),loss_array,rv_difference,min_order_of_chunk)],\
+                                dtype=[("RV_all",np.double,(loss_array.shape[1])),("RV_err_all",np.double,(loss_array.shape[1])),\
+                                       ("Time_all",np.double,(loss_array.shape[1])),("Loss_Avg",np.double,(loss_array.shape[1])),
+                                       ("RV_difference",np.double,(loss_array.shape[1])),("min_order",int)])
+        np.save(os.path.join(dir,'RV_all_Summary.npy'),all_rv_array)
+    else:
+        all_rv_array = np.load(os.path.join(dir,'RV_all_Summary.npy'))
+
+    min_order_of_chunk = np.array([np.unique(model.metadata["orders"]) for model in all_models]).min(axis=1)
+    order_by_orders = np.argsort(min_order_of_chunk)
+    return rv_array, all_models[order_by_orders], all_rv_array[order_by_orders], all_data[order_by_orders]
+
 def get_stellar_model(init_rvs, model_grid, p_val):
     return jabble.model.CompositeModel([jabble.model.EpochShiftingModel(jabble.physics.shifts(init_rvs)), jabble.model.CardinalSplineMixture(model_grid, p_val)])
 
@@ -48,7 +165,6 @@ def get_pseudo_norm_model(init_rvs, init_airmass, model_grid, p_val,dataset,norm
     return get_stellar_model(init_rvs, model_grid, p_val) + get_tellurics_model(init_airmass, model_grid, p_val, rest_vels) + \
         get_normalization_model(dataset,norm_p_val, pts_per_wavelength)
 
-
 def get_RV_sigmas(self, dataset, model=None, device=None):
         """
         Return errorbar on radial velocities using fischer information
@@ -77,7 +193,7 @@ def get_loss_array(model,datablock,metablock,loss,device):
         datarow = jabble.loss.dict_ele(datablock,jjj,device)
         metarow = jabble.loss.dict_ele(metablock,jjj,device)
         loss_array[jjj,:] = loss(model.get_parameters(),datarow,metarow,model)
-    return loss_array    
+    return loss_array
     
 def save(self, filename: str, dataname: str, data, shifts, loss, device) -> None:
         '''
