@@ -911,7 +911,7 @@ class StretchingModel(EpochSpecificModel):
 
 import jabble.cardinalspline
 
-@partial(jit, static_argnums=[3, 4, 5])
+@partial(jit, static_argnums=[3, 4])
 def cardinal_vmap_model(x, xp, ap, basis, a):
     """
     Evaluates cardinal basis using vmap design matrix.
