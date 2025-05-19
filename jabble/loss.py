@@ -61,7 +61,7 @@ class LossFunc:
         def _internal(datarow, metarow):
             return self(p, datarow, metarow, model, *args).sum()
 
-        rounds = int(np.ceil(metablock["index"].max() / batch_size))
+        rounds = int(np.ceil(len(metablock["index"]) / batch_size))
         out = 0.0
 
         for iii in range(rounds):
