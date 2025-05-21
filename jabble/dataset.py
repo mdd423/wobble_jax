@@ -9,6 +9,100 @@ import scipy.ndimage
 import jax.numpy as jnp
 import jax
 
+import jabble.loss
+import jabble.model
+
+def fit_continuum_jabble(x, y, ivars, device_store, device_op, norm_p_val, norm_res, nsigma=[0.8,3.0], maxniter=50,options={}):
+    """Fit the continuum using sigma clipping
+
+    Args:
+        x: The wavelengths
+        y: The log-fluxes
+        order: The polynomial order to use
+        nsigma: The sigma clipping threshold: tuple (low, high)
+        maxniter: The maximum number of iterations to do
+
+    Returns:
+        The value of the continuum at the wavelengths in x
+        Author: Matt Daunt
+
+    """
+    # A = np.vander(x - np.nanmean(x), order+1)
+    m = np.zeros(len(x), dtype=bool)
+
+    # x_num = int((np.exp(x.max()) - np.exp(x.min())) * pts_per_wavelength)
+    x_spacing = jabble.physics.delta_x(norm_res)
+
+    x_grid = np.arange(x.min()-(norm_p_val*x_spacing),x.max()+(norm_p_val*x_spacing),x_spacing)
+
+    print(len(x_grid))
+    loss = jabble.loss.ChiSquare()
+    model = jabble.model.CardinalSplineMixture(x_grid, norm_p_val)
+
+    for i in range(maxniter):
+        m[ivars == 0] = 1
+
+        # print(np.sum(~m))
+        dataset = jabble.dataset.Data.from_lists([x],[y],[ivars],[m])
+        model.fit()
+        # model.display()
+        # options = {'pgtol': 1e-10}
+        res = model.optimize(loss, dataset, device_store, device_op, batch_size=1,options=options)
+        model.fix()
+        
+        resid = y - model([],x)
+        sigma = np.sqrt(np.nanmedian(resid**2))
+        m_new = ~np.array((resid > (-nsigma[0]*sigma)) & (resid < (nsigma[1]*sigma)))
+        m_new[ivars == 0] = 1
+
+        # plt.errorbar(x,y,yerr=1/np.sqrt(ivars),fmt='.k',zorder=1,alpha=0.1,ms=5)
+        # plt.plot(x,model([],x),'-r',zorder=2,alpha=0.4,ms=5)
+        # plt.plot(x_grid,model([],x_grid),'.r',zorder=3,alpha=0.5,ms=5)
+        # plt.plot(x,model([],x)-(nsigma[0]*sigma),'-b',zorder=2,alpha=0.4,ms=5)
+        # plt.plot(x,model([],x)+(nsigma[1]*sigma),'-b',zorder=2,alpha=0.4,ms=5)
+        # plt.plot(x[~m_new],y[~m_new],'og',zorder=2,alpha=0.2,ms=5)
+        # plt.ylim(-5,1)
+        # plt.show()
+        #m_new = np.abs(resid) < nsigma*sigma
+
+        print(m.sum(),m_new.sum())
+        if m.sum() == m_new.sum():
+            print('break')
+            m = m_new
+            break
+        m = m_new
+    
+    return model([],x)
+
+def fit_continuum(x, y, ivars, order=6, nsigma=[0.3,3.0], maxniter=50):
+    """Fit the continuum using sigma clipping
+
+    Args:
+        x: The wavelengths
+        y: The log-fluxes
+        order: The polynomial order to use
+        nsigma: The sigma clipping threshold: tuple (low, high)
+        maxniter: The maximum number of iterations to do
+
+    Returns:
+        The value of the continuum at the wavelengths in x
+
+    """
+    A = np.vander(x - np.nanmean(x), order+1)
+    m = np.ones(len(x), dtype=bool)
+    for i in range(maxniter):
+        m[ivars == 0] = 0  # mask out the bad pixels
+        w = np.linalg.solve(np.dot(A[m].T, A[m]), np.dot(A[m].T, y[m]))
+        mu = np.dot(A, w)
+        resid = y - mu
+        sigma = np.sqrt(np.nanmedian(resid**2))
+        #m_new = np.abs(resid) < nsigma*sigma
+        m_new = (resid > -nsigma[0]*sigma) & (resid < nsigma[1]*sigma)
+        if m.sum() == m_new.sum():
+            m = m_new
+            break
+        m = m_new
+    return mu
 
 # important for grid search
 def get_parabolic_min(loss_array, grid, return_all=False):
