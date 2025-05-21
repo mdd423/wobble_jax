@@ -228,7 +228,7 @@ class Data:
         meta_keys = {}
 
         # meta_dtype = [("index",int)]
-        index_span = jnp.arange(0, len(data), dtype=int)
+        index_span = np.arange(0, len(data), dtype=int)
         metablock = {"index": index_span}
         for key in data.metadata:
             if key in data.metakeys:
