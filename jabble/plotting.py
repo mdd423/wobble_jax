@@ -155,7 +155,7 @@ def plt_rv_comparison(times, rv_e, err_e, times_comb, rv_comb, err_comb, targ_ti
     # plt.show()
 
 def plot_rv_difference(times, rv_e, err_e, times_comb, rv_comb, err_comb, targ_time, targ_vel, \
-                       targ_err, bervs, loss_array, rv_difference_array, star_name, out_dir):
+                       targ_err, bervs, loss_array, rv_difference_array, star_name, out_dir,top_spacing=1.2,sigma_max=5,difference_max=5,chi_max=3):
     # RV DIFFERENCE PLOT
     epoches_span = np.arange(0, len(times_comb), dtype=int)
 
@@ -166,15 +166,15 @@ def plot_rv_difference(times, rv_e, err_e, times_comb, rv_comb, err_comb, targ_t
         dpi=300,
         sharey=True
     )
-    im1 = axes[0].imshow(rv_difference_array,interpolation ='nearest',vmin=-5,vmax=5,cmap=plt.get_cmap('cmr.fusion'))
+    im1 = axes[0].imshow(rv_difference_array,interpolation ='nearest',vmin=-difference_max,vmax=difference_max,cmap=plt.get_cmap('cmr.fusion'))
     fig.colorbar(im1,ax=axes[0])
     axes[0].set_title('$\Delta$ RV')
     
-    im2 = axes[1].imshow(err_e,interpolation ='nearest',vmin=0,vmax=5,cmap=plt.get_cmap('cmr.sunburst'))
+    im2 = axes[1].imshow(err_e,interpolation ='nearest',vmin=0,vmax=sigma_max,cmap=plt.get_cmap('cmr.sunburst'))
     fig.colorbar(im2,ax=axes[1])
     axes[1].set_title('$\sigma_{RV}$')
     
-    im3 = axes[2].imshow(rv_difference_array/err_e,interpolation ='nearest',vmin=-3,vmax=3,cmap=plt.get_cmap('cmr.fusion'))
+    im3 = axes[2].imshow(rv_difference_array/err_e,interpolation ='nearest',vmin=-chi_max,vmax=chi_max,cmap=plt.get_cmap('cmr.fusion'))
     print(np.sqrt(np.mean((rv_difference_array/err_e)**2)))
     print(np.median(np.abs((rv_difference_array/err_e))))
     fig.colorbar(im3,ax=axes[2])
@@ -184,7 +184,7 @@ def plot_rv_difference(times, rv_e, err_e, times_comb, rv_comb, err_comb, targ_t
     axes[1].set_xticks([])
     plt.xlabel('Epochs')
     axes[1].set_ylabel('Chunks')
-    plt.subplots_adjust(top=1.2)
+    plt.subplots_adjust(top=top_spacing)
 
     plt.savefig(os.path.join(out_dir,'{}_drv.png'.format(star_name)),bbox_inches='tight')
     plt.show()
