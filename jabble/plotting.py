@@ -327,14 +327,15 @@ def make_grid_plots(datasets,models,size_n,size_m,plt_epochs,device,plt_name,out
         plt.savefig(os.path.join(out_dir, plt_name),bbox_inches='tight')
     plt.show()
 
-def make_order_plot(dataset,model,lrange,plt_epoches,device,out_dir,plt_name=None,line_list=None):
+def make_order_plot(dataset,model,lrange,plt_epoches,device,out_dir,plt_name=None,line_list=None,title=None):
     # model = jabble.model.load(model_name)
     data_orders = np.unique(model.metadata["orders"])
     model.fix()
         
     fig, axes = plt.subplots(2,len(plt_epoches),figsize=(4*len(plt_epoches),4),sharex='col',sharey='row',\
                              facecolor=(1, 1, 1),height_ratios=[4,1],dpi=200)
-
+    if title is not None:
+        fig.suptitle(title,fontsize=16)
     for ii, plt_epoch in enumerate(plt_epoches):
         axes[:,ii] = make_subplot(axes[:,ii],model,dataset,plt_epoch,device,lrange[ii,:])#(axes,model,dataset,plt_epoch,device,lrange)
         if line_list is not None:
