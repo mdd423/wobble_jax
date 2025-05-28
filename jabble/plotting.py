@@ -237,7 +237,6 @@ def plot_loss(times, rv_e, err_e, times_comb, rv_comb, err_comb, targ_time, targ
     # plt.savefig(os.path.join(out_dir,'barn_obj.png'))
     # plt.show()
 
-
 def make_subplot(axes,model,dataset,plt_epoch,device,lrange):
 
     model.fix()
@@ -327,7 +326,6 @@ def make_grid_plots(datasets,models,size_n,size_m,plt_epochs,device,plt_name,out
     if plt_name is not None:
         plt.savefig(os.path.join(out_dir, plt_name),bbox_inches='tight')
     plt.show()
-
 
 def make_order_plot(dataset,model,lrange,plt_epoches,device,out_dir,plt_name=None,line_list=None):
     # model = jabble.model.load(model_name)
