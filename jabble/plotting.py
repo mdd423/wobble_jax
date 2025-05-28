@@ -231,3 +231,128 @@ def plot_loss(times, rv_e, err_e, times_comb, rv_comb, err_comb, targ_time, targ
     # plt.colorbar(im,shrink=0.3)
     # plt.savefig(os.path.join(out_dir,'barn_obj.png'))
     # plt.show()
+
+import jabble.loss
+
+import jabble.model
+import numpy as np
+def make_subplot(axes,model,dataset,plt_epoch,device,lrange):
+
+    model.fix()
+    data, meta, keys = dataset.blockify(device,return_keys=True)
+    
+    datarow = jabble.loss.dict_ele(data,plt_epoch,device)
+    metarow = jabble.loss.dict_ele(meta,plt_epoch,device)
+    # fig.suptitle("Order {}".format(keys["orders"][meta["orders"][plt_epoch]]))
+    # axes[0,ii].title.set_text('Date: {}'.format(keys["times"][meta["times"][plt_epoch]]))
+
+    # print(metarow['index'],plt_epoch)
+    
+    xplot = np.linspace(np.log(lrange.min()),np.log(lrange.max()),\
+                        dataset.xs[plt_epoch].shape[0]*10)
+
+    yplot_norm_tot  = model([],xplot,metarow)
+    yplot_norm_stel = model[0]([],xplot,metarow)
+    yplot_norm_tell = model[1]([],xplot,metarow)
+    # yplot_norm      = model[2]([],xplot,metarow)
+    # for epoch in np.where(indices):
+    yhat = model([],dataset.xs[plt_epoch][:],metarow)
+    axes[0].set_xlim(xplot.min(),xplot.max())
+
+    velocity = jabble.physics.velocities(model[0][0].p[plt_epoch])
+    
+    # Data
+    # print(datarow)
+    axes[0].errorbar(datarow["xs"][:],datarow["ys"][:],yerr=1/np.sqrt(datarow["yivar"][:]),fmt='.k',zorder=2,alpha=0.1,ms=5)
+
+    # Stellar Model        
+    axes[0].plot(xplot,yplot_norm_stel,'-r',linewidth=1.2,zorder=10,alpha=0.7,ms=6)
+    # Telluric Model
+    axes[0].plot(xplot,yplot_norm_tell,'-b',linewidth=1.2,zorder=10,alpha=0.7,ms=6)
+    # Total
+    # axes[0].plot(xplot,yplot_norm_tot,'-m',linewidth=1.2,zorder=10,alpha=0.7,ms=6)
+    # Norm
+    # axes[0,ii].plot(xplot,yplot_norm,'-g',linewidth=1.2,zorder=10,alpha=0.7,ms=6)
+    # Theory Model
+    # theory_ax = axes[0,ii].twinx()
+    # theory_ax.plot(dataset_theory.xs[0][:],dataset_theory.ys[0][:],'-y',linewidth=1.2,zorder=10,alpha=0.7,ms=6)
+    # theory_ax.set_ylim(-5,5)
+    # Line List
+ 
+    # Residuals
+    axes[1].step(dataset.xs[plt_epoch],dataset.ys[plt_epoch] - yhat,\
+                             'k',where='mid',zorder=1,alpha=0.3,ms=3)
+
+    axes[0].text(np.log(lrange.min()+0.1),0.3,"Order: ${}$".format(model.metadata["orders"][plt_epoch]))
+    # axes[0].text(np.log(lrange.max()-0.1),0.3,"MJD: ${}$".format(model.metadata["times"][plt_epoch]))
+
+    axes[0].set_ylim(-2.5,0.5)
+    axes[1].set_ylim(-1,1)
+    
+    # axes[0].set_xticks([])
+    axes[0].set_xticks(np.log(lrange))
+    axes[1].set_xticks(np.log(lrange))
+
+    axes[0].set_xticklabels(['' for x in lrange])
+    axes[1].set_xticklabels(['{:0.1f}'.format(x) for x in lrange])
+    
+    axes[0].set_xlim(np.log(lrange.min()),np.log(lrange.max()))
+    axes[1].set_xlim(np.log(lrange.min()),np.log(lrange.max()))
+
+    return axes
+
+def make_grid_plots(datasets,models,size_n,size_m,plt_epochs,device,plt_name,out_dir,line_list=None):
+    l_width = np.arange(-4,4,2)
+    
+    fig, axes = plt.subplots(2*size_n,size_m,figsize=(5*size_m,5*size_n),sharey='row',\
+                             facecolor=(1, 1, 1),height_ratios=[4,1]*size_n,dpi=200)
+    # plt.tight_layout()
+
+    for ii, nn in enumerate(range(size_n)):
+        for jj, mm in enumerate(range(size_m)):
+            this_index = size_m*ii+jj
+            
+            lrange = np.floor(np.exp(datasets[this_index].xs[plt_epochs[this_index]]).mean()) + l_width
+            # print(lrange)
+            axes[2*ii:((2*ii)+2),jj] = make_subplot(axes[2*ii:((2*ii)+2),jj],models[this_index],datasets[this_index],0,device,lrange)
+            if line_list is not None:
+                plot_line_list(axes[2*ii:((2*ii)+2),jj],line_list,lrange)
+
+    
+    plt.subplots_adjust(wspace=0.15)
+    # fig.text(0.5, 0.00, 'Wavelength $[\AA]$', ha='center')
+    # fig.text(0.08, 0.5, 'Normalized Flux', va='center', rotation='vertical')
+    if plt_name is not None:
+        plt.savefig(os.path.join(out_dir, plt_name),bbox_inches='tight')
+    plt.show()
+
+
+def make_order_plot(dataset,model,lrange,plt_epoches,device,out_dir,plt_name=None,line_list=None):
+    # model = jabble.model.load(model_name)
+    data_orders = np.unique(model.metadata["orders"])
+    model.fix()
+        
+    fig, axes = plt.subplots(2,len(plt_epoches),figsize=(4*len(plt_epoches),4),sharex='col',sharey='row',\
+                             facecolor=(1, 1, 1),height_ratios=[4,1],dpi=200)
+
+    for ii, plt_epoch in enumerate(plt_epoches):
+        axes[:,ii] = make_subplot(axes[:,ii],model,dataset,plt_epoch,device,lrange[ii,:])#(axes,model,dataset,plt_epoch,device,lrange)
+        if line_list is not None:
+            plot_line_list(axes[:,ii],model,line_list,lrange[ii,:],plt_epoch)
+    
+    # plt.x
+    # plt.text(1, 1, 'Wavelength ($\AA$)', ha='center')
+    # plt_name = os.path.join(out_dir, "02-spectra_{}_{}-{}.png".format(os.path.split(model_name)[-1],lmin,lmax))
+    # plt.savefig(plt_name,dpi=200,bbox_inches='tight')
+    # fig.suptitle('Barnards Star')
+    # fig.text(0.5, 0.00, 'Wavelength $[\AA]$', ha='center')
+    # fig.text(0.08, 0.5, 'Normalized Flux', va='center', rotation='vertical')
+    plt.subplots_adjust(wspace=0.3)
+    if plt_name is not None:
+        plt.savefig(os.path.join(out_dir, plt_name),bbox_inches='tight')
+    plt.show()
+
+def plot_line_list(axes,model,line_list,lrange,plt_epoch):
+    for line in line_list[1].data[(line_list[1].data["Wave"] > lrange.min()) * (line_list[1].data["Wave"] < lrange.max())]:
+        print(line["Species"])
+        axes[0].axvline(np.log(line["Wave"]) + model[0][0].p[plt_epoch],-5,5,c='k',linestyle='dashed',alpha=0.4)
