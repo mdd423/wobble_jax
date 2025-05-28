@@ -352,7 +352,87 @@ def make_order_plot(dataset,model,lrange,plt_epoches,device,out_dir,plt_name=Non
         plt.savefig(os.path.join(out_dir, plt_name),bbox_inches='tight')
     plt.show()
 
-def plot_line_list(axes,model,line_list,lrange,plt_epoch):
+def plot_line_list(axes,model,line_list,lrange,plt_epoch,out_dir=None):
     for line in line_list[1].data[(line_list[1].data["Wave"] > lrange.min()) * (line_list[1].data["Wave"] < lrange.max())]:
         print(line["Species"])
         axes[0].axvline(np.log(line["Wave"]) + model[0][0].p[plt_epoch],-5,5,c='k',linestyle='dashed',alpha=0.4)
+
+def plot_earth_residual_img(model,dataset,lrange,orders,rest_shifts,residual_resolution,plt_name,line_list,device):
+    xrange = np.log(lrange)
+    xmin, xmax = np.min(xrange), np.max(xrange)
+    # xinds = ((dataset[0].xs[:] < xmax) * (dataset[0].xs[:] > xmin)).astype(bool)
+    data, meta, keys = dataset.blockify(device,return_keys=True)
+
+    # create residual image of the size of the number of data epochs times the number of orders
+    residual_img = np.zeros((np.sum([np.sum(keys["orders"][meta["orders"]] == order) for order in orders]),residual_resolution))
+    
+    fig, ax = plt.subplots(2,2,figsize=(8, 8),height_ratios=[1,4],width_ratios=[4,1],sharex='col',sharey='row')
+    fig.tight_layout()
+
+    max_shift, min_shift = np.max(rest_shifts), np.min(rest_shifts)
+    new_grid = np.linspace(xmin,xmax,residual_resolution)
+
+    epsilon = np.log(np.mean(lrange) + 1) - np.log(np.mean(lrange))
+    model.fix()
+    model.display()
+
+    # print(np.sum(np.log(line_list[1].data["Wave"]) > xmin),np.sum(np.log(line_list[1].data["Wave"]) < xmax),\
+    #      np.sum((np.log(line_list[1].data["Wave"]) > xmin)*(np.log(line_list[1].data["Wave"]) < xmax)))
+    # for line in line_list[1].data[(np.log(line_list[1].data["Wave"]) > xmin) * (np.log(line_list[1].data["Wave"]) < xmax)]:
+    #     print(line["Species"])
+    #     ax[1,0].vlines(np.log(line["Wave"]),0,len(dataset))
+    # for line in list_list
+
+    plt_epochs = np.concatenate([np.array(np.where(keys["orders"][meta["orders"]] == order)).flatten() for order in orders])
+    for i,plt_epoch in enumerate(plt_epochs):
+        datarow = jabble.loss.dict_ele(data,plt_epoch,device)
+        metarow = jabble.loss.dict_ele(meta,plt_epoch,device)
+        
+        xless = (dataset[plt_epoch].xs[:] <= (xmax + epsilon))
+        xmore = (dataset[plt_epoch].xs[:] >= (xmin - epsilon)) #+ rest_shifts[plt_epoch] 
+        xinds = (xless * \
+                 xmore).astype(bool)
+        # print(np.sum(xmore),np.sum(xless))
+        x_grid = dataset[plt_epoch].xs[(~dataset[plt_epoch].mask)*xinds]
+        y_grid = dataset[plt_epoch].ys[(~dataset[plt_epoch].mask)*xinds]
+        residual = (y_grid - model([],x_grid,metarow))#*jnp.sqrt(dataset[plt_epoch].yivar[(~dataset[plt_epoch].mask)*xinds])
+
+        if np.sum(xless) == 0:
+            x_grid = np.array([dataset[plt_epoch].xs[~dataset[plt_epoch].mask].min()])
+            residual = np.array([0.0])
+        if np.sum(xmore) == 0:
+            x_grid = np.array([dataset[plt_epoch].xs[~dataset[plt_epoch].mask].max()])
+            residual = np.array([0.0])
+        # print(residual.shape,np.sum(dataset[plt_epoch].mask*xinds),np.sum(xinds),np.sum(dataset[plt_epoch].mask))
+        residual_img[i,:] = scipy.interpolate.interp1d(x_grid,residual,kind='nearest',bounds_error=False,fill_value=0.0)(new_grid )#+ \rest_shifts[plt_epoch]
+    cmap = plt.get_cmap("RdBu")
+
+    ax[0,1].axis('off')
+    ax[0,0].step(new_grid,       np.sqrt((residual_img**2).mean(axis=0)),'k',where='mid',zorder=1,alpha=0.3,ms=3)
+    # ax[0,0].step(new_grid,       (residual_img).sum(axis=0),'m',where='mid',zorder=1,alpha=0.3,ms=3)
+    ax[1,1].step(np.sqrt((residual_img**2).mean(axis=1)),np.arange(len(plt_epochs))[::-1],'k',where='post',zorder=1,alpha=0.3,ms=3)
+    
+    
+    # ax[1,0].set_ylim(0,np.max(orders)+1)
+    ax[1,0].set_xlim(xmin,xmax)
+    extent = [xmin,xmax,0,len(dataset)+1]
+    ax[1,0].imshow(residual_img,cmap=cmap,aspect="auto",vmin=-0.1,vmax=0.1,extent=extent,interpolation='nearest')
+    ax[1,0].set_xlabel('Wavelength [$\AA$]')
+    ax[1,0].set_ylabel('Chunks')
+    # # plt.xticks([])
+    ax[1,0].set_xticks(xrange)
+    ax[1,0].set_xticklabels(['{:0.1f}'.format(l) for l in lrange])
+    # ax[1,0].get_shared_x_axes().join(ax[1,0], ax[1,1])
+    # plt.xlabel()
+    if plt_name is not None:
+        plt.savefig(os.path.join(out_dir, plt_name))
+    plt.show()
+    plt.show()
+
+
+    # worst_epochs = np.zeros(len(orders),dtype=bool)
+    # worst_epochs = (residual_img**2).sum(axis=1) > 0.7
+    # print(worst_epochs)
+    # print(orders)
+    # print(orders[worst_epochs])
+    # return orders[worst_epochs]
