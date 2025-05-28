@@ -352,12 +352,12 @@ def make_order_plot(dataset,model,lrange,plt_epoches,device,out_dir,plt_name=Non
         plt.savefig(os.path.join(out_dir, plt_name),bbox_inches='tight')
     plt.show()
 
-def plot_line_list(axes,model,line_list,lrange,plt_epoch,out_dir=None):
+def plot_line_list(axes,model,line_list,lrange,plt_epoch):
     for line in line_list[1].data[(line_list[1].data["Wave"] > lrange.min()) * (line_list[1].data["Wave"] < lrange.max())]:
         print(line["Species"])
         axes[0].axvline(np.log(line["Wave"]) + model[0][0].p[plt_epoch],-5,5,c='k',linestyle='dashed',alpha=0.4)
 
-def plot_earth_residual_img(model,dataset,lrange,orders,rest_shifts,residual_resolution,plt_name,line_list,device):
+def plot_earth_residual_img(model,dataset,lrange,orders,rest_shifts,residual_resolution,plt_name,line_list,out_dir,device):
     xrange = np.log(lrange)
     xmin, xmax = np.min(xrange), np.max(xrange)
     # xinds = ((dataset[0].xs[:] < xmax) * (dataset[0].xs[:] > xmin)).astype(bool)
