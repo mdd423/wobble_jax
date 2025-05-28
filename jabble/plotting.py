@@ -3,6 +3,11 @@ import numpy as np
 import os
 import matplotlib.ticker as ticker
 
+import jabble.loss
+import jabble.model
+
+import scipy.interpolate
+
 def rv_all_order_plot(times,rv_e,err_e,time_comb,rv_comb,err_comb,targ_time,targ_vel,targ_err,bervs):
     fig, ax = plt.subplots(
         1,
@@ -232,10 +237,7 @@ def plot_loss(times, rv_e, err_e, times_comb, rv_comb, err_comb, targ_time, targ
     # plt.savefig(os.path.join(out_dir,'barn_obj.png'))
     # plt.show()
 
-import jabble.loss
 
-import jabble.model
-import numpy as np
 def make_subplot(axes,model,dataset,plt_epoch,device,lrange):
 
     model.fix()
@@ -357,7 +359,7 @@ def plot_line_list(axes,model,line_list,lrange,plt_epoch):
         print(line["Species"])
         axes[0].axvline(np.log(line["Wave"]) + model[0][0].p[plt_epoch],-5,5,c='k',linestyle='dashed',alpha=0.4)
 
-def plot_earth_residual_img(model,dataset,lrange,orders,rest_shifts,residual_resolution,plt_name,line_list,out_dir,device):
+def plot_earth_residual_img(model,dataset,lrange,orders,rest_shifts,residual_resolution,plt_name,line_list,out_dir,device,res_max=0.1):
     xrange = np.log(lrange)
     xmin, xmax = np.min(xrange), np.max(xrange)
     # xinds = ((dataset[0].xs[:] < xmax) * (dataset[0].xs[:] > xmin)).astype(bool)
@@ -416,7 +418,7 @@ def plot_earth_residual_img(model,dataset,lrange,orders,rest_shifts,residual_res
     # ax[1,0].set_ylim(0,np.max(orders)+1)
     ax[1,0].set_xlim(xmin,xmax)
     extent = [xmin,xmax,0,len(dataset)+1]
-    ax[1,0].imshow(residual_img,cmap=cmap,aspect="auto",vmin=-0.1,vmax=0.1,extent=extent,interpolation='nearest')
+    ax[1,0].imshow(residual_img,cmap=cmap,aspect="auto",vmin=-res_max,vmax=res_max,extent=extent,interpolation='nearest')
     ax[1,0].set_xlabel('Wavelength [$\AA$]')
     ax[1,0].set_ylabel('Chunks')
     # # plt.xticks([])
