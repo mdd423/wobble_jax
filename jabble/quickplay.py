@@ -106,7 +106,8 @@ def load_model_dir(path,dir_files,device,force_run=False):
     else:
         rv_array = load_summary_hdf(os.path.join(path,'RV_Summary.hdf'))
 
-    min_order_of_chunk = np.array([np.unique(model.metadata["orders"]) for model in all_models]).min(axis=1)
+    # min_order_of_chunk = np.array([np.unique(model.metadata["orders"]) for model in all_models]).min(axis=1)
+    min_wavelength_of_chunk = np.array([np.min(np.concatenate(dataset.xs)) for dataset in all_data])
     # Reorder RV all array by min order and times
     if not os.path.isfile(os.path.join(path,'RV_all_Summary.npy')) or force_run:
         rv_difference = np.zeros((len(rv_list),rv_array["RV_comb"].shape[0]))
@@ -116,7 +117,7 @@ def load_model_dir(path,dir_files,device,force_run=False):
             rv_difference[iii,:] = rv_list_sub - rv_array["RV_comb"][np.argsort(rv_array["Time_comb"])][time_list_indi]
         
         all_rv_array = np.array([*zip(np.stack(rv_list),np.stack(err_list),
-                                      np.stack(time_list),loss_array,rv_difference,min_order_of_chunk)],\
+                                      np.stack(time_list),loss_array,rv_difference,min_wavelength_of_chunk)],\
                                 dtype=[("RV_all",np.double,(loss_array.shape[1])),("RV_err_all",np.double,(loss_array.shape[1])),\
                                        ("Time_all",np.double,(loss_array.shape[1])),("Loss_Avg",np.double,(loss_array.shape[1])),
                                        ("RV_difference",np.double,(loss_array.shape[1])),("min_order",int)])
@@ -124,7 +125,7 @@ def load_model_dir(path,dir_files,device,force_run=False):
     else:
         all_rv_array = np.load(os.path.join(path,'RV_all_Summary.npy'))
 
-    order_by_orders = np.argsort(min_order_of_chunk)
+    order_by_orders = np.argsort(min_wavelength_of_chunk)
     return rv_array, [all_models[iii] for iii in order_by_orders], all_rv_array[order_by_orders], [all_data[iii] for iii in order_by_orders]
 
 def get_stellar_model(init_rvs, model_grid, p_val):
