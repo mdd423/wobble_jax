@@ -193,7 +193,7 @@ class Data:
 
     def blockify(data, device=None, return_keys=False):
         if device is None:
-            device = data[0].xs.device()
+            device = data[0].xs.device
         max_ind = np.max([len(dataframe.xs) for dataframe in data])
         xs = np.zeros((len(data), max_ind))
         ys = np.zeros((len(data), max_ind))

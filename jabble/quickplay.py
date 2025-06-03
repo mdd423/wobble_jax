@@ -212,7 +212,7 @@ def save(self, filename: str, dataname: str, data, shifts, loss, device) -> None
             
 
         with h5py.File(filename + "_RVS.hdf",'w') as file:
-            datablock, metablock, meta_keys = data.blockify(return_keys=True)
+            datablock, metablock, meta_keys = data.blockify(device,return_keys=True)
             file.create_dataset("RVs",data=jabble.physics.velocities(shifts))
             file.create_dataset("RV_err",data=get_RV_sigmas(self, data, device=device, model=self))
             file.create_dataset("Times",data=meta_keys['times'])
