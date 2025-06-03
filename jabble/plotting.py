@@ -160,7 +160,8 @@ def plt_rv_comparison(times, rv_e, err_e, times_comb, rv_comb, err_comb, targ_ti
     # plt.show()
 
 def plot_rv_difference(times, rv_e, err_e, times_comb, rv_comb, err_comb, targ_time, targ_vel, \
-                       targ_err, bervs, loss_array, rv_difference_array, star_name, out_dir,top_spacing=1.2,sigma_max=5,difference_max=5,chi_max=3):
+                       targ_err, bervs, loss_array, rv_difference_array, star_name, out_dir,\
+                       top_spacing=1.2,sigma_max=5,difference_max=5,chi_max=3):
     # RV DIFFERENCE PLOT
     epoches_span = np.arange(0, len(times_comb), dtype=int)
 
@@ -284,7 +285,9 @@ def make_subplot(axes,model,dataset,plt_epoch,device,lrange):
     axes[1].step(dataset.xs[plt_epoch],dataset.ys[plt_epoch] - yhat,\
                              'k',where='mid',zorder=1,alpha=0.3,ms=3)
 
-    axes[0].text(np.log(lrange.min()+0.1),0.3,"Order: ${}$".format(model.metadata["orders"][plt_epoch]))
+    if "orders" in model.metadata:
+        
+        axes[0].text(np.log(lrange.min()+0.1),0.3,"Order: ${}$".format(model.metadata["orders"][plt_epoch]))
     # axes[0].text(np.log(lrange.max()-0.1),0.3,"MJD: ${}$".format(model.metadata["times"][plt_epoch]))
 
     axes[0].set_ylim(-2.5,0.5)
