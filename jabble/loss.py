@@ -115,7 +115,7 @@ class LossSequential(LossFunc):
             loss.coefficient *= x
         return self
 
-    def __rmul__(self, x: float | np.double):
+    def __rmul__(self, x):
         for loss in self.loss_funcs:
             loss.coefficient *= x
         return self
