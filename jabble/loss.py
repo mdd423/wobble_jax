@@ -110,7 +110,7 @@ class LossSequential(LossFunc):
             out = LossSequential(loss_funcs=[*self.loss_funcs, x])
         return out
 
-    def __mul__(self, x: float | np.double):
+    def __mul__(self, x):
         for loss in self.loss_funcs:
             loss.coefficient *= x
         return self
