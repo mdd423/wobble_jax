@@ -258,14 +258,15 @@ def make_subplot(axes,model,dataset,plt_epoch,device,lrange):
     yplot_norm_tell = model[1]([],xplot,metarow)
     # yplot_norm      = model[2]([],xplot,metarow)
     # for epoch in np.where(indices):
-    yhat = model([],dataset.xs[plt_epoch][:],metarow)
+    yhat = model([],dataset.xs[plt_epoch][~datarow["mask"]],metarow)
     axes[0].set_xlim(xplot.min(),xplot.max())
 
     velocity = jabble.physics.velocities(model[0][0].p[plt_epoch])
     
     # Data
     # print(datarow)
-    axes[0].errorbar(datarow["xs"][:],datarow["ys"][:],yerr=1/np.sqrt(datarow["yivar"][:]),fmt='.k',zorder=2,alpha=0.1,ms=5)
+    axes[0].errorbar(datarow["xs"][~datarow["mask"]],datarow["ys"][~datarow["mask"]],\
+                     yerr=1/np.sqrt(datarow["yivar"][~datarow["mask"]]),fmt='.k',zorder=2,alpha=0.1,ms=5)
 
     # Stellar Model        
     axes[0].plot(xplot,yplot_norm_stel,'-r',linewidth=1.2,zorder=10,alpha=0.7,ms=6)
@@ -282,7 +283,7 @@ def make_subplot(axes,model,dataset,plt_epoch,device,lrange):
     # Line List
  
     # Residuals
-    axes[1].step(dataset.xs[plt_epoch],dataset.ys[plt_epoch] - yhat,\
+    axes[1].step(dataset.xs[plt_epoch][~datarow["mask"]],dataset.ys[plt_epoch][~datarow["mask"]] - yhat,\
                              'k',where='mid',zorder=1,alpha=0.3,ms=3)
 
     if "orders" in model.metadata:
@@ -305,8 +306,8 @@ def make_subplot(axes,model,dataset,plt_epoch,device,lrange):
 
     return axes
 
-def make_grid_plots(datasets,models,size_n,size_m,plt_epochs,device,plt_name,out_dir,line_list=None):
-    l_width = np.arange(-4,4,2)
+def make_grid_plots(datasets,models,size_n,size_m,plt_epochs,device,plt_name,out_dir,line_list=None,l_width=np.arange(-4,4,2)):
+    # l_width = 
     
     fig, axes = plt.subplots(2*size_n,size_m,figsize=(5*size_m,5*size_n),sharey='row',\
                              facecolor=(1, 1, 1),height_ratios=[4,1]*size_n,dpi=200)
