@@ -362,14 +362,19 @@ def plot_line_list(axes,model,line_list,lrange,plt_epoch):
         print(line["Species"])
         axes[0].axvline(np.log(line["Wave"]) + model[0][0].p[plt_epoch],-5,5,c='k',linestyle='dashed',alpha=0.4)
 
-def plot_earth_residual_img(model,dataset,lrange,orders,rest_shifts,residual_resolution,plt_name,line_list,out_dir,device,res_max=0.1):
+def plot_earth_residual_img(model,dataset,lrange,plt_epochs,rest_shifts,residual_resolution,plt_name,out_dir,device,res_max=0.1):
     xrange = np.log(lrange)
     xmin, xmax = np.min(xrange), np.max(xrange)
     # xinds = ((dataset[0].xs[:] < xmax) * (dataset[0].xs[:] > xmin)).astype(bool)
     data, meta, keys = dataset.blockify(device,return_keys=True)
 
+    # if mask is None:
+    #     mask = np.ones(len(meta['index']),dtype=bool)
+
     # create residual image of the size of the number of data epochs times the number of orders
-    residual_img = np.zeros((np.sum([np.sum(keys["orders"][meta["orders"]] == order) for order in orders]),residual_resolution))
+    # residual_img = np.zeros((np.sum([np.sum(keys["orders"][meta["orders"]] == order) for order in orders]),residual_resolution))
+    residual_img = np.zeros((len(plt_epochs),residual_resolution))
+
     
     fig, ax = plt.subplots(2,2,figsize=(8, 8),height_ratios=[1,4],width_ratios=[4,1],sharex='col',sharey='row')
     fig.tight_layout()
@@ -388,25 +393,26 @@ def plot_earth_residual_img(model,dataset,lrange,orders,rest_shifts,residual_res
     #     ax[1,0].vlines(np.log(line["Wave"]),0,len(dataset))
     # for line in list_list
 
-    plt_epochs = np.concatenate([np.array(np.where(keys["orders"][meta["orders"]] == order)).flatten() for order in orders])
+    # plt_epochs = np.concatenate([np.array(np.where(keys["orders"][meta["orders"]] == order)).flatten() for order in orders])
+    # plt_epochs = meta['index'][mask]
     for i,plt_epoch in enumerate(plt_epochs):
         datarow = jabble.loss.dict_ele(data,plt_epoch,device)
         metarow = jabble.loss.dict_ele(meta,plt_epoch,device)
         
-        xless = (dataset[plt_epoch].xs[:] <= (xmax + epsilon))
-        xmore = (dataset[plt_epoch].xs[:] >= (xmin - epsilon)) #+ rest_shifts[plt_epoch] 
+        xless = (datarow['xs'] <= (xmax + epsilon))
+        xmore = (datarow['xs'] >= (xmin - epsilon)) #+ rest_shifts[plt_epoch] 
         xinds = (xless * \
                  xmore).astype(bool)
         # print(np.sum(xmore),np.sum(xless))
-        x_grid = dataset[plt_epoch].xs[(~dataset[plt_epoch].mask)*xinds]
-        y_grid = dataset[plt_epoch].ys[(~dataset[plt_epoch].mask)*xinds]
+        x_grid = datarow['xs'][(~datarow['mask'])*xinds]
+        y_grid = datarow['ys'][(~datarow['mask'])*xinds]
         residual = (y_grid - model([],x_grid,metarow))#*jnp.sqrt(dataset[plt_epoch].yivar[(~dataset[plt_epoch].mask)*xinds])
 
         if np.sum(xless) == 0:
-            x_grid = np.array([dataset[plt_epoch].xs[~dataset[plt_epoch].mask].min()])
+            x_grid = np.array([datarow['xs'][~datarow['mask']].min()])
             residual = np.array([0.0])
         if np.sum(xmore) == 0:
-            x_grid = np.array([dataset[plt_epoch].xs[~dataset[plt_epoch].mask].max()])
+            x_grid = np.array([datarow['xs'][~datarow['mask']].max()])
             residual = np.array([0.0])
         # print(residual.shape,np.sum(dataset[plt_epoch].mask*xinds),np.sum(xinds),np.sum(dataset[plt_epoch].mask))
         residual_img[i,:] = scipy.interpolate.interp1d(x_grid,residual,kind='nearest',bounds_error=False,fill_value=0.0)(new_grid )#+ \rest_shifts[plt_epoch]
@@ -431,8 +437,7 @@ def plot_earth_residual_img(model,dataset,lrange,orders,rest_shifts,residual_res
     # plt.xlabel()
     if plt_name is not None:
         plt.savefig(os.path.join(out_dir, plt_name))
-    plt.show()
-    plt.show()
+    return fig, ax
 
 
     # worst_epochs = np.zeros(len(orders),dtype=bool)
