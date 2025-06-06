@@ -511,9 +511,9 @@ def plot_earth_residual_img_with_spec(model,dataset,lrange,plt_epochs,spec_epoch
     ax[1,0].set_xticks(xrange)
     ax[1,0].set_xticklabels(['{:0.1f}'.format(l) for l in lrange])
     ax[2,1].axis('off')
-    dum_fig, dum_ax = plt.subplots(1)
+    _, dum_ax = plt.subplots(1)
     # dummy_ax = plt.Axes()
-    jabble.plotting.make_subplot(np.concatenate((ax[2,0],dum_ax)),model,dataset,spec_epoch,device,lrange)
+    jabble.plotting.make_subplot(np.array((ax[2,0],dum_ax)),model,dataset,spec_epoch,device,lrange)
 
     # ax[1,0].get_shared_x_axes().join(ax[1,0], ax[1,1])
     # plt.xlabel()
