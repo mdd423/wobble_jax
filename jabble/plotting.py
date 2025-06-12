@@ -506,7 +506,7 @@ def plot_earth_residual_img_with_spec(model,dataset,lrange,plt_epochs,spec_epoch
     extent = [xmin,xmax,0,len(plt_epochs)+1]
     ax[1,0].imshow(residual_img,cmap=cmap,aspect="auto",vmin=-res_max,vmax=res_max,extent=extent,interpolation='nearest')
     ax[2,0].set_xlabel('Wavelength [$\AA$]')
-    ax[1,0].set_ylabel('Chunks')
+    ax[1,0].set_ylabel('Epochs')
     # # plt.xticks([])
     ax[2,1].axis('off')
     _, dum_ax = plt.subplots(1)
