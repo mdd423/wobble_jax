@@ -503,7 +503,7 @@ def plot_earth_residual_img_with_spec(model,dataset,lrange,plt_epochs,spec_epoch
     
     # ax[1,0].set_ylim(0,np.max(orders)+1)
     ax[1,0].set_xlim(xmin,xmax)
-    extent = [xmin,xmax,0,len(dataset)+1]
+    extent = [xmin,xmax,0,len(plt_epochs)+1]
     ax[1,0].imshow(residual_img,cmap=cmap,aspect="auto",vmin=-res_max,vmax=res_max,extent=extent,interpolation='nearest')
     ax[2,0].set_xlabel('Wavelength [$\AA$]')
     ax[1,0].set_ylabel('Chunks')
