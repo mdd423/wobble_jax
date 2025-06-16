@@ -322,10 +322,10 @@ def make_grid_plots(datasets,models,size_n,size_m,plt_epochs,device,plt_name,out
             
             lrange = np.floor(np.exp(datasets[this_index].xs[plt_epochs[this_index]]).mean()) + l_width
             # print(lrange)
-            axes[2*ii:((2*ii)+2),jj] = make_subplot(axes[2*ii:((2*ii)+2),jj],models[this_index],datasets[this_index],0,device,lrange)
+            axes[2*ii:((2*ii)+2),jj] = make_subplot(axes[2*ii:((2*ii)+2),jj],models[this_index],datasets[this_index],plt_epochs[this_index],device,lrange)
             if "orders" in models[this_index].metadata:
         
-                axes[0].text(np.log(lrange.min()+0.1),0.3,"Order: ${}$".format(models[this_index].metadata["orders"][0]))
+                axes[2*ii,jj].text(np.log(lrange.min()+0.1),-2.2,"Order: ${}$".format(models[this_index].metadata["orders"][plt_epochs[this_index]]))
     
             if line_list is not None:
                 plot_line_list(axes[2*ii:((2*ii)+2),jj],line_list,lrange)
