@@ -326,7 +326,7 @@ def make_grid_plots(datasets,models,size_n,size_m,plt_epochs,device,plt_name,out
             if "orders" in models[this_index].metadata:
         
                 text = axes[2*ii,jj].text(np.log(lrange.min()+0.1),-2.2,"Order: ${}$".format(models[this_index].metadata["orders"][plt_epochs[this_index]]))
-                text.font = 'x-large'
+                text.fontsize = 'x-large'
     
             if line_list is not None:
                 plot_line_list(axes[2*ii:((2*ii)+2),jj],line_list,lrange)
