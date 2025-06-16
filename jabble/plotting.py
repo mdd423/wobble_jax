@@ -100,6 +100,9 @@ def plt_rv_comparison(times, rv_e, err_e, times_comb, rv_comb, err_comb, targ_ti
         dpi=300,
         sharey=True
     )
+    targ_ind = np.argsort(targ_time)
+    comb_indi = np.argsort(np.argsort(times_comb))
+
 
     bervs_temp = -bervs[targ_ind][comb_indi] + bervs.mean()
     norm_vel   = bervs_temp
