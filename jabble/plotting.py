@@ -341,7 +341,7 @@ def make_grid_plots(datasets,models,size_n,size_m,plt_epochs,device,plt_name,out
 
 def make_order_plot(dataset,model,lrange,plt_epoches,device,out_dir,plt_name=None,line_list=None,title=None):
     # model = jabble.model.load(model_name)
-    data_orders = np.unique(model.metadata["orders"])
+    # data_orders = np.unique(model.metadata["orders"])
     model.fix()
         
     fig, axes = plt.subplots(2,len(plt_epoches),figsize=(4*len(plt_epoches),4),sharex='col',sharey='row',\
