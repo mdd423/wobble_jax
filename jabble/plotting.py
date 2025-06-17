@@ -363,7 +363,7 @@ def make_order_plot(dataset,model,lrange,plt_epoches,device,out_dir,plt_name=Non
     plt.subplots_adjust(wspace=0.3)
     if plt_name is not None:
         plt.savefig(os.path.join(out_dir, plt_name),bbox_inches='tight')
-    plt.show()
+    return fig, axes
 
 def plot_line_list(axes,model,line_list,lrange,plt_epoch):
     for line in line_list[1].data[(line_list[1].data["Wave"] > lrange.min()) * (line_list[1].data["Wave"] < lrange.max())]:
