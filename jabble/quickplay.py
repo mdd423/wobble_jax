@@ -64,7 +64,7 @@ def load_summary_hdf(filename):
                             dtype=[("RV_comb",np.double),("RV_err_comb",np.double),("Time_comb",np.double)])
     return rv_array
 
-def load_model_dir(path,dir_files,device,force_run=False):
+def load_model_dir(path,dir_files,device,force_run=False,max_info=1e30,min_info=0.0):
    
     all_models = []
     all_data   = []
@@ -98,7 +98,7 @@ def load_model_dir(path,dir_files,device,force_run=False):
     # Combine RVs and create HDF summary in directory
     if not os.path.isfile(os.path.join(path,'RV_Summary.hdf')) or force_run:
         
-        comb_rv, comb_err, comb_time = combine_rvs(rv_list,err_list,time_list)
+        comb_rv, comb_err, comb_time = combine_rvs(rv_list,err_list,time_list,max_info=max_info,min_info=min_info)
         
         rv_array = np.array([*zip(comb_rv,comb_err,comb_time)],\
                             dtype=[("RV_comb",np.double),("RV_err_comb",np.double),("Time_comb",np.double)])
@@ -282,6 +282,79 @@ def load(filename,mode:str):
     elif mode == "pkl":
         model = jabble.model.load(filename)
     return model
+
+def gaussian_smooth(x,sigma):
+
+    return np.exp(-x**2/(2*sigma**2))
+
+def convolve_load(file,sigma_l,xl,eval_a):
+    # This reads in line by line a phoenix model
+    # storing flux and x values to the cache around the grid point
+    # then convolves to instrument resolution
+    
+    xl_ii   = 0
+    xl_curr = xl[xl_ii]
+    fl = np.zeros(xl.shape)
+
+    x_cache = np.array([])
+    f_cache = np.array([])
+
+    # xh = []
+    # fh = []
+    with open(file,'r') as file_stream:
+        cnt = 0
+        for line in file_stream:
+            cnt += 1
+            if cnt > 8:
+                words = line.split('    ')
+                for word in words:
+                    try:
+                        x_val = np.log(np.double(word))
+                        break
+                    except ValueError:
+                        pass
+                        
+                if x_val > (xl_curr - eval_a):
+                    x_cache = np.append(x_cache,x_val)
+                    # xh.append(x_val)
+                    for word in words[::-1]:  
+                        try:
+                            f_cache = np.append(f_cache,np.double(word))
+                            # fh.append(np.double(word))
+                            break
+                        except ValueError:
+                            pass
+                while x_val > (xl_curr + eval_a):
+                    kern = gaussian_smooth(x_cache - xl_curr,sigma_l)
+                    # print(len(x_cache))
+                    # plt.plot(x_cache,f_cache,'.k')
+                    # plt.vlines([xl_curr,xl_curr+eval_a,xl_curr-eval_a],np.min(f_cache),np.max(f_cache))
+                    # plt.show()
+                    
+                    fl[xl_ii] = np.dot(f_cache,kern)/np.sum(kern)
+                    plt.plot(xl,fl,'.r')
+                    if xl_ii+1 >= len(xl):
+                        break
+                    xl_ii += 1
+                    xl_curr = xl[xl_ii]
+                    # print(x_cache.shape,f_c
+                    f_cache = f_cache[x_cache > xl_curr - eval_a]
+                    x_cache = x_cache[x_cache > xl_curr - eval_a]
+                if xl_ii+1 >= len(xl):
+                    break
+
+    return fl
+                    
+# x_cache = np.concatenate((x_cache,[np.double(word)]))
+# low_resolution = 115_000
+# x_min = np.log(4000)
+# x_max = np.log(4200)
+# sigma_l = jabble.physics.delta_x(low_resolution)
+
+# xl = np.arange(x_min,x_min+(10000*sigma_l/2),sigma_l/2)
+# print(xl)
+# fl = convolve_load('/scratch/mdd423/wobble_jax/data/HD4307_harps/models_1750205771/bt-nextgen-gns93/lte035-5.0-0.5.BT-NextGen.7.dat.txt',\
+#                        sigma_l,xl,10*sigma_l)
 
 # def _getitem__(self, key: str | int):
 #     if type(key) == int:
