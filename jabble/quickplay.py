@@ -166,7 +166,7 @@ def get_pseudo_norm_model(init_rvs, init_airmass, model_grid, p_val,dataset,norm
     return get_stellar_model(init_rvs, model_grid, p_val) + get_tellurics_model(init_airmass, model_grid, p_val, rest_vels) + \
         get_normalization_model(dataset,norm_p_val, pts_per_wavelength)
 
-def get_RV_sigmas(self, dataset, model=None, device=None):
+def get_RV_sigmas(self, dataset, model=None, device=None, rv_ind = [0,0]):
         """
         Return errorbar on radial velocities using fischer information
 
@@ -181,7 +181,10 @@ def get_RV_sigmas(self, dataset, model=None, device=None):
             model = self
         if device is None:
             device = dataset[0].xs.device()
-        f_info = self[0][0].f_info(model, dataset, device)
+        rv_model = model
+        for xx in rv_ind:
+            rv_model = self[xx] 
+        f_info = rv_model.f_info(model, dataset, device)
         dvddx = jnp.array(
             [jax.grad(jabble.physics.velocities)(x) for x in self[0][0].p]
         )
@@ -196,7 +199,7 @@ def get_loss_array(model,datablock,metablock,loss,device):
         loss_array[jjj,:] = loss(model.get_parameters(),datarow,metarow,model)
     return loss_array
     
-def save(self, filename: str, dataname: str, data, shifts, loss, device) -> None:
+def save(self, filename: str, dataname: str, data, shifts, loss, device, rv_ind) -> None:
         '''
             mode: 0, just RVs
             mode: 1, RVs and template
@@ -215,7 +218,7 @@ def save(self, filename: str, dataname: str, data, shifts, loss, device) -> None
         with h5py.File(filename + "_RVS.hdf",'w') as file:
             datablock, metablock, meta_keys = data.blockify(device,return_keys=True)
             file.create_dataset("RVs",data=jabble.physics.velocities(shifts))
-            file.create_dataset("RV_err",data=get_RV_sigmas(self, data, device=device, model=self))
+            file.create_dataset("RV_err",data=get_RV_sigmas(self, data, device=device, model=self,rv_ind=rv_ind))
             file.create_dataset("Times",data=meta_keys['times'])
 
             head, tail = os.path.split(filename)
