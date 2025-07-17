@@ -181,9 +181,10 @@ def get_RV_sigmas(self, dataset, model=None, device=None, rv_ind = [0,0]):
             model = self
         if device is None:
             device = dataset[0].xs.device()
+        
         rv_model = model
         for xx in rv_ind:
-            rv_model = self[xx] 
+            rv_model = rv_model[xx] 
         f_info = rv_model.f_info(model, dataset, device)
         dvddx = jnp.array(
             [jax.grad(jabble.physics.velocities)(x) for x in rv_model.p]
