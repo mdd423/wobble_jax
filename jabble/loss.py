@@ -81,7 +81,7 @@ class LossFunc:
     def __repr__(self) -> str:
 
         return (
-            str(self.coefficient) + " {obj.__class__.__name__}".format(obj=self) + "()"
+            "{:.2e}".format(self.coefficient) + " {obj.__class__.__name__}".format(obj=self) + "()"
         )
 
 
