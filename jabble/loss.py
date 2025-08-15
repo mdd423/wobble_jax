@@ -184,3 +184,8 @@ class L2Reg(LossFunc):
             + " {obj.__class__.__name__}".format(obj=self)
             + "({obj.submodel_inds})".format(obj=self)
         )
+    
+class L1Reg(L2Reg):
+    def __call__(self, p, datarow, model, *args):
+        err = self.coefficient * jnp.abs(p[self.indices] - self.constant)
+        return err
