@@ -133,10 +133,6 @@ class LossSequential(LossFunc):
         return out
 
 
-# always multiply by coefficient so that when you do mutliplication with the
-# object then it translates to the output
-
-
 class ChiSquare(LossFunc):
     def __call__(self, p, datarow, metarow, model, *args):
 

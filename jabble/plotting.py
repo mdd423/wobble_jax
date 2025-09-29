@@ -162,11 +162,11 @@ def plt_rv_comparison(times, rv_e, err_e, times_comb, rv_comb, err_comb, targ_ti
     # plt.savefig(os.path.join(out_dir, "{}_rv_comb_check.png".format(star_name)),bbox_inches='tight')
     # plt.show()
 
-def plot_rv_difference(times, rv_e, err_e, times_comb, rv_comb, err_comb, targ_time, targ_vel, \
-                       targ_err, bervs, loss_array, rv_difference_array, star_name, out_dir,\
+def plot_rv_difference(err_e,\
+                       rv_difference_array, star_name, out_dir,\
                        top_spacing=1.2,sigma_max=5,difference_max=5,chi_max=3):
     # RV DIFFERENCE PLOT
-    epoches_span = np.arange(0, len(times_comb), dtype=int)
+    # epoches_span = np.arange(0, len(times_comb), dtype=int)
 
     fig, axes = plt.subplots(
         3,
