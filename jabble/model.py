@@ -190,8 +190,8 @@ class Model:
         )
 
         self.results = np.append(self.results, np.array([(d['task'],d['nit'],d['funcalls'],d['warnflag'],f,repr(loss)),],\
-                                                        dtype=[('task', 'U64'), ('nit', int), ('funcalls',int),('warnflag',int),('value',np.double),('loss','U64')]), axis=0) #{'task': d['task'], 'nit':d['nit'], 'funcalls':d['funcalls'],'warnflag':d['warnflag'],\'value':f,'loss':repr(loss)}
-        # self.results.append({"out": d, "value": f, "loss": repr(loss)})
+                                                        dtype=[('task', 'U64'), ('nit', int), ('funcalls',int),('warnflag',int),\
+                                                               ('value',np.double),('loss','U64')]), axis=0) 
         self._unpack(jax.device_put(jnp.array(x), device_op))
         return d
 
@@ -989,6 +989,92 @@ class CardinalSplineMixture(Model):
         a = (self.p_val + 1) / 2
         y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
         return y
+    
+    def save_hdf(self,file,index):
+        group = super(CardinalSplineMixture,self).save_hdf(file,index)
+        group.create_dataset("xs",data = self.xs)
+        group.create_dataset("alphas", data = self.spline.alphas)
+        group.create_dataset("p_val",data= self.p_val)
+        return group
+    
+    def load_hdf(cls,group):
+
+        return cls(xs=np.array(group["xs"]), p_val=int(np.array(group["p_val"])), p=np.array(group["p"]))
+    
+
+def cardinal_vmap_matrix(x, xp, basis, a):
+    """
+    Evaluates cardinal basis using vmap design matrix.
+
+    Parameters
+    ----------
+    x : `np.ndarray`
+        array (N,) of x values to evaluate.
+    xp : `np.ndarray`
+        evenly spaced array (M,) of centerpoints of the basis functions
+    ap : `np.ndarray`
+        coefficient for basis functions
+    basis : anything callable
+        Basis function. Should probably make sense as a real basis function.
+    a : `float`
+        basis function must go to zero outside this value.
+
+    Returns
+    -------
+    out : 'np.ndarray`
+        y array (N,) of evaluated vmap cardinal basis
+    """
+    dx = xp[1] - xp[0]
+    # get distance between each element and the closest cardinal basis to its left
+    inputs = ((x[:,None] - xp[None,:]) / dx)
+    # get index of the cardinal basis spline to datapoint's left
+    out = basis(inputs)
+    return out
+
+class FullCardinalSplineMixture(Model):
+    """
+    Model that evaluates input using full Irwin-Hall cardinal basis design matrix.
+
+    Parameters
+    ----------
+    xs : `np.ndarray`
+        centerpoints of cardinal (evenly spaced) basis functions
+    p_val : `int`
+        order of the Irwin-Hall basis functions
+    p : `np.ndarray`
+        the initial control points. If None, then initialized at zero.
+
+    """
+
+    def __init__(self, xs, p_val=2, p=None, *args, **kwargs):
+        super(CardinalSplineMixture, self).__init__()
+        # when defining ones own model, need to include inputs as xs, outputs as ys
+        # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
+        # also assumes epoches of data that is shifted between
+        self.spline = jabble.cardinalspline.CardinalSplineKernel(p_val)
+        self.p_val = p_val
+        self.xs = jnp.array(xs)
+        if p is not None:
+            if p.shape == self.xs.shape:
+                self.p = p
+            else:
+                logging.error(
+                    "p {} must be the same shape as x_grid {}".format(p.shape, xs.shape)
+                )
+        else:
+            self.p = jnp.zeros(xs.shape)
+
+    def call(self, p, x, *args):
+
+        a = (self.p_val + 1) / 2
+        y = p @ cardinal_vmap_matrix(x, self.xs, self.spline, a)
+        return y
+    
+    def reverse(self, y, x, *args):
+        a = (self.p_val + 1) / 2
+        A = cardinal_vmap_matrix(x, self.xs, self.spline, a)
+        p = jnp.linalg.pinv(A) @ y
+        return p
     
     def save_hdf(self,file,index):
         group = super(CardinalSplineMixture,self).save_hdf(file,index)
