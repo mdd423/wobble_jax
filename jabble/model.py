@@ -1073,7 +1073,7 @@ class FullCardinalSplineMixture(CardinalSplineMixture):
     def reverse(self, y, x, *args):
         a = (self.p_val + 1) / 2
         A = cardinal_vmap_matrix(x, self.xs, self.spline, a)
-        p = jnp.linalg.pinv(A) @ y
+        p = jnp.linalg.pinv(A).transpose() @ y
         return p
     
     def save_hdf(self,file,index):
