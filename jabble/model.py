@@ -1031,7 +1031,7 @@ def cardinal_vmap_matrix(x, xp, basis, a):
     out = basis(inputs)
     return out
 
-class FullCardinalSplineMixture(Model):
+class FullCardinalSplineMixture(CardinalSplineMixture):
     """
     Model that evaluates input using full Irwin-Hall cardinal basis design matrix.
 
