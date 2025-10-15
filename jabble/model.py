@@ -1026,7 +1026,7 @@ def cardinal_vmap_matrix(x, xp, basis, a):
     """
     dx = xp[1] - xp[0]
     # get distance between each element and the closest cardinal basis to its left
-    inputs = ((x[:,None] - xp[None,:]) / dx)
+    inputs = ((xp[:,None] - x[None,:]) / dx)
     # get index of the cardinal basis spline to datapoint's left
     out = basis(inputs)
     return out
