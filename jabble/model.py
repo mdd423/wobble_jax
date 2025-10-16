@@ -308,6 +308,55 @@ class Model:
 
         return cls(p=group["p"])
 
+    def fischer_full(model, data, device):
+        """
+        Get full fischer information on parameters of the model.
+        Since each parameter is independent of all other epochs, fischer information matrix is diagonal,
+        thus returns this diagonal.
+
+        Parameters
+        ----------
+        model : `jabble.Model`
+            The full model to evaluate.
+        data : `jabble.Dataset`
+            Data to be evaluate.
+
+        Returns
+        -------
+        f_info : 'jnp.array`
+            (N,) array of diagonal of fischer information matrix.
+        """
+        model.fit()
+        model.display()
+
+        datablock, metablock = data.blockify(device)
+        # def _internal(self, p, datarow, metarow, model, *args)
+        #     return loss(self, p, datarow, metarow, model, *args)
+        dfdt = jax.jacfwd(model, argnums=0)
+
+        def get_dict(datablock, index):
+            return {key: datablock[key][index] for key in datablock.keys()}
+
+        curvature_all = np.zeros((len(data),datablock['xs'].shape[1], len(model.get_parameters())))
+
+        for i in range(len(data)):
+            datarow = get_dict(datablock, i)
+            metarow = get_dict(metablock, i)
+            curvature_all[i,:,:] = jnp.where(~datarow["mask"][:, None]*\
+                                    np.ones(len(model.get_parameters()))[None, :],
+                (dfdt(model.get_parameters(), datarow["xs"], metarow)),
+                0.0
+            )
+
+        f_info = np.zeros((len(model.get_parameters()),len(model.get_parameters())))
+        for i in range(len(data)):
+            datarow = get_dict(datablock, i)
+            metarow = get_dict(metablock, i)
+            
+            f_info += np.einsum('j,jn,jm->nm',datarow['yivar'][:],curvature_all[i,:,:],\
+                        curvature_all[i,:,:])
+
+        return f_info
 
 class ContainerModel(Model):
     """
@@ -499,6 +548,62 @@ class ContainerModel(Model):
             model_list.append(cls_sub.load_hdf(cls_sub,group[key]))
         return cls(model_list)
 
+    
+
+        # model that have submodels can be defined by nested lists, split_p will split a length A+N array into A and N
+    
+    def tree_sum(model,p_list,reduce_index):
+        '''where A and N are the length of the parameters, theta of submodels. If a submodel is container of containers 
+        like fs(g(x|theta_a)|theta_n) + ft(g(x|theta_b)|theta_m)
+        then split_p only drops one layer down, (A+N,B+M)
+        thus split (A+N) -> A,N '''
+        sum_list = []
+        for i,(ele,submodel) in enumerate(zip(p_list,model.models)):
+            if isinstance(submodel, jabble.model.ContainerModel) and i == reduce_index[0]:
+                new_list, mark_temp = tree_sum(submodel,submodel.split_p(ele),reduce_index[1:])
+                mark_ele = mark_temp + i
+                sum_list += new_list
+            else:
+                if i == reduce_index[0]:
+                    mark_ele = i
+                sum_list.append(len(ele))
+        return sum_list, mark_ele
+    
+    def reduce_fischer(model,f_info,reduce_index):
+        # NOW REDUCE
+        p_list = model.split_p(model.get_parameters())
+        sum_list, mark_ele = tree_sum(model,p_list,reduce_index)
+
+        print(sum_list,mark_ele)
+        print('a',0,int(np.sum(sum_list[:mark_ele])),int(np.sum(sum_list[:mark_ele+1])),0,\
+            '\nn',int(np.sum(sum_list[:mark_ele])),int(np.sum(sum_list[:mark_ele+1])))
+
+        faa_info_uu = f_info[0:int(np.sum(sum_list[:mark_ele])),0:int(np.sum(sum_list[:mark_ele]))]
+        faa_info_ub = f_info[0:int(np.sum(sum_list[:mark_ele])),int(np.sum(sum_list[:mark_ele+1])):-1]
+        faa_info_bb = f_info[int(np.sum(sum_list[:mark_ele+1])):-1,int(np.sum(sum_list[:mark_ele+1])):-1]
+        faa_info_bu = f_info[int(np.sum(sum_list[:mark_ele+1])):-1,0:int(np.sum(sum_list[:mark_ele]))]
+
+        faa_info = np.block([[faa_info_uu,faa_info_ub],[faa_info_bu,faa_info_bb]])
+
+        fnn_info = f_info[int(np.sum(sum_list[:mark_ele])):int(np.sum(sum_list[:mark_ele+1])),\
+                        int(np.sum(sum_list[:mark_ele])):int(np.sum(sum_list[:mark_ele+1]))]
+
+        fan_info_l = f_info[int(np.sum(sum_list[:mark_ele])):int(np.sum(sum_list[:mark_ele+1])),\
+                            0:int(np.sum(sum_list[:mark_ele]))]
+        fan_info_r = f_info[int(np.sum(sum_list[:mark_ele])):int(np.sum(sum_list[:mark_ele+1])),\
+                            int(np.sum(sum_list[:mark_ele+1])):-1]
+        
+        fan_info = np.concatenate([fan_info_l,fan_info_r],axis=1)
+
+        fna_info_t = f_info[0:int(np.sum(sum_list[:mark_ele])),\
+                            int(np.sum(sum_list[:mark_ele])):int(np.sum(sum_list[:mark_ele+1]))]
+        fna_info_b = f_info[int(np.sum(sum_list[:mark_ele+1])):-1,\
+                            int(np.sum(sum_list[:mark_ele])):int(np.sum(sum_list[:mark_ele+1]))]
+        
+        fna_info = np.concatenate([fna_info_t,fna_info_b],axis=0)
+
+        print(fna_info.shape,fan_info.shape,faa_info.shape,fnn_info.shape)
+        return fnn_info - (fan_info @ np.linalg.inv(faa_info) @ fna_info)
 
 class CompositeModel(ContainerModel):
     """
@@ -859,31 +964,6 @@ class ShiftingModel(EpochSpecificModel):
         return x - p[meta[self.which_key]]
 
 
-# class ShiftingModel(EpochSpecificModel):
-#     """
-#     Model that adds different value to input at each epoch.
-#     .. math::
-#         f(p,x,i) = x + p[i]
-
-#     Parameters
-#     ----------
-#     p : `np.ndarray`
-#         N epoch length array of initial values of p.
-#     """
-
-#     def __init__(self, p=None, epoches=0, *args, **kwargs):
-#         if p is None:
-#             self.p = jnp.zeros(epoches)
-#         else:
-#             self.p = jnp.array(p)
-#             epoches = len(p)
-#         super(ShiftingModel, self).__init__(epoches)
-
-#     def call(self, p, x, meta, *arg):
-
-#         return x - p[meta["index"]]
-
-
 class StretchingModel(EpochSpecificModel):
     """
     Model that multiplies different value to input at each epoch.
@@ -1076,6 +1156,17 @@ class FullCardinalSplineMixture(CardinalSplineMixture):
         p = jnp.linalg.pinv(A).transpose() @ y
         return p
     
+    def transform_fisher(model,xp,xq,f_info,metarowp={},metarowq={}):
+        '''
+            Needs reverse function from y,x to p
+        '''
+        yp = model(model.get_parameters(),xp,metarowp)
+        yq = model(model.get_parameters(),xq,metarowq)
+        def _internal(y,x,metarow):
+            return model.reverse(y,x,metarow)
+        dtdf = jax.jacfwd(_internal, argnums=0)
+        return dtdf(yp,xp,metarowp).transpose() @ f_info @ dtdf(yq,xq,metarowq)
+
     def save_hdf(self,file,index):
         group = super(CardinalSplineMixture,self).save_hdf(file,index)
         group.create_dataset("xs",data = self.xs)
