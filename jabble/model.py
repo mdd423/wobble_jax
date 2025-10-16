@@ -560,7 +560,7 @@ class ContainerModel(Model):
         sum_list = []
         for i,(ele,submodel) in enumerate(zip(p_list,model.models)):
             if isinstance(submodel, jabble.model.ContainerModel) and i == reduce_index[0]:
-                new_list, mark_temp = submodel.tree_sum(submodel,submodel.split_p(ele),reduce_index[1:])
+                new_list, mark_temp = submodel.tree_sum(submodel.split_p(ele),reduce_index[1:])
                 mark_ele = mark_temp + i
                 sum_list += new_list
             else:
@@ -572,7 +572,7 @@ class ContainerModel(Model):
     def reduce_fischer(model,f_info,reduce_index):
         # NOW REDUCE
         p_list = model.split_p(model.get_parameters())
-        sum_list, mark_ele = model.tree_sum(model,p_list,reduce_index)
+        sum_list, mark_ele = model.tree_sum(p_list,reduce_index)
 
         print(sum_list,mark_ele)
         print('a',0,int(np.sum(sum_list[:mark_ele])),int(np.sum(sum_list[:mark_ele+1])),0,\
