@@ -59,7 +59,8 @@ def create_x_grid(xs, vel_padding, resolution):
     x_max = xs.max()
     step = jabble.physics.shifts(scipy.constants.c / resolution)
     x_padding = jabble.physics.shifts(vel_padding)
-    model_grid = np.arange(x_min - x_padding, x_max + x_padding, step)
+    size = int(math.ceil((x_max - x_min + 2 * x_padding) / step))
+    model_grid = np.linspace(x_min - x_padding, x_max + x_padding, size)
     return model_grid
 
 
