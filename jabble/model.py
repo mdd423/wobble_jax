@@ -606,6 +606,17 @@ class ContainerModel(Model):
         print(fna_info.shape,fan_info.shape,faa_info.shape,fnn_info.shape)
         return fnn_info - (fan_info @ np.linalg.inv(faa_info) @ fna_info)
 
+    def transform_fisher(model,xp,xq,f_info,metarowp={},metarowq={}):
+        '''
+            Model needs .reverse function from y,x to p
+        '''
+        yp = model(model.get_parameters(),xp,metarowp)
+        yq = model(model.get_parameters(),xq,metarowq)
+        def _internal(y,x,metarow):
+            return model.reverse(y,x,metarow)
+        dtdf = jax.jacfwd(_internal, argnums=0)
+        return dtdf(yp,xp,metarowp).transpose() @ f_info @ dtdf(yq,xq,metarowq)
+
 class CompositeModel(ContainerModel):
     """
     ContainerModel sequentially applies models to input.
@@ -1154,19 +1165,17 @@ class FullCardinalSplineMixture(CardinalSplineMixture):
     def reverse(self, y, x, *args):
         a = (self.p_val + 1) / 2
         A = cardinal_vmap_matrix(x, self.xs, self.spline, a)
-        p = jnp.linalg.pinv(A).transpose() @ y
+        p = y/A
         return p
     
     def transform_fisher(model,xp,xq,f_info,metarowp={},metarowq={}):
         '''
-            Needs reverse function from y,x to p
+            Model needs .reverse function from y,x to p
         '''
-        yp = model(model.get_parameters(),xp,metarowp)
-        yq = model(model.get_parameters(),xq,metarowq)
-        def _internal(y,x,metarow):
-            return model.reverse(y,x,metarow)
-        dtdf = jax.jacfwd(_internal, argnums=0)
-        return dtdf(yp,xp,metarowp).transpose() @ f_info @ dtdf(yq,xq,metarowq)
+        a = (model.p_val + 1) / 2
+        Ap = cardinal_vmap_matrix(xp, model.xs, model.spline, a)
+        Aq = cardinal_vmap_matrix(xq, model.xs, model.spline, a)
+        return (1/Ap).transpose() @ f_info @ (1/Aq)
 
     def save_hdf(self,file,index):
         group = super(CardinalSplineMixture,self).save_hdf(file,index)
