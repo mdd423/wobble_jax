@@ -1161,21 +1161,6 @@ class FullCardinalSplineMixture(CardinalSplineMixture):
         a = (self.p_val + 1) / 2
         y = p @ cardinal_vmap_matrix(x, self.xs, self.spline, a)
         return y
-    
-    def reverse(self, y, x, *args):
-        a = (self.p_val + 1) / 2
-        A = cardinal_vmap_matrix(x, self.xs, self.spline, a)
-        p = y/A
-        return p
-    
-    def transform_fisher(model,xp,xq,f_info,metarowp={},metarowq={}):
-        '''
-            Model needs .reverse function from y,x to p
-        '''
-        a = (model.p_val + 1) / 2
-        Ap = cardinal_vmap_matrix(xp, model.xs, model.spline, a)
-        Aq = cardinal_vmap_matrix(xq, model.xs, model.spline, a)
-        return (1/Ap).transpose() @ f_info @ (1/Aq)
 
     def save_hdf(self,file,index):
         group = super(CardinalSplineMixture,self).save_hdf(file,index)
