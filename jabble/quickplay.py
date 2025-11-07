@@ -59,7 +59,6 @@ def create_summary_hdf(filename,rv_array,dir_files,dir):
 def load_summary_hdf(filename):
 
     with h5py.File(filename,'r') as file:
-        # print(file.keys())
         rv_array = np.array([*zip(file["RVs"]["RV_comb"],file["RVs"]["RV_err_comb"],file["RVs"]["Time_comb"])],\
                             dtype=[("RV_comb",np.double),("RV_err_comb",np.double),("Time_comb",np.double)])
     return rv_array
@@ -134,7 +133,8 @@ def get_stellar_model(init_rvs, model_grid, p_val):
 def get_tellurics_model(init_airmass, model_grid, p_val, rest_vels=None):
     if rest_vels is None:
         rest_vels = np.zeros(init_airmass.shape) * u.m/u.s
-    return jabble.model.CompositeModel([jabble.model.ShiftingModel(jabble.physics.shifts(rest_vels)), jabble.model.CardinalSplineMixture(model_grid, p_val), \
+    return jabble.model.CompositeModel([jabble.model.ShiftingModel(jabble.physics.shifts(rest_vels)), \
+                                        jabble.model.CardinalSplineMixture(model_grid, p_val), \
                                         jabble.model.StretchingModel(init_airmass)])
 
 def get_wobble_model(init_rvs, init_airmass, model_grid, p_val,rest_vels=None):
@@ -166,7 +166,7 @@ def get_pseudo_norm_model(init_rvs, init_airmass, model_grid, p_val,dataset,norm
     return get_stellar_model(init_rvs, model_grid, p_val) + get_tellurics_model(init_airmass, model_grid, p_val, rest_vels) + \
         get_normalization_model(dataset,norm_p_val, pts_per_wavelength)
 
-def get_RV_sigmas(self, dataset, model=None, device=None, rv_ind = [0,0]):
+def get_RV_sigmas(model, dataset, device=None, rv_ind = [0,0]):
         """
         Return errorbar on radial velocities using fischer information
 
@@ -177,8 +177,6 @@ def get_RV_sigmas(self, dataset, model=None, device=None, rv_ind = [0,0]):
         model : `jabble.Model`
             Full model of data. If None, then just the stellar model(self) is used.
         """
-        if model is None:
-            model = self
         if device is None:
             device = dataset[0].xs.device()
         
@@ -209,13 +207,9 @@ def save(self, filename: str, dataname: str, data, shifts, loss, device, rv_ind)
             mode: 4, RVs, template, residuals in pickle
         '''
         
-        # if mode == 1 or mode == 2:
         jabble.model.save(filename,self)
         jabble.model.save(dataname,data)
-        # if mode == 3 or mode == 4:
-            # self.save(filename,mode="pkl")
-            
-
+        
         with h5py.File(filename + "_RVS.hdf",'w') as file:
             datablock, metablock, meta_keys = data.blockify(device,return_keys=True)
             file.create_dataset("RVs",data=jabble.physics.velocities(shifts))
@@ -230,9 +224,7 @@ def save(self, filename: str, dataname: str, data, shifts, loss, device, rv_ind)
 
             head,tail = os.path.split(dataname)
             file.attrs['dataset'] = dataname
-        # if mode == 2 or mode == 4:
-        #     res_group = file.create_group("residuals")
-        #     res_group.create_dataset("residuals",data=data)
+        
         pass
 
 def load(filename,mode:str):
@@ -349,202 +341,3 @@ def convolve_load(file,sigma_l,xl,eval_a):
 
     return fl
                     
-# x_cache = np.concatenate((x_cache,[np.double(word)]))
-# low_resolution = 115_000
-# x_min = np.log(4000)
-# x_max = np.log(4200)
-# sigma_l = jabble.physics.delta_x(low_resolution)
-
-# xl = np.arange(x_min,x_min+(10000*sigma_l/2),sigma_l/2)
-# print(xl)
-# fl = convolve_load('/scratch/mdd423/wobble_jax/data/HD4307_harps/models_1750205771/bt-nextgen-gns93/lte035-5.0-0.5.BT-NextGen.7.dat.txt',\
-#                        sigma_l,xl,10*sigma_l)
-
-# def _getitem__(self, key: str | int):
-#     if type(key) == int:
-#         return super(type(self), self).__getitem__(key)
-#     elif type(key) == str:
-#         return super(type(self), self).__getitem__(np.argwhere(self.keys == key)[0][0])
-
-
-# class StellarModel(jabble.model.CompositeModel):
-#     """
-#     StellarModel for quick use on fitting radial velocities with a stellar template.
-#     CompositeModel of shifting model, and IrwinHall sparse model for the stellar template.
-
-#     Parameters
-#     ----------
-#     init_shifts : `np.ndarray`
-#         initial radial velocity shifts in log wavelength space
-#     model_grid : `np.ndarray`
-#         evenly spaced x control points for IrwinHall model
-#     p_val : `int`
-#         order of IrwinHall model
-
-#     Attributes
-#     ----------
-#     keys : `list`
-#         list of the strings that must be used to index the submodels
-
-#     """
-
-#     def __init__(self, init_shifts, model_grid, p_val):
-#         super(StellarModel, self).__init__(
-#             [
-#                 jabble.model.EpochShiftingModel(init_shifts),
-#                 jabble.model.CardinalSplineMixture(model_grid, p_val),
-#             ]
-#         )
-#         self.keys = np.array(["RV", "Template"])
-
-#     def get_RV(self):
-#         """
-#         Converts shifting parameters to velocity in m/s
-
-#         Returns
-#         -------
-#         vels : `np.ndarray`
-#             radial velocity in m/s
-#         """
-#         return jabble.physics.velocities(self["RV"].p)
-
-#     def get_RV_sigmas(self, dataset, model=None, device=None):
-#         """
-#         Return errorbar on radial velocities using fischer information
-
-#         Parameters
-#         ----------
-#         dataset : `jabble.Dataset`
-#             Data to be evaluated against
-#         model : `jabble.Model`
-#             Full model of data. If None, then just the stellar model(self) is used.
-#         """
-#         if model is None:
-#             model = self
-#         if device is None:
-#             device = dataset[0].xs.device()
-#         f_info = self["RV"].f_info(model, dataset, device)
-#         dvddx = jnp.array(
-#             [jax.grad(jabble.physics.velocities)(x) for x in self["RV"].p]
-#         )
-#         return np.sqrt(1 / f_info) * dvddx
-
-#     def __getitem__(self, key: str | int):
-
-#         return _getitem__(self, key)
-    
-
-# class TelluricsModel(jabble.model.CompositeModel):
-#     """
-#     TelluricsModel for quick use on fitting airmass stretching with a telluric template.
-#     CompositeModel of IrwinHall sparse model for the stellar template, and stretching model.
-
-#     Parameters
-#     ----------
-#     init_airmass : `np.ndarray`
-#         initial stretching airmass value in log flux space
-#     model_grid : `np.ndarray`
-#         evenly spaced x control points for IrwinHall model
-#     p_val : `int`
-#         order of IrwinHall model
-
-#     Attributes
-#     ----------
-#     keys : `list`
-#         list of the strings that must be used to index the submodels
-
-#     """
-
-#     def __init__(self, init_airmass, model_grid, p_val, rest_shifts=None):
-#         if rest_shifts is None:
-#             rest_shifts = np.zeros(init_airmass.shape)
-#         super(TelluricsModel, self).__init__(
-#             [
-#                 jabble.model.ShiftingModel(rest_shifts),
-#                 jabble.model.CardinalSplineMixture(model_grid, p_val),
-#                 jabble.model.StretchingModel(init_airmass),
-#             ]
-#         )
-#         self.keys = np.array(["RestShifts", "Template", "Airmass"])
-
-#     def __getitem__(self, key: str | int):
-
-#         return _getitem__(self, key)
-
-
-# class WobbleModel(jabble.model.AdditiveModel):
-#     """
-#     WobbleMdoel for quick use includes StellarModel and TelluricsModel.
-#     AdditiveModel of StellarModel and TelluricsModel.
-
-#     Parameters
-#     ----------
-#     init_shifts : `np.ndarray`
-#         initial radial velocity shifts in log wavelength space
-#     init_airmass : `np.ndarray`
-#         initial stretching airmass value in log flux space
-#     model_grid : `np.ndarray`
-#         evenly spaced x control points for IrwinHall model
-#     p_val : `int`
-#         order of IrwinHall model
-
-#     Attributes
-#     ----------
-#     keys : `list`
-#         list of the strings that must be used to index the submodels
-
-#     """
-
-#     def __init__(self, init_shifts, airmass, model_grid, p_val):
-#         super(WobbleModel, self).__init__(
-#             [
-#                 StellarModel(init_shifts, model_grid, p_val),
-#                 TelluricsModel(airmass, model_grid, p_val),
-#             ]
-#         )
-#         self.keys = np.array(["Stellar", "Tellurics"])
-
-#     def get_RV(self):
-#         return self["Stellar"].get_RV()
-
-#     def get_RV_sigmas(self, *args, **kwargs):
-
-#         return self["Stellar"].get_RV_sigmas(*args, **kwargs)
-
-#     def __getitem__(self, key: str | int):
-
-#         return _getitem__(self, key)
-    
-    
-#     def load_hdf(cls,group):
-#         model = cls(np.array(group["StellarModel"]["EpochShiftingModel"]["p"]),np.array(group["TelluricsModel"]["StretchingModel"]["p"]),\
-#                    np.array(group["TelluricsModel"]["CardinalSplineMixture"]["xs"]),np.array(group["TelluricsModel"]["CardinalSplineMixture"]["p_val"]))
-#         model["Stellar"]["Template"].p = np.array(group["StellarModel"]["CardinalSplineMixture"]["p"])
-#         model["Tellurics"]["Template"].p = np.array(group["TelluricsModel"]["CardinalSplineMixture"]["p"])
-#         return model
-
-
-# class PseudoNormalModel(jabble.model.AdditiveModel):
-#     def __init__(self, init_shifts ,airmass, model_grid, p_val, normal_model):
-#         super(WobbleModel, self).__init__(
-#             [
-#                 StellarModel(init_shifts, model_grid, p_val),
-#                 TelluricsModel(airmass, model_grid, p_val),
-#                 normal_model
-#             ]
-#         )
-#         self.keys = np.array(["Stellar", "Tellurics", "Normal"])
-
-#     def __getitem__(self, key: str | int):
-        
-#         return _getitem__(self, key)
-    
-#     def load_hdf(cls,group):
-#         normal_model = group[-1].load_hdf(cls)
-#         model = cls(np.array(group["StellarModel"]["EpochShiftingModel"]["p"]),np.array(group["TelluricsModel"]["StretchingModel"]["p"]),\
-#                    np.array(group["TelluricsModel"]["CardinalSplineMixture"]["xs"]),np.array(group["TelluricsModel"]["CardinalSplineMixture"]["p_val"]))
-#         model["Stellar"]["Template"].p = np.array(group["StellarModel"]["CardinalSplineMixture"]["p"],normal_model)
-#         model["Tellurics"]["Template"].p = np.array(group["TelluricsModel"]["CardinalSplineMixture"]["p"])
-
-       
-#         return model
