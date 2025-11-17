@@ -229,7 +229,7 @@ class Data:
 
         # meta_dtype = [("index",int)]
         index_span = np.arange(0, len(data), dtype=int)
-        metablock = {"index": index_span}
+        datablock = {"index": index_span}
         for key in data.metadata:
             if key in data.metakeys:
                 epoch_indices = np.zeros(index_span.shape)
@@ -244,13 +244,13 @@ class Data:
             # mdata.append(jnp.array(epoch_indices))
             # metablock[key] = jax.device_put(jnp.array(epoch_indices), device)
             meta_keys[key] = epoch_uniques
-            metablock[key] = epoch_indices.astype(int)
+            datablock[key] = epoch_indices.astype(int)
 
         # metablock = np.array([*zip(*mdata)],dtype=meta_dtype)
 
         if return_keys:
-            return datablock, metablock, meta_keys
-        return datablock, metablock
+            return datablock, meta_keys
+        return datablock
 
 
 class DataFrame:

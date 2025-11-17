@@ -140,6 +140,27 @@ def get_tellurics_model(init_airmass, model_grid, p_val, rest_vels=None, which_k
                                         jabble.model.StretchingModel(init_airmass)])
 
 def get_wobble_model(init_rvs, init_airmass, model_grid, p_val,rest_vels=None, which_key='index'):
+    '''
+    Create a Wobble Model with Stellar and Telluric Components
+    Parameters
+    ----------
+    init_rvs : array-like
+        Initial radial velocities for each observation
+    init_airmass : array-like
+        Initial airmass values for each observation
+    model_grid : array-like
+        Wavelength grid for the model components
+    p_val : int
+        Number of parameters for the Cardinal Spline Mixture models
+    rest_vels : array-like, optional
+        Rest frame velocities for the telluric component, by default None
+    which_key : str, optional
+        Key to use for shifting model, by default 'index'
+    Returns
+    -------
+    wobble_model : `jabble.model.CompositeModel`
+        Composite model containing both stellar and telluric components
+    '''
 
     return get_stellar_model(init_rvs, model_grid, p_val, which_key=which_key) + \
         get_tellurics_model(init_airmass, model_grid, p_val, rest_vels, which_key=which_key)
