@@ -129,15 +129,51 @@ def load_model_dir(path,dir_files,device,force_run=False,max_info=1e30,min_info=
     return rv_array, [all_models[iii] for iii in order_by_orders], all_rv_array[order_by_orders], [all_data[iii] for iii in order_by_orders]
 
 def get_stellar_model(init_rvs, model_grid, p_val, which_key='index'):
+    '''
+    Create a Stellar Model with Shifting Component
+    Parameters
+    ----------
+    init_rvs : array-like
+        Initial radial velocities for each observation
+    model_grid : array-like
+        Log wavelength grid for the model components
+    p_val : int
+        P value of the Cardinal Spline Mixture models
+    which_key : str, optional
+        Key to use for shifting model, by default 'index'
+    Returns
+    -------
+    stellar_model : `jabble.model.CompositeModel`
+        Composite model containing stellar components
+    '''
     return jabble.model.CompositeModel([jabble.model.ShiftingModel(jabble.physics.shifts(init_rvs), which_key=which_key), \
                                         jabble.model.CardinalSplineMixture(model_grid, p_val)])
 
 def get_tellurics_model(init_airmass, model_grid, p_val, rest_vels=None, which_key='index'):
+    '''
+    Create a Telluric Model with Shifting and Stretching Components
+    Parameters
+    ----------
+    init_airmass : array-like
+        Initial airmass values for each observation which will be multiplied after the template is applied
+    model_grid : array-like
+        Log wavelength grid for the model components
+    p_val : int
+        P value of the Cardinal Spline Mixture models
+    rest_vels : array-like, optional
+        Rest frame velocities for the telluric component, by default set to zeros
+    which_key : str, optional
+        Key to use for shifting model and stretching model, by default 'index'
+    Returns
+    -------
+    telluric_model : `jabble.model.CompositeModel`
+        Composite model containing telluric components
+    '''
     if rest_vels is None:
         rest_vels = np.zeros(init_airmass.shape) * u.m/u.s
     return jabble.model.CompositeModel([jabble.model.ShiftingModel(jabble.physics.shifts(rest_vels), which_key=which_key), \
                                         jabble.model.CardinalSplineMixture(model_grid, p_val), \
-                                        jabble.model.StretchingModel(init_airmass)])
+                                        jabble.model.StretchingModel(init_airmass, which_key=which_key)])
 
 def get_wobble_model(init_rvs, init_airmass, model_grid, p_val,rest_vels=None, which_key='index'):
     '''
@@ -166,6 +202,23 @@ def get_wobble_model(init_rvs, init_airmass, model_grid, p_val,rest_vels=None, w
         get_tellurics_model(init_airmass, model_grid, p_val, rest_vels, which_key=which_key)
 
 def get_normalization_model(dataset, norm_p_val, norm_pts):
+    '''
+    Create a Normalization Model for a Dataset
+    The shifts are calculated based on the minimum x value of each 
+    epoch in the dataset and the total minimum x value across all epochs.
+    Total parameters = number of epochs * (norm_pts + norm_p_val + 1)
+    Parameters
+    ----------
+    dataset : `jabble.Dataset`
+        Dataset to create normalization model for
+    norm_p_val : int
+        P value of the Cardinal Spline Mixture model
+    norm_pts : int
+        Number of knots within the max span of x of the dataset for the Cardinal Spline Mixture model
+    Returns
+    -------
+    norm_model : `jabble.model.CompositeModel`
+        Composite of shift and normalization model'''
     len_xs = np.max(
         [np.max(dataframe.xs) - np.min(dataframe.xs) for dataframe in dataset]
     )
@@ -184,12 +237,39 @@ def get_normalization_model(dataset, norm_p_val, norm_pts):
 
 def train_norm(model, dataset, loss, device_store, device_op, batch_size,\
                nsigma = [0.5,2], maxiter=3,options={"maxiter": 64,"factr": 1e4},norm_model_index=[2,1]):
-    # Fit Normalization Template
+    '''
+    Train Normalization Model with Sigma Clipping
+    Parameters
+    ----------
+    model : `jabble.Model`
+        Full model of data.
+    dataset : `jabble.Dataset`
+        Data to be evaluated against
+    loss : `jabble.Loss`
+        Loss function to be optimized
+    device_store : jax.Device
+        Device to store data on
+    device_op : jax.Device
+        Device to perform operations on
+    batch_size : int
+        Number of data epochs to use in each optimization step
+    nsigma : list, optional
+        Sigma clipping thresholds [low, high], by default [0.5,2]
+    maxiter : int, optional
+        Number of sigma clipping iterations, by default 3
+    options : dict, optional
+        Options to pass to the optimizer, by default {"maxiter": 64,"factr": 1e4}
+    norm_model_index : list, optional
+        Indices of the normalization model in the composite model, by default [2,1]
+    Returns
+    -------
+    model : `jabble.Model`
+        Trained model'''
     for iii in range(maxiter):
         model.fix()
         model.fit(*norm_model_index)
         
-        res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)#model.optimize(loss, dataset)
+        res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)
         print(res1)
         model.fix()
         datablock = dataset.blockify(device_op)
@@ -226,7 +306,7 @@ def train_cycle(model, dataset, loss, device_store, device_op, \
     device_op : jax.Device
         Device to perform operations on
     batch_size : int
-        Number of data points to use in each optimization step
+        Number of data epochs to use in each optimization step
     options : dict
         Options to pass to the optimizer
     parabola_fit : bool

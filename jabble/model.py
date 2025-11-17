@@ -9,7 +9,6 @@ import jax.experimental.sparse
 import scipy.optimize
 import scipy.signal as signal
 import scipy.constants
-import sys
 from functools import partial
 from jax import jit
 import h5py
