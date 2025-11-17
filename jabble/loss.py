@@ -78,7 +78,7 @@ class LossSequential(LossFunc):
     def __call__(self, p, data, model, *args):
         output = 0.0
         for loss in self.loss_funcs:
-            output += loss(p, data, meta, model, *args).sum()
+            output += loss(p, data, model, *args).sum()
         return output
 
     def __add__(self, x: LossFunc):
