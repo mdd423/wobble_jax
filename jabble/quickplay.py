@@ -195,7 +195,7 @@ def train_norm(model, dataset, loss, device_store, device_op, batch_size,\
         datablock = dataset.blockify(device_op)
         for data_epoch in range(len(dataset)):
 
-            mask    = datablock.ele(data_epoch,device_op).mask
+            mask    = datablock.ele(data_epoch,device_op)["mask"]
             datarow = datablock[data_epoch]
             resid = dataset[data_epoch].ys - model([],dataset[data_epoch].xs,datarow['meta'])
             sigma = np.sqrt(np.nanmedian(resid**2))
