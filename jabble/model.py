@@ -69,8 +69,24 @@ class Model:
 
     Attributes
     ----------
-    results : `list`
-       List of results objects produced each call to optimize
+    p : `jnp.ndarray`
+        jax array of parameters of the model
+    _fit : `bool`
+        If True, model is in fitting mode, all parameters will be varied during optimization.
+    func_evals : `list`
+        List of function evaluations during optimization.
+    history : `list`
+        List of parameter arrays during optimization.
+    save_history : `bool`
+        If True, saves parameter arrays during optimization.
+    loss_history : `list`
+        List of loss values during optimization.
+    save_loss : `bool`
+        If True, saves loss values during optimization.
+    results : `np.ndarray`
+        Structured array of results from optimization calls.
+    metadata : `dict`
+        Dictionary to hold any metadata for the model.
     """
 
     def __init__(self, *args, **kwargs):
@@ -112,6 +128,7 @@ class Model:
 
     def gaussnewton(self, data, *args):
         """
+        Deprecated!
         maybe defunct optimizer using residuals to fit parameters using jaxopt.GaussNewton.
         Fits using y residuals times y information
 
@@ -150,19 +167,17 @@ class Model:
         Parameters
         ----------
         loss : `jabble.Loss`
-            jabble.loss object,
+            jabble.Loss function to be minimized during optimization
         data : `jabble.Dataset`
             jabble.Dataset, that is handed to the Loss function during optimization
-        verbose : `bool`
-            if true prints, loss, grad dot grad at every function
-        save_history : `bool`
-            if true, saves values of parameters at every function call
-        save_loss : `bool`
-            if true, saves loss array every function call of optimization
-        options :
-            additional keyword options to be passed to scipy.fmin_l_bfgs_b
-
-
+        device_store : jax.Device
+            Device to store data on
+        device_op : jax.Device
+            Device to perform operations on
+        batch_size : int
+            Number of data epochs to use in each optimization step
+        options : dict
+            Options to pass to the optimizer
         Returns
         ----------
         d : `dict`
@@ -203,8 +218,21 @@ class Model:
     def __radd__(self, x):
         return AdditiveModel(models=[self, x])
 
-    def composite(self, x):
-        return CompositeModel(models=[self, x])
+    def composite(self, model):
+        '''
+        Combine two models in series, where the output of self is the input to model
+        y = model(self(x))
+         Parameters
+         ----------
+         model : `jabble.Model`
+             Model to apply after self
+
+         Returns
+         -------
+         composite_model : `jabble.Model`
+             CompositeModel object with self and model in series
+         '''
+        return CompositeModel(models=[self, model])
 
     def evaluate(self, x, i):
         self.fit()
