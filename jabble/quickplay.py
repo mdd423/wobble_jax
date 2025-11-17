@@ -192,12 +192,12 @@ def train_norm(model, dataset, loss, device_store, device_op, batch_size,\
         res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)#model.optimize(loss, dataset)
         print(res1)
         model.fix()
-        _,metablock = dataset.blockify(device_op)
+        datablock = dataset.blockify(device_op)
         for data_epoch in range(len(dataset)):
 
-            mask    = dataset[data_epoch].mask
-            metarow = jabble.loss.dict_ele(metablock,data_epoch,device_op)
-            resid = dataset[data_epoch].ys - model([],dataset[data_epoch].xs,metarow)
+            mask    = datablock[data_epoch].mask
+            datarow = datablock[data_epoch]
+            resid = dataset[data_epoch].ys - model([],dataset[data_epoch].xs,datarow['meta'])
             sigma = np.sqrt(np.nanmedian(resid**2))
             m_new = (resid < -nsigma[0]*sigma) | (resid > nsigma[1]*sigma)
             dataset[data_epoch].mask = mask | m_new[:len(mask)]
