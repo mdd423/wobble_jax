@@ -130,8 +130,8 @@ class DataBlock:
     def __getitem__(self, i):
         return dict_ele(self.datablock, i, self.datablock["xs"].device)
 
-    def slice(self, i, j):
-        return dict_slice(self.datablock, i, j, self.datablock["xs"].device)
+    def slice(self, i, j, device):
+        return dict_slice(self.datablock, i, j, device)
     
     def __len__(self):
         return self.datablock["xs"].shape[0]
