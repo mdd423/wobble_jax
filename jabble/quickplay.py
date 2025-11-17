@@ -161,11 +161,96 @@ def get_normalization_model(dataset, norm_p_val, norm_pts):
     norm_model = jabble.model.NormalizationModel(p, model, size)
     return jabble.model.ShiftingModel(shifts).composite(norm_model)
 
-def get_pseudo_norm_model(init_rvs, init_airmass, model_grid, p_val, dataset, norm_p_val, pts_per_wavelength, rest_vels=None,  which_key='index'):
+def train_norm(model, dataset, loss, device_store, device_op, batch_size,\
+               nsigma = [0.5,2], maxiter=3,options={"maxiter": 64,"factr": 1e4},norm_model_index=[2,1]):
+    # Fit Normalization Template
+    for iii in range(maxiter):
+        model.fix()
+        model.fit(*norm_model_index)
+        
+        res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)#model.optimize(loss, dataset)
+        print(res1)
+        model.fix()
+        _,metablock = dataset.blockify(device_op)
+        for data_epoch in range(len(dataset)):
 
-    return get_stellar_model(init_rvs, model_grid, p_val, which_key=which_key) + \
-        get_tellurics_model(init_airmass, model_grid, p_val, rest_vels, which_key=which_key) + \
-        get_normalization_model(dataset,norm_p_val, pts_per_wavelength)
+            mask    = dataset[data_epoch].mask
+            metarow = jabble.loss.dict_ele(metablock,data_epoch,device_op)
+            resid = dataset[data_epoch].ys - model([],dataset[data_epoch].xs,metarow)
+            sigma = np.sqrt(np.nanmedian(resid**2))
+            m_new = (resid < -nsigma[0]*sigma) | (resid > nsigma[1]*sigma)
+            dataset[data_epoch].mask = mask | m_new[:len(mask)]
+
+    return model
+
+def train_cycle(model, dataset, loss, device_store, device_op, \
+                batch_size, options = {"maxiter": 100_000,"factr": 1.0e-1},parabola_fit=False):
+    '''
+    Full Training Cycle for Wobble Model
+    1) Fit Stellar and Telluric Templates
+    2) Fit RVs
+    3) (Optional) Fit RV Parabola
+    4) Fit Everything
+    Parameters
+    ----------
+    model : `jabble.Model`
+        Full model of data. Assumed to have RV component at model[0][0], 
+        stellar and telluric templates at model[0][1] and model[1][1]
+    dataset : `jabble.Dataset`
+        Data to be evaluated against
+    loss : `jabble.Loss`
+        Loss function to be optimized
+    device_store : jax.Device
+        Device to store parameters on
+    device_op : jax.Device
+        Device to perform operations on
+    batch_size : int
+        Number of data points to use in each optimization step
+    options : dict
+        Options to pass to the optimizer
+    parabola_fit : bool
+        Whether to perform a parabola fit to the RVs
+    Returns
+    -------
+    model : `jabble.Model`
+        Trained model
+    '''
+    # Fit Stellar & Telluric Template
+    model.fix()
+    model.fit(0,1)
+    model.fit(1,1)
+    model.display()
+    
+    res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)#model.optimize(loss, dataset)
+    print(res1)
+    
+    # Fit RV
+    model.fix()
+    model.fit(0,0)
+    res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)
+    print(res1)
+
+    # RV Parabola Fit
+    if parabola_fit:
+        model.fix()
+        search_space = np.linspace(-100, 100, 500)
+        shift_search = jabble.physics.shifts(search_space)
+
+        
+        model[0][0].parabola_fit(shift_search, loss, model, dataset, device_op, device_store)
+    # model.to_device(device_op)
+
+    # Fit Everything
+    model.fix()
+    model.fit(0,0)
+    model.fit(0,1)
+    model.fit(1,1)
+    # model.fit(2,1)
+
+    res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)#model.optimize(loss, dataset)
+    print(res1)
+
+    return model
 
 def get_RV_sigmas(model, dataset, device=None, rv_ind = [0,0]):
         """
