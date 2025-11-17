@@ -75,7 +75,7 @@ class LossSequential(LossFunc):
         # super().__init__(self)
         self.loss_funcs = loss_funcs
 
-    def __call__(self, p, data, meta, model, *args):
+    def __call__(self, p, data, model, *args):
         output = 0.0
         for loss in self.loss_funcs:
             output += loss(p, data, meta, model, *args).sum()
@@ -154,7 +154,7 @@ class L2Reg(LossFunc):
     def ready_indices(self, model):
         self.indices = get_submodel_indices(model, *self.submodel_inds)
 
-    def __call__(self, p, datarow, model, *args):
+    def __call__(self, p, *args):
         err = self.coefficient * 0.5 * ((p[self.indices] - self.constant) ** 2)
         return err
 
@@ -167,6 +167,6 @@ class L2Reg(LossFunc):
         )
     
 class L1Reg(L2Reg):
-    def __call__(self, p, datarow, model, *args):
+    def __call__(self, p, *args):
         err = self.coefficient * jnp.abs(p[self.indices] - self.constant)
         return err
