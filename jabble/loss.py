@@ -4,20 +4,6 @@ import jax.numpy as jnp
 import jax
 
 
-def dict_slice(dictionary, slice_i, slice_j, device):
-    out = {}
-    for key in dictionary:
-        out[key] = jax.device_put(dictionary[key][slice_i:slice_j], device)
-    return out
-
-
-def dict_ele(dictionary, slice_i, device):
-    out = {}
-    for key in dictionary:
-        out[key] = jax.device_put(dictionary[key][slice_i], device)
-    return out
-
-
 class LossFunc:
     """
     Loss or Objective function class for fitting jabble.models
@@ -38,7 +24,7 @@ class LossFunc:
         self.coefficient *= x
         return self
 
-    def loss_all(self, p, datablock, metablock, model, device_op, batch_size, *args):
+    def loss_all(self, p, datablock, model, device_op, batch_size, *args):
         """
         Loops through all epochs in dataset. And adds each value to objective.
 
@@ -58,18 +44,17 @@ class LossFunc:
         # just putting in the zero below will assume the same number of parameters as the first one
         # not the one specified, whats the better way to do multiple epoch fitting without indices
 
-        def _internal(datarow, metarow):
-            return self(p, datarow, metarow, model, *args).sum()
+        def _internal(datarow):
+            return self(p, datarow, model, *args).sum()
 
-        rounds = int(np.ceil(len(metablock["index"]) / batch_size))
+        rounds = int(np.ceil(len(datablock) / batch_size))
         out = 0.0
 
         for iii in range(rounds):
-            top = np.min([(iii + 1) * batch_size, datablock["xs"].shape[0]])
+            top = np.min([(iii + 1) * batch_size, len(datablock)])
 
             temp = jax.vmap(_internal, in_axes=(0, 0), out_axes=0)(
-                dict_slice(datablock,(iii * batch_size),top,device_op),
-                dict_slice(metablock,(iii * batch_size),top,device_op)
+                (datablock.slice((iii * batch_size),top,device_op)),
             )
             out += temp.sum()
         return out
@@ -134,12 +119,12 @@ class LossSequential(LossFunc):
 
 
 class ChiSquare(LossFunc):
-    def __call__(self, p, datarow, metarow, model, *args):
+    def __call__(self, p, datarow, model, *args):
 
         return self.coefficient * jnp.where(
             ~datarow["mask"],
             datarow["yivar"]
-            * (((datarow["ys"] - model(p, datarow["xs"], metarow, *args)) ** 2)),
+            * (((datarow["ys"] - model(p, datarow["xs"], datarow["meta"], *args)) ** 2)),
             0.0,
         )
 

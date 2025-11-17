@@ -104,47 +104,37 @@ def fit_continuum(x, y, ivars, order=6, nsigma=[0.3,3.0], maxniter=50):
         m = m_new
     return mu
 
-# important for grid search
-def get_parabolic_min(loss_array, grid, return_all=False):
+def dict_slice(dictionary, slice_i, slice_j, device):
+    out = {}
+    for key in dictionary:
+        if isinstance(dictionary[key], dict):
+            out[key] = dict_slice(dictionary[key], slice_i, slice_j, device)
+        else:
+            out[key] = jax.device_put(dictionary[key][slice_i:slice_j], device)
+    return out
 
-    epoches = loss_array.shape[0]
-    grid_min = np.empty(epoches)
+def dict_ele(dictionary, slice_i, device):
+    out = {}
+    for key in dictionary:
+        if isinstance(dictionary[key], dict):
+            out[key] = dict_ele(dictionary[key], slice_i, device)
+        else:
+            out[key] = jax.device_put(dictionary[key][slice_i], device)
+    return out
 
-    xss = np.empty((epoches, 3))
-    yss = np.empty((epoches, 3))
-    polys = []
+class DataBlock:
+    def __init__(self, datablock: dict, keys: dict):
+        self.datablock = datablock
+        self.meta_keys = keys
 
-    for n in range(epoches):
-        idx = loss_array[n, :].argmin()
-        print("epch {}: min {}".format(n, idx))
-        if idx == 0:
-            print("minimum likely out of range")
-            idx = 1
-        if idx == grid.shape[1] - 1:
-            print("minimum likely out of range")
-            idx -= 1
-        # else:
+    def __getitem__(self, i):
+        return dict_ele(self.datablock, i, self.datablock["xs"].device)
 
-        xs = grid[n, idx - 1 : idx + 2]
-        xss[n, :] = xs
-        ys = loss_array[n, idx - 1 : idx + 2]
-        yss[n, :] = ys
-
-        poly = np.polyfit(xs, ys, deg=2)
-        polys.append(poly)
-        deriv = np.polyder(poly)
-
-        x_min = np.roots(deriv)
-        x_min = x_min[x_min.imag == 0].real
-        y_min = np.polyval(poly, x_min)
-
-        grid_min[n] = x_min
-
-    if return_all:
-        return grid_min, xss, yss, polys
-    else:
-        return grid_min
-
+    def slice(self, i, j):
+        return dict_slice(self.datablock, i, j, self.datablock["xs"].device)
+    
+    def __len__(self):
+        return self.datablock["xs"].shape[0]
 
 @dataclass
 class Data:
@@ -227,9 +217,8 @@ class Data:
 
         meta_keys = {}
 
-        # meta_dtype = [("index",int)]
         index_span = np.arange(0, len(data), dtype=int)
-        datablock = {"index": index_span}
+        datablock["meta"] = {"index": index_span}
         for key in data.metadata:
             if key in data.metakeys:
                 epoch_indices = np.zeros(index_span.shape)
@@ -240,17 +229,11 @@ class Data:
                 epoch_uniques, epoch_indices = np.unique(
                     data.metadata[key], return_inverse=True
                 )
-            # meta_dtype.append((key,epoch_indices.dtype))
-            # mdata.append(jnp.array(epoch_indices))
-            # metablock[key] = jax.device_put(jnp.array(epoch_indices), device)
+            
             meta_keys[key] = epoch_uniques
-            datablock[key] = epoch_indices.astype(int)
+            datablock["meta"][key] = epoch_indices.astype(int)
 
-        # metablock = np.array([*zip(*mdata)],dtype=meta_dtype)
-
-        if return_keys:
-            return datablock, meta_keys
-        return datablock
+        return DataBlock(datablock, meta_keys)
 
 
 class DataFrame:
