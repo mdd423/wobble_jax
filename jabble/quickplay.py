@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import jax
 import numpy as np
 import jabble.model
+import jabble.physics
 import h5py
 import glob
 import os
@@ -127,21 +128,23 @@ def load_model_dir(path,dir_files,device,force_run=False,max_info=1e30,min_info=
     order_by_orders = np.argsort(min_wavelength_of_chunk)
     return rv_array, [all_models[iii] for iii in order_by_orders], all_rv_array[order_by_orders], [all_data[iii] for iii in order_by_orders]
 
-def get_stellar_model(init_rvs, model_grid, p_val):
-    return jabble.model.CompositeModel([jabble.model.EpochShiftingModel(jabble.physics.shifts(init_rvs)), jabble.model.CardinalSplineMixture(model_grid, p_val)])
+def get_stellar_model(init_rvs, model_grid, p_val, which_key='index'):
+    return jabble.model.CompositeModel([jabble.model.ShiftingModel(jabble.physics.shifts(init_rvs), which_key=which_key), \
+                                        jabble.model.CardinalSplineMixture(model_grid, p_val)])
 
-def get_tellurics_model(init_airmass, model_grid, p_val, rest_vels=None):
+def get_tellurics_model(init_airmass, model_grid, p_val, rest_vels=None, which_key='index'):
     if rest_vels is None:
         rest_vels = np.zeros(init_airmass.shape) * u.m/u.s
-    return jabble.model.CompositeModel([jabble.model.ShiftingModel(jabble.physics.shifts(rest_vels)), \
+    return jabble.model.CompositeModel([jabble.model.ShiftingModel(jabble.physics.shifts(rest_vels), which_key=which_key), \
                                         jabble.model.CardinalSplineMixture(model_grid, p_val), \
                                         jabble.model.StretchingModel(init_airmass)])
 
-def get_wobble_model(init_rvs, init_airmass, model_grid, p_val,rest_vels=None):
+def get_wobble_model(init_rvs, init_airmass, model_grid, p_val,rest_vels=None, which_key='index'):
 
-    return get_stellar_model(init_rvs, model_grid, p_val) + get_tellurics_model(init_airmass, model_grid, p_val, rest_vels)
+    return get_stellar_model(init_rvs, model_grid, p_val, which_key=which_key) + \
+        get_tellurics_model(init_airmass, model_grid, p_val, rest_vels, which_key=which_key)
 
-def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
+def get_normalization_model(dataset, norm_p_val, norm_pts):
     len_xs = np.max(
         [np.max(dataframe.xs) - np.min(dataframe.xs) for dataframe in dataset]
     )
@@ -149,11 +152,8 @@ def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
     max_xs = np.max([np.max(dataframe.xs) for dataframe in dataset])
 
     shifts = jnp.array([dataframe.xs.min() - min_xs for dataframe in dataset])
-
-    x_num = int((np.exp(max_xs) - np.exp(min_xs)) * pts_per_wavelength)
-    x_spacing = len_xs / x_num
-    x_grid = jnp.linspace(-x_spacing, len_xs + x_spacing, x_num + 2) + min_xs
-
+    x_spacing = len_xs / norm_pts
+    x_grid = jnp.linspace(-x_spacing*((norm_p_val + 1)//2), len_xs + (x_spacing*((norm_p_val + 1)//2)), norm_pts + norm_p_val + 1) + min_xs
     model = jabble.model.CardinalSplineMixture(x_grid, norm_p_val)
     size = len(dataset)
 
@@ -161,9 +161,10 @@ def get_normalization_model(dataset, norm_p_val, pts_per_wavelength):
     norm_model = jabble.model.NormalizationModel(p, model, size)
     return jabble.model.ShiftingModel(shifts).composite(norm_model)
 
-def get_pseudo_norm_model(init_rvs, init_airmass, model_grid, p_val,dataset,norm_p_val, pts_per_wavelength,rest_vels=None,):
+def get_pseudo_norm_model(init_rvs, init_airmass, model_grid, p_val, dataset, norm_p_val, pts_per_wavelength, rest_vels=None,  which_key='index'):
 
-    return get_stellar_model(init_rvs, model_grid, p_val) + get_tellurics_model(init_airmass, model_grid, p_val, rest_vels) + \
+    return get_stellar_model(init_rvs, model_grid, p_val, which_key=which_key) + \
+        get_tellurics_model(init_airmass, model_grid, p_val, rest_vels, which_key=which_key) + \
         get_normalization_model(dataset,norm_p_val, pts_per_wavelength)
 
 def get_RV_sigmas(model, dataset, device=None, rv_ind = [0,0]):
