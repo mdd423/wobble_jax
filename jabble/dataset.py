@@ -127,8 +127,8 @@ class DataBlock:
         self.datablock = datablock
         self.meta_keys = keys
 
-    def __getitem__(self, i):
-        return dict_ele(self.datablock, i, self.datablock["xs"].device)
+    def ele(self, i, device):
+        return dict_ele(self.datablock, i, device)
 
     def slice(self, i, j, device):
         return dict_slice(self.datablock, i, j, device)
