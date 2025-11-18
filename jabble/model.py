@@ -73,16 +73,6 @@ class Model:
         jax array of parameters of the model
     _fit : `bool`
         If True, model is in fitting mode, all parameters will be varied during optimization.
-    func_evals : `list`
-        List of function evaluations during optimization.
-    history : `list`
-        List of parameter arrays during optimization.
-    save_history : `bool`
-        If True, saves parameter arrays during optimization.
-    loss_history : `list`
-        List of loss values during optimization.
-    save_loss : `bool`
-        If True, saves loss values during optimization.
     results : `np.ndarray`
         Structured array of results from optimization calls.
     metadata : `dict`
@@ -91,12 +81,6 @@ class Model:
 
     def __init__(self, *args, **kwargs):
         self._fit = False
-        self.func_evals = []
-        self.history = []
-        self.save_history = False
-
-        self.loss_history = []
-        self.save_loss = []
 
         self.results = np.empty(shape=(0),dtype=[('task', 'U64'), ('nit', int), ('funcalls',int),('warnflag',int),\
                                                 ('value',np.double),('loss','U64')])
@@ -215,8 +199,21 @@ class Model:
             return AdditiveModel(models=[self, *x.models])
         return AdditiveModel(models=[self, x])
 
-    def __radd__(self, x):
-        return AdditiveModel(models=[self, x])
+    def __radd__(self, model):
+        '''
+        Combine two models additively, where the output of self and model are summed
+        y = self(x) + model(x)
+        Parameters
+        ----------
+        model : `jabble.Model`
+            Model to add to self
+
+        Returns
+        -------
+        additive_model : `jabble.Model`
+            AdditiveModel object with self and model summed
+        '''
+        return AdditiveModel(models=[self, model])
 
     def composite(self, model):
         '''
@@ -385,6 +382,36 @@ class Model:
                         curvature_all[i,:,:])
 
         return f_info
+
+    def transform_variance(model,xp,xq,covar,metarowp={},metarowq={}):
+        '''
+        Given covariance matrix of parameters, transform to covariance of model outputs at points xp and xq
+        Parameters
+        ----------
+        model : `jabble.Model`
+            The full model to evaluate.
+        xp : `jnp.array`
+            First set of points to evaluate variance at
+        xq : `jnp.array`
+            Second set of points to evaluate variance at
+        covar : `jnp.array`
+            Covariance matrix of the parameters of the model
+        metarowp : `dict`, optional
+            Metadata dictionary for points xp, by default {}
+        metarowq : `dict`, optional
+            Metadata dictionary for points xq, by default {}
+        Returns
+        -------
+        transformed_covar : `jnp.array`
+            Covariance matrix of model outputs between points xp and xq
+        '''
+        model.fit()
+        dydt = jax.jacfwd(model, argnums=0)
+        dypdt = dydt(model.get_parameters(),xp,metarowp)
+        dyqdt = dydt(model.get_parameters(),xq,metarowq)
+        model.fix()
+        return dypdt @ covar @ dyqdt.transpose()
+
 
 class ContainerModel(Model):
     """
@@ -598,6 +625,21 @@ class ContainerModel(Model):
         return sum_list, mark_ele
     
     def reduce_fischer(model,f_info,reduce_index):
+        '''
+        Given full fischer information matrix of model, reduce to fischer information of submodel at reduce_index
+        Parameters
+        ----------
+        model : `jabble.Model`
+            The full model to evaluate.
+        f_info : `jnp.array`
+            Full fischer information matrix of the model.
+        reduce_index : `list`
+            List of indices to reduce down to the submodel of interest.
+        Returns
+        -------
+        reduced_f_info : 'jnp.array`
+            Reduced fischer information matrix of the submodel at reduce_index.
+        '''
         # NOW REDUCE
         p_list = model.split_p(model.get_parameters())
         sum_list, mark_ele = model.tree_sum(p_list,reduce_index)
@@ -632,17 +674,7 @@ class ContainerModel(Model):
 
         print(fna_info.shape,fan_info.shape,faa_info.shape,fnn_info.shape)
         return fnn_info - (fan_info @ np.linalg.inv(faa_info) @ fna_info)
-
-    def transform_fisher(model,xp,xq,f_info,metarowp={},metarowq={}):
-        '''
-            Model needs .reverse function from y,x to p
-        '''
-        yp = model(model.get_parameters(),xp,metarowp)
-        yq = model(model.get_parameters(),xq,metarowq)
-        def _internal(y,x,metarow):
-            return model.reverse(y,x,metarow)
-        dtdf = jax.jacfwd(_internal, argnums=0)
-        return dtdf(yp,xp,metarowp).transpose() @ f_info @ dtdf(yq,xq,metarowq)
+    
 
 class CompositeModel(ContainerModel):
     """
@@ -789,7 +821,7 @@ class EpochSpecificModel(Model):
 
     Parameters
     ----------
-    epoches : `int`
+    n : `int`
         Number of epochs
     """
 
@@ -809,22 +841,22 @@ class EpochSpecificModel(Model):
         """
         Function that will individually grid search each parameter.
 
-            Parameters
-            ----------
-            grid : `np.ndarray`
-                (M,N) M searches at each epoch, N epoch array
-            loss : `jabble.Loss`
-                Objective being optimized.
-            model : `jabble.Model`
-                The full model.
-            data : `jabble.Dataset`
-                The dataset being optimized with respect to.
+        Parameters
+        ----------
+        grid : `np.ndarray`
+            (M,N) M searches at each epoch, N epoch array
+        loss : `jabble.Loss`
+            Objective being optimized.
+        model : `jabble.Model`
+            The full model.
+        data : `jabble.Dataset`
+            The dataset being optimized with respect to.
 
-            Returns
-            -------
-            loss_arr : `jnp.array`
-                (M,N) loss evaluated on full model at all grid values at their respective epochs.
-            """
+        Returns
+        -------
+        loss_arr : `jnp.array`
+            (M,N) loss evaluated on full model at all grid values at their respective epochs.
+        """
 
         if epoches is None:
             epoches = slice(0, self.n)
@@ -936,6 +968,8 @@ class EpochSpecificModel(Model):
             The full model to evaluate.
         data : `jabble.Dataset`
             Data to be evaluate.
+        device : `jax.Device`
+            Device to perform operations on.
 
         Returns
         -------
@@ -987,14 +1021,14 @@ class ShiftingModel(EpochSpecificModel):
     ----------
     p : `np.ndarray`
         N epoch length array of initial values of p.
+    which_key : `str`
+        Key in the metadata dictionary to use for epoch indexing.
     """
 
-    def __init__(self, p=None, epoches=0,which_key='index' ,*args, **kwargs):
-        if p is None:
-            self.p = jnp.zeros(epoches)
-        else:
-            self.p = jnp.array(p)
-            epoches = len(p)
+    def __init__(self, p,which_key='index' ,*args, **kwargs):
+    
+        self.p = jnp.array(p)
+        epoches = len(p)
         self.which_key = which_key
         super(ShiftingModel, self).__init__(epoches)
 
@@ -1013,19 +1047,20 @@ class StretchingModel(EpochSpecificModel):
     ----------
     p : `np.ndarray`
         N epoch length array of initial values of p.
+    which_key : `str`
+        Key in the metadata dictionary to use for epoch indexing.
     """
 
-    def __init__(self, p=None, epoches=0, *args, **kwargs):
-        if p is None:
-            self.p = jnp.ones((epoches))
-        else:
-            self.p = p
-            epoches = len(p)
+    def __init__(self, p, which_key='index',*args, **kwargs):
+        
+        self.p = jnp.array(p)
+        self.which_key = which_key
+        epoches = len(p)
         super(StretchingModel, self).__init__(epoches)
 
     def call(self, p, x, meta, *args):
 
-        return p[meta["index"]] * x
+        return p[meta[self.which_key]] * x
     
 
 import jabble.cardinalspline
@@ -1150,6 +1185,7 @@ def cardinal_vmap_matrix(x, xp, basis, a):
     out = basis(inputs)
     return out
 
+
 class FullCardinalSplineMixture(CardinalSplineMixture):
     """
     Model that evaluates input using full Irwin-Hall cardinal basis design matrix.
@@ -1202,18 +1238,34 @@ class FullCardinalSplineMixture(CardinalSplineMixture):
     
 
 class NormalizationModel(Model):
-    def __init__(self, p, model, size, *args, **kwargs):
+    '''
+    Model that applies model to each input, x, with different parameters based on epoch index.
+    .. math::
+        f(p,x,i) = g(p[i],x)
+    Parameters
+    ----------
+    p : `np.ndarray`
+        N* M length array of initial values of p, where N is number of epochs, M is number of parameters in submodel.
+    model : `jabble.Model`
+        Submodel to be applied with different parameters at each epoch.
+    size : `int`
+        Number of epochs.
+    which_key : `str`
+        Key in the metadata dictionary to use for epoch indexing.
+    '''
+    def __init__(self, p, model, size, which_key='index', *args, **kwargs):
         super(NormalizationModel, self).__init__()
         self.p = p#jnp.tile(model.p, size)
         self.model = model
 
+        self.which_key = which_key
         self.model_p_size = len(model.p)
         self.size = size
 
     def call(self, p, x, meta, *args):
 
         x = self.model.call(
-            (p.reshape(self.size, self.model_p_size)[meta["index"]]).flatten(),
+            (p.reshape(self.size, self.model_p_size)[meta[self.which_key]]).flatten(),
             x,
             meta,
             *args,
