@@ -372,7 +372,7 @@ class Model:
 
         f_info = np.zeros((len(model.get_parameters()),len(model.get_parameters())))
         for i in range(len(data)):
-            datarow = datablock.ele(datablock, device)
+            datarow = datablock.ele(i, device)
             
             f_info += np.einsum('j,jn,jm->nm',datarow['yivar'][:],curvature_all[i,:,:],\
                         curvature_all[i,:,:])
