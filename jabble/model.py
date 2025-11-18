@@ -333,7 +333,7 @@ class Model:
 
         return cls(p=group["p"])
 
-    def fischer_full(model, data, device):
+    def fisher_full(model, data, device):
         """
         Get full fischer information on parameters of the model.
         Since each parameter is independent of all other epochs, fischer information matrix is diagonal,
@@ -354,29 +354,25 @@ class Model:
         model.fit()
         model.display()
 
-        datablock, metablock = data.blockify(device)
+        datablock = data.blockify(device)
         # def _internal(self, p, datarow, metarow, model, *args)
         #     return loss(self, p, datarow, metarow, model, *args)
         dfdt = jax.jacfwd(model, argnums=0)
 
-        def get_dict(datablock, index):
-            return {key: datablock[key][index] for key in datablock.keys()}
-
         curvature_all = np.zeros((len(data),datablock['xs'].shape[1], len(model.get_parameters())))
 
         for i in range(len(data)):
-            datarow = get_dict(datablock, i)
-            metarow = get_dict(metablock, i)
+            datarow = datablock.ele(i,device)
+        
             curvature_all[i,:,:] = jnp.where(~datarow["mask"][:, None]*\
                                     np.ones(len(model.get_parameters()))[None, :],
-                (dfdt(model.get_parameters(), datarow["xs"], metarow)),
+                (dfdt(model.get_parameters(), datarow["xs"], datarow['meta'])),
                 0.0
             )
 
         f_info = np.zeros((len(model.get_parameters()),len(model.get_parameters())))
         for i in range(len(data)):
-            datarow = get_dict(datablock, i)
-            metarow = get_dict(metablock, i)
+            datarow = datablock.ele(datablock, device)
             
             f_info += np.einsum('j,jn,jm->nm',datarow['yivar'][:],curvature_all[i,:,:],\
                         curvature_all[i,:,:])
@@ -624,7 +620,7 @@ class ContainerModel(Model):
                 sum_list.append(len(ele))
         return sum_list, mark_ele
     
-    def reduce_fischer(model,f_info,reduce_index):
+    def reduce_fisher(model,f_info,reduce_index):
         '''
         Given full fischer information matrix of model, reduce to fischer information of submodel at reduce_index
         Parameters
