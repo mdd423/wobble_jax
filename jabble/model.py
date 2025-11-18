@@ -976,28 +976,19 @@ class EpochSpecificModel(Model):
         self.fit()
         model.display()
 
-        datablock, metablock = data.blockify(device)
+        datablock = data.blockify(device)
         # def _internal(self, p, datarow, metarow, model, *args)
         #     return loss(self, p, datarow, metarow, model, *args)
         duddx = jax.jacfwd(model, argnums=0)
 
-        def get_dict(datablock, index):
-            return {key: datablock[key][index] for key in datablock.keys()}
-
-        # SUPPOSE TO BE FASTER, BUT KILLS KERNEL
-        # LIKELY DUE TO MEM ALLOC
-        # def _internal(datarow):
-        #     return ((duddx(model.get_parameters(),datarow['xs'],datarow)**2) * datarow['yivar'][:,None]).sum(axis=0)
-        # f_info = jax.vmap(_internal,(0),0)(datablock)
 
         f_info = np.zeros((len(data), len(model.get_parameters())))
         for i in range(len(data)):
-            datarow = get_dict(datablock, i)
-            metarow = get_dict(metablock, i)
+            datarow = datablock.ele(i,device)
             # sum over pixels
             # assumes diagonal variance in pixel, and time
             f_info[i, :] += jnp.where(~datarow["mask"][:, None]*np.ones(len(model.get_parameters()))[None, :],
-                (duddx(model.get_parameters(), datarow["xs"], metarow) ** 2)
+                (duddx(model.get_parameters(), datarow["xs"], datarow['meta']) ** 2)
                 * datarow["yivar"][:, None],
                 0.0
             ).sum(axis=0)
