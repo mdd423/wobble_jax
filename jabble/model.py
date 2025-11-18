@@ -359,7 +359,7 @@ class Model:
         #     return loss(self, p, datarow, metarow, model, *args)
         dfdt = jax.jacfwd(model, argnums=0)
 
-        curvature_all = np.zeros((len(data),datablock['xs'].shape[1], len(model.get_parameters())))
+        curvature_all = np.zeros((len(data),datablock.datablock['xs'].shape[1], len(model.get_parameters())))
 
         for i in range(len(data)):
             datarow = datablock.ele(i,device)
