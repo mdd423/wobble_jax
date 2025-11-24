@@ -400,13 +400,13 @@ def save(self, filename: str, dataname: str, data, shifts, loss, device, rv_ind)
         with h5py.File(filename + "_RVS.hdf",'w') as file:
             datablock = data.blockify(device,return_keys=True)
             file.create_dataset("RVs",data=jabble.physics.velocities(shifts))
-            file.create_dataset("RV_err",data=get_RV_sigmas(self, data, device=device, model=self,rv_ind=rv_ind))
+            file.create_dataset("RV_err",data=get_RV_sigmas(self, data, device=device,rv_ind=rv_ind))
             file.create_dataset("Times",data=datablock.meta_keys['times'])
 
             head, tail = os.path.split(filename)
             file.attrs['model'] = filename
 
-            loss_array = get_loss_array(self,datablock,metablock,loss,device)
+            loss_array = get_loss_array(self,datablock,loss,device)
             file.create_dataset("Loss",data=loss_array)
 
             head,tail = os.path.split(dataname)
