@@ -379,7 +379,7 @@ def get_RV_sigmas(model, dataset, device=None, rv_ind = [0,0]):
 def get_loss_array(model,datablock,loss,device):
     loss.ready_indices(model)
     loss_array = np.zeros((datablock['xs'].shape))
-    for jjj in range(datablock['xs'].shape[0]):
+    for jjj in range(datablock.datablock['xs'].shape[0]):
         datarow = datablock.ele(datablock,jjj,device)
         # metarow = jabble.loss.dict_ele(metablock,jjj,device)
         loss_array[jjj,:] = loss(model.get_parameters(),datarow,model)
