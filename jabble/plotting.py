@@ -8,7 +8,7 @@ import jabble.model
 
 import scipy.interpolate
 
-def rv_all_order_plot(times,rv_e,err_e,time_comb,rv_comb,err_comb,targ_time,targ_vel,targ_err,bervs):
+def rv_all_order_plot(times,rv_e,err_e,time_comb,rv_comb,err_comb,targ_time,targ_vel,targ_err,out_dir):
     fig, ax = plt.subplots(
         1,
         figsize=(6, 4),
