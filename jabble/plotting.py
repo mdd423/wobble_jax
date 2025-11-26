@@ -24,7 +24,7 @@ def rv_all_order_plot(times,rv_e,err_e,time_comb,rv_comb,err_comb,targ_time,targ
     comb_indi = np.argsort(np.argsort(time_comb))
     temp_vel  = rv_comb - targ_vel[targ_ind][comb_indi]
     temp_vel -= temp_vel.mean()
-    ax.errorbar(time_comb,temp_vel,err_comb,fmt='.r',zorder=5,alpha=0.50,ms=2,label='Order Jabble Combined RV')
+    ax.errorbar(time_comb,temp_vel,err_comb,fmt='.r',zorder=5,alpha=0.30,ms=2,label='Order Jabble Combined RV')
 
     # temp_vel = rv_e.mean(axis=0) + bervs
     # temp_vel -= temp_vel.mean()
