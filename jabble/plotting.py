@@ -8,7 +8,7 @@ import jabble.model
 
 import scipy.interpolate
 
-def rv_all_order_plot(times,rv_e,err_e,time_comb,rv_comb,err_comb,targ_time,targ_vel,targ_err,out_dir):
+def rv_all_order_plot(times,rv_e,err_e,time_comb,rv_comb,err_comb,targ_time,targ_vel,targ_err):
     fig, ax = plt.subplots(
         1,
         figsize=(6, 4),
@@ -37,18 +37,7 @@ def rv_all_order_plot(times,rv_e,err_e,time_comb,rv_comb,err_comb,targ_time,targ
         temp_vel -= temp_vel.mean()
         ax.errorbar(times[i,:],temp_vel,yerr=err_e[i,:],fmt='.k',zorder=2,alpha=0.05,ms=2,label='Order Jabble RV')
 
-    # fig.legend()
-    ax.set_ylim(-500, 500)
-    # fig.legend()
-    ax.set_title('Barnard\'s Star Relative Radial Velocities')
-    ax.set_ylabel("RV [$m/s$]")
-    ax.set_xlabel( "MJD")
-    plt.savefig(os.path.join(out_dir, "barn_rvs_time.png"))
-
-    # ax.set_xlim(2.4564e6,2.45644e6)
-    # ax.set_ylim(-20e3,-10e3)
-    # plt.savefig(os.path.join(out_dir, "02-barns_all_order_nobervs_epoch.png"))
-    plt.show()
+    return fig, ax
 
 def plot_rv_error(times,rv_e,err_e,times_comb,rv_comb,err_comb,targ_time,targ_vel,\
                   targ_err,bervs,loss_array,rv_difference_array,star_name,\
