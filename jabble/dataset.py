@@ -136,8 +136,8 @@ class DataBlock:
     def __len__(self):
         return self.datablock["xs"].shape[0]
     
-    def __getattribute__(self, name):
-        return self.datablock[name]
+    # def __getattribute__(self, name):
+    #     return self.datablock[name]
 
 @dataclass
 class Data:
