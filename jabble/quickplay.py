@@ -93,7 +93,7 @@ def load_model_dir(path,dir_files,device,force_run=False,max_info=1e30,min_info=
             datablock = dataset.blockify(device)
             
             for jjj,time_unq in enumerate(datablock.meta_keys["times"]):
-                loss_array[iii,jjj] = loss_temp[datablock["times"] == time_unq].mean()
+                loss_array[iii,jjj] = loss_temp[datablock['meta']["times"] == time_unq].mean()
 
     # Combine RVs and create HDF summary in directory
     if not os.path.isfile(os.path.join(path,'RV_Summary.hdf')) or force_run:
