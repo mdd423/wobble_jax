@@ -90,10 +90,10 @@ def load_model_dir(path,dir_files,device,force_run=False,max_info=1e30,min_info=
             all_data.append(dataset)
 
             loss_temp = np.array(file['Loss']).mean(axis=1)
-            datablock, metablock = dataset.blockify(device)
+            datablock = dataset.blockify(device)
             
-            for jjj,time_unq in enumerate(np.unique(metablock["times"])):
-                loss_array[iii,jjj] = loss_temp[metablock["times"] == time_unq].mean()
+            for jjj,time_unq in enumerate(datablock.meta_keys["times"]):
+                loss_array[iii,jjj] = loss_temp[datablock["times"] == time_unq].mean()
 
     # Combine RVs and create HDF summary in directory
     if not os.path.isfile(os.path.join(path,'RV_Summary.hdf')) or force_run:
@@ -328,6 +328,8 @@ def train_cycle(model, dataset, loss, device_store, device_op, \
     # Fit RV
     model.fix()
     model.fit(0,0)
+    model.display()
+
     res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)
     print(res1)
 
@@ -337,16 +339,22 @@ def train_cycle(model, dataset, loss, device_store, device_op, \
         search_space = np.linspace(-100, 100, 500)
         shift_search = jabble.physics.shifts(search_space)
 
-        
         model[0][0].parabola_fit(shift_search, loss, model, dataset, device_op, device_store)
-    # model.to_device(device_op)
 
     # Fit Everything
     model.fix()
     model.fit(0,0)
     model.fit(0,1)
     model.fit(1,1)
-    # model.fit(2,1)
+    model.display()
+
+    res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)#model.optimize(loss, dataset)
+    print(res1)
+
+    # Fit RVs Again
+    model.fix()
+    model.fit(0,0)
+    model.display()
 
     res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)#model.optimize(loss, dataset)
     print(res1)
