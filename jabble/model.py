@@ -870,7 +870,7 @@ class EpochSpecificModel(Model):
                 datarow = datablock.ele(iii,device)
                 # metarow = jabble.loss.dict_ele(metablock,iii,device)
                 
-                Q = Q.at[iii].set(loss(grid, datarow, datarow['meta'], model).sum().astype(np.double))
+                Q = Q.at[iii].set(loss(grid, datarow, model).sum().astype(np.double))
 
             uniques = np.unique(datablock['meta'][self.which_key])
 
