@@ -862,21 +862,21 @@ class EpochSpecificModel(Model):
         if isinstance(model, jabble.model.ContainerModel):
             model.get_parameters()
 
-        datablock, metablock, keys = data.blockify(device,return_keys=True)
+        datablock = data.blockify(device,return_keys=True)
         def _internal(grid):
             Q = jnp.zeros((len(data)))
 
             for iii in range(len(Q)):
-                datarow = jabble.loss.dict_ele(datablock,iii,device)
-                metarow = jabble.loss.dict_ele(metablock,iii,device)
+                datarow = datablock.ele(iii,device)
+                # metarow = jabble.loss.dict_ele(metablock,iii,device)
                 
-                Q = Q.at[iii].set(loss(grid, datarow, metarow, model).sum().astype(np.double))
+                Q = Q.at[iii].set(loss(grid, datarow, datarow['meta'], model).sum().astype(np.double))
 
-            uniques = np.unique(metablock[self.which_key])
+            uniques = np.unique(datablock['meta'][self.which_key])
 
             out = jnp.zeros(self.p.shape)
             for iii,unq in enumerate(uniques):
-                out = out.at[unq].set(Q[np.where(metablock[self.which_key] == unq)].sum())
+                out = out.at[unq].set(Q[np.where(datablock['meta'][self.which_key] == unq)].sum())
             return out
 
         loss_arr = jax.vmap(_internal, in_axes=(1), out_axes=1)(
