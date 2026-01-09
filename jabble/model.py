@@ -872,11 +872,11 @@ class EpochSpecificModel(Model):
                 
                 Q = Q.at[iii].set(loss(grid, datarow, model).sum().astype(np.double))
 
-            uniques = np.unique(datablock['meta'][self.which_key])
+            uniques = np.unique(datablock.datablock['meta'][self.which_key])
 
             out = jnp.zeros(self.p.shape)
             for iii,unq in enumerate(uniques):
-                out = out.at[unq].set(Q[np.where(datablock['meta'][self.which_key] == unq)].sum())
+                out = out.at[unq].set(Q[np.where(datablock.datablock['meta'][self.which_key] == unq)].sum())
             return out
 
         loss_arr = jax.vmap(_internal, in_axes=(1), out_axes=1)(
