@@ -87,8 +87,8 @@ class Model:
 
         self.metadata = {}
 
-    @partial(jax.jit, static_argnames=["args"])
-    def __call__(self, p, *args):
+    @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    def __call__(self, p, x, meta, margs):
         """
         Call wrapper function. Checks if there are incoming parameters, if not uses fixed parameters.
         Then sends to self.call.
@@ -106,10 +106,10 @@ class Model:
         """
         if len(p) == 0:
             assert self._fit == False
-            return self.call(self.p, *args)
+            return self.call(self.p, x, meta, margs)
         else:
             assert self._fit == True
-            return self.call(p, *args)
+            return self.call(p, x, meta, margs)
 
     def gaussnewton(self, data, *args):
         """
@@ -144,7 +144,6 @@ class Model:
         self._unpack(gn_sol.params)
         return gn_sol
 
-    @partial(jax.jit, static_argnames=["args"])
     def optimize(self, loss, data, device_store, device_op, batch_size, options={}):
         """
         Choosen optimizer for jabble is scipy.fmin_l_bfgs_b.
@@ -449,13 +448,13 @@ class ContainerModel(Model):
         )
         self.create_param_bool()
 
-    @partial(jax.jit, static_argnames=["args"])
-    def __call__(self, p, *args):
+    @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    def __call__(self, p, x, meta, margs):
 
         if len(p) == 0:
-            return self.call(jnp.array([]), *args)
+            return self.call(jnp.array([]), x, meta, margs)
         else:
-            return self.call(p, *args)
+            return self.call(p, x, meta, margs)
 
     def __getitem__(self, i):
         """
@@ -681,11 +680,11 @@ class CompositeModel(ContainerModel):
     .. math::
         f  = g_n(g_{n-1}(...g_1(g_0(x))))
     """
-    @partial(jax.jit, static_argnames=["args"])
-    def call(self, p, x, i, *args):
+    @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    def call(self, p, x, meta, margs):
         for k, model in enumerate(self.models):
             indices = self.get_indices(k)
-            x = model(p[indices], x, i, *args)
+            x = model(p[indices], x, meta, margs)
         return x
 
     def composite(self, x):
@@ -701,13 +700,13 @@ class AdditiveModel(ContainerModel):
     .. math::
         f  = g_n(x) + g_{n-1}(x) + ...g_1(x) + g_0(x)
     """
-    @partial(jax.jit, static_argnames=["args"])
-    def call(self, p, x, i, *args):
+    @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    def call(self, p, x, meta, margs):
         output = 0.0
         # PARALLELIZABLE
         for k, model in enumerate(self.models):
             indices = self.get_indices(k)
-            output += model(p[indices], x, i, *args)
+            output += model(p[indices], x, meta, margs)
         return output
 
     def __add__(self, x):
@@ -731,13 +730,13 @@ class EnvelopModel(Model):
     def __init__(self, model):
         super(EnvelopModel, self).__init__()
         self.model = model
-    @partial(jax.jit, static_argnames=["args"])
-    def __call__(self, p, *args):
+    @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    def __call__(self,  p, x, meta, margs):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
-            return self.call(np.array([]), *args)
+            return self.call(np.array([]), x, meta, margs)
         else:
-            return self.call(p, *args)
+            return self.call(p, x, meta, margs)
 
     def __getitem__(self, i):
         return self.model[i]
@@ -808,8 +807,8 @@ class ConvolutionalModel(Model):
             self.p = jnp.array([0, 1, 0])
         else:
             self.p = p
-    @partial(jax.jit, static_argnames=["args"])
-    def call(self, p, x, *args):
+    @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    def call(self, p, x, meta, marg):
         y = jnp.convolve(x, p, mode="same")
         return y
 
@@ -828,13 +827,13 @@ class EpochSpecificModel(Model):
         super(EpochSpecificModel, self).__init__()
         self.n = n
         self._epoches = slice(0, n)
-    @partial(jax.jit, static_argnames=["args"])
-    def __call__(self, p, *args):
+    @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    def __call__(self, p, x, meta, marg):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
-            return self.call(self.p, *args)
+            return self.call(self.p, x, meta, marg)
         else:
-            return self.call(p, *args)
+            return self.call(p, x, meta, marg)
 
     def grid_search(self, grid, loss, model, data, device, epoches=None):
         """
@@ -1021,8 +1020,8 @@ class ShiftingModel(EpochSpecificModel):
         epoches = len(p)
         self.which_key = which_key
         super(ShiftingModel, self).__init__(epoches)
-    @partial(jax.jit, static_argnames=["x","meta","args"])
-    def call(self, p, x, meta, *arg):
+    @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    def call(self, p, x, meta, marg):
 
         return x - p[meta[self.which_key]]
 
@@ -1047,8 +1046,8 @@ class StretchingModel(EpochSpecificModel):
         self.which_key = which_key
         epoches = len(p)
         super(StretchingModel, self).__init__(epoches)
-    @partial(jax.jit, static_argnames=["x","meta","args"])
-    def call(self, p, x, meta, *args):
+    @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    def call(self, p, x, meta, margs):
 
         return p[meta[self.which_key]] * x
     
@@ -1127,8 +1126,8 @@ class CardinalSplineMixture(Model):
                 )
         else:
             self.p = jnp.zeros(xs.shape)
-    @partial(jax.jit, static_argnames=["x","args"])
-    def call(self, p, x, *args):
+    @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    def call(self, p, x, meta, margs):
 
         a = (self.p_val + 1) / 2
         y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
@@ -1191,7 +1190,7 @@ class FullCardinalSplineMixture(CardinalSplineMixture):
 
     """
 
-    def __init__(self, xs, p_val=2, p=None, *args, **kwargs):
+    def __init__(self, xs, p_val=2, p=None):
         super(CardinalSplineMixture, self).__init__()
         # when defining ones own model, need to include inputs as xs, outputs as ys
         # and __call__ function that gets ya ther, and params (1d ndarray MUST BE BY SCIPY) to be fit
@@ -1208,8 +1207,8 @@ class FullCardinalSplineMixture(CardinalSplineMixture):
                 )
         else:
             self.p = jnp.zeros(xs.shape)
-    @partial(jax.jit, static_argnames=["x","args"])
-    def call(self, p, x, *args):
+    @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    def call(self, p, x, meta, margs):
 
         a = (self.p_val + 1) / 2
         y = p @ cardinal_vmap_matrix(x, self.xs, self.spline, a)
@@ -1243,7 +1242,7 @@ class NormalizationModel(Model):
     which_key : `str`
         Key in the metadata dictionary to use for epoch indexing.
     '''
-    def __init__(self, p, model, size, which_key='index', *args, **kwargs):
+    def __init__(self, p, model, size, which_key='index'):
         super(NormalizationModel, self).__init__()
         self.p = p#jnp.tile(model.p, size)
         self.model = model
@@ -1251,14 +1250,14 @@ class NormalizationModel(Model):
         self.which_key = which_key
         self.model_p_size = len(model.p)
         self.size = size
-    @partial(jax.jit, static_argnames=["x","meta","args"])
-    def call(self, p, x, meta, *args):
+    @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    def call(self, p, x, meta, margs):
 
         x = self.model.call(
             (p.reshape(self.size, self.model_p_size)[meta[self.which_key]]).flatten(),
             x,
             meta,
-            *args,
+            margs,
         )
         return x
 
