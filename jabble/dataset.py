@@ -12,6 +12,8 @@ import jax
 import jabble.loss
 import jabble.model
 
+from frozendict import frozendict
+
 def fit_continuum_jabble(x, y, ivars, device_store, device_op, norm_p_val, norm_res, nsigma=[0.8,3.0], maxniter=50,options={}):
     """Fit the continuum using sigma clipping
 
@@ -124,8 +126,8 @@ def dict_ele(dictionary, slice_i, device):
 
 class DataBlock:
     def __init__(self, datablock: dict, keys: dict):
-        self.datablock = datablock
-        self.meta_keys = keys
+        self.datablock = frozendict(datablock)
+        self.meta_keys = frozendict(keys)
 
     def ele(self, i, device):
         return dict_ele(self.datablock, i, device)
