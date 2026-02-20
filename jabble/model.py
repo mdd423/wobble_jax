@@ -87,6 +87,7 @@ class Model:
 
         self.metadata = {}
 
+    @partial(jax.jit, static_argnames=["args"])
     def __call__(self, p, *args):
         """
         Call wrapper function. Checks if there are incoming parameters, if not uses fixed parameters.
@@ -143,6 +144,7 @@ class Model:
         self._unpack(gn_sol.params)
         return gn_sol
 
+    @partial(jax.jit, static_argnames=["args"])
     def optimize(self, loss, data, device_store, device_op, batch_size, options={}):
         """
         Choosen optimizer for jabble is scipy.fmin_l_bfgs_b.
@@ -447,6 +449,7 @@ class ContainerModel(Model):
         )
         self.create_param_bool()
 
+    @partial(jax.jit, static_argnames=["args"])
     def __call__(self, p, *args):
 
         if len(p) == 0:
@@ -678,7 +681,7 @@ class CompositeModel(ContainerModel):
     .. math::
         f  = g_n(g_{n-1}(...g_1(g_0(x))))
     """
-
+    @partial(jax.jit, static_argnames=["args"])
     def call(self, p, x, i, *args):
         for k, model in enumerate(self.models):
             indices = self.get_indices(k)
@@ -698,7 +701,7 @@ class AdditiveModel(ContainerModel):
     .. math::
         f  = g_n(x) + g_{n-1}(x) + ...g_1(x) + g_0(x)
     """
-
+    @partial(jax.jit, static_argnames=["args"])
     def call(self, p, x, i, *args):
         output = 0.0
         # PARALLELIZABLE
@@ -728,7 +731,7 @@ class EnvelopModel(Model):
     def __init__(self, model):
         super(EnvelopModel, self).__init__()
         self.model = model
-
+    @partial(jax.jit, static_argnames=["args"])
     def __call__(self, p, *args):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
@@ -805,7 +808,7 @@ class ConvolutionalModel(Model):
             self.p = jnp.array([0, 1, 0])
         else:
             self.p = p
-
+    @partial(jax.jit, static_argnames=["args"])
     def call(self, p, x, *args):
         y = jnp.convolve(x, p, mode="same")
         return y
@@ -825,7 +828,7 @@ class EpochSpecificModel(Model):
         super(EpochSpecificModel, self).__init__()
         self.n = n
         self._epoches = slice(0, n)
-
+    @partial(jax.jit, static_argnames=["args"])
     def __call__(self, p, *args):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
@@ -1018,7 +1021,7 @@ class ShiftingModel(EpochSpecificModel):
         epoches = len(p)
         self.which_key = which_key
         super(ShiftingModel, self).__init__(epoches)
-
+    @partial(jax.jit, static_argnames=["x","meta","args"])
     def call(self, p, x, meta, *arg):
 
         return x - p[meta[self.which_key]]
@@ -1044,7 +1047,7 @@ class StretchingModel(EpochSpecificModel):
         self.which_key = which_key
         epoches = len(p)
         super(StretchingModel, self).__init__(epoches)
-
+    @partial(jax.jit, static_argnames=["x","meta","args"])
     def call(self, p, x, meta, *args):
 
         return p[meta[self.which_key]] * x
@@ -1124,7 +1127,7 @@ class CardinalSplineMixture(Model):
                 )
         else:
             self.p = jnp.zeros(xs.shape)
-
+    @partial(jax.jit, static_argnames=["x","args"])
     def call(self, p, x, *args):
 
         a = (self.p_val + 1) / 2
@@ -1205,7 +1208,7 @@ class FullCardinalSplineMixture(CardinalSplineMixture):
                 )
         else:
             self.p = jnp.zeros(xs.shape)
-
+    @partial(jax.jit, static_argnames=["x","args"])
     def call(self, p, x, *args):
 
         a = (self.p_val + 1) / 2
@@ -1248,7 +1251,7 @@ class NormalizationModel(Model):
         self.which_key = which_key
         self.model_p_size = len(model.p)
         self.size = size
-
+    @partial(jax.jit, static_argnames=["x","meta","args"])
     def call(self, p, x, meta, *args):
 
         x = self.model.call(

@@ -3,6 +3,7 @@ import numpy as np
 import jax.numpy as jnp
 import jax
 
+from functools import partial
 
 class LossFunc:
     """
@@ -24,6 +25,7 @@ class LossFunc:
         self.coefficient *= x
         return self
 
+    @partial(jax.jit, static_argnames=["datablock","model","device_op","batch_size","args"])
     def loss_all(self, p, datablock, model, device_op, batch_size, *args):
         """
         Loops through all epochs in dataset. And adds each value to objective.
@@ -75,6 +77,7 @@ class LossSequential(LossFunc):
         # super().__init__(self)
         self.loss_funcs = loss_funcs
 
+    @partial(jax.jit, static_argnames=["data","model","args"])
     def __call__(self, p, data, model, *args):
         output = 0.0
         for loss in self.loss_funcs:
@@ -119,6 +122,7 @@ class LossSequential(LossFunc):
 
 
 class ChiSquare(LossFunc):
+    @partial(jax.jit, static_argnames=["datarow","model","args"])
     def __call__(self, p, datarow, model, *args):
 
         return self.coefficient * jnp.where(
@@ -128,6 +132,16 @@ class ChiSquare(LossFunc):
             0.0,
         )
 
+
+class L2Loss(LossFunc):
+    @partial(jax.jit, static_argnames=["datarow","model","args"])
+    def __call__(self, p, datarow, model, *args):
+
+        return self.coefficient * jnp.where(
+            ~datarow["mask"],
+            (((datarow["ys"] - model(p, datarow["xs"], datarow["meta"], *args)) ** 2)),
+            0.0,
+        )
 
 def get_submodel_indices(self, i, j=None, *args):
     # this recurses through submodels when given a set of indices to that submodel
@@ -153,7 +167,7 @@ class L2Reg(LossFunc):
 
     def ready_indices(self, model):
         self.indices = get_submodel_indices(model, *self.submodel_inds)
-
+    @partial(jax.jit, static_argnames=["args"])
     def __call__(self, p, *args):
         err = self.coefficient * 0.5 * ((p[self.indices] - self.constant) ** 2)
         return err
@@ -167,6 +181,7 @@ class L2Reg(LossFunc):
         )
     
 class L1Reg(L2Reg):
+    @partial(jax.jit, static_argnames=["args"])
     def __call__(self, p, *args):
         err = self.coefficient * jnp.abs(p[self.indices] - self.constant)
         return err
