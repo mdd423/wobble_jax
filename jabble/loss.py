@@ -25,7 +25,7 @@ class LossFunc:
         self.coefficient *= x
         return self
 
-    @partial(jax.jit, static_argnums=(0,2,3,4,5,6))
+    # @partial(jax.jit, static_argnums=(0,2,3,4,5,6))
     def loss_all(self, p, datablock, model, device_op, batch_size, margs=()):
         """
         Loops through all epochs in dataset. And adds each value to objective.
@@ -76,7 +76,7 @@ class LossSequential(LossFunc):
         # super().__init__(self)
         self.loss_funcs = loss_funcs
 
-    @partial(jax.jit, static_argnums=(0,2,3,4))
+    # @partial(jax.jit, static_argnums=(0,2,3,4))
     def __call__(self, p, data, model, margs=()):
         output = 0.0
         for loss in self.loss_funcs:
@@ -121,24 +121,24 @@ class LossSequential(LossFunc):
 
 
 class ChiSquare(LossFunc):
-    @partial(jax.jit, static_argnums=(0,2,3,4))
+    # @partial(jax.jit, static_argnums=(0,2,3,4))
     def __call__(self, p, datarow, model, margs=()):
 
         return self.coefficient * jnp.where(
             ~datarow["mask"],
             datarow["yivar"]
-            * (((datarow["ys"] - model(p, datarow["xs"], margs)) ** 2)),
+            * (((datarow["ys"] - model(p, datarow["xs"], datarow["meta"], margs)) ** 2)),
             0.0,
         )
 
 
 class L2Loss(LossFunc):
-    @partial(jax.jit, static_argnums=(0,2,3,4))
+    # @partial(jax.jit, static_argnums=(0,2,3,4))
     def __call__(self, p, datarow, model, margs=()):
 
         return self.coefficient * jnp.where(
             ~datarow["mask"],
-            (((datarow["ys"] - model(p, datarow["xs"], margs)) ** 2)),
+            (((datarow["ys"] - model(p, datarow["xs"], datarow["meta"], margs)) ** 2)),
             0.0,
         )
 
@@ -166,7 +166,7 @@ class L2Reg(LossFunc):
 
     def ready_indices(self, model):
         self.indices = get_submodel_indices(model, *self.submodel_inds)
-    @partial(jax.jit, static_argnums=(0,2,3,4))
+    # @partial(jax.jit, static_argnums=(0,2,3,4))
     def __call__(self, p, datarow, model, margs=()):
         err = self.coefficient * 0.5 * ((p[self.indices] - self.constant) ** 2)
         return err
@@ -180,7 +180,7 @@ class L2Reg(LossFunc):
         )
     
 class L1Reg(L2Reg):
-    @partial(jax.jit, static_argnums=(0,2,3,4))
+    # @partial(jax.jit, static_argnums=(0,2,3,4))
     def __call__(self, p, datarow, model, margs=()):
         err = self.coefficient * jnp.abs(p[self.indices] - self.constant)
         return err
