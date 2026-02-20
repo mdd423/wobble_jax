@@ -127,14 +127,14 @@ def dict_ele(dictionary, slice_i, device):
 
 class DataBlock:
     def __init__(self, datablock: dict, keys: dict):
-        self.datablock = frozendict(datablock)
-        self.meta_keys = frozendict(keys)
+        self.datablock = datablock
+        self.meta_keys = keys
 
     def ele(self, i, device):
-        return frozendict(dict_ele(self.datablock, i, device))
+        return dict_ele(self.datablock, i, device)
 
     def slice(self, i, j, device):
-        return frozendict(dict_slice(self.datablock, i, j, device))
+        return dict_slice(self.datablock, i, j, device)
     
     def __len__(self):
         return self.datablock["xs"].shape[0]
