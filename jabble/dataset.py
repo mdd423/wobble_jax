@@ -144,22 +144,13 @@ class DataBlock:
         self.meta_keys = frozendict(keys)
 
     def ele(self, i, device):
-        return dict_ele(self.datablock, i, device)
+        return frozendict(dict_ele(self.datablock, i, device))
 
     def slice(self, i, j, device):
-        return dict_slice(self.datablock, i, j, device)
+        return frozendict(dict_slice(self.datablock, i, j, device))
     
     def __len__(self):
         return self.datablock["xs"].shape[0]
-    
-    def __getitem__(self, key):
-        return self.datablock[key]
-    
-    def __hash__(self):
-        return id(self)
-    
-    def __eq__(self, other):
-        return self is other
     
     # def __getattribute__(self, name):
     #     return self.datablock[name]
@@ -209,7 +200,7 @@ class Data:
         for dataframe in self.dataframes:
             dataframe.to_device(device)
 
-    def blockify(data, device=None):
+    def blockify(data, device=None, return_keys=False):
         if device is None:
             device = data[0].xs.device
         max_ind = np.max([len(dataframe.xs) for dataframe in data])
