@@ -124,6 +124,20 @@ def dict_ele(dictionary, slice_i, device):
             out[key] = jax.device_put(dictionary[key][slice_i], device)
     return out
 
+class MetaBlock:
+    def __init__(self,metablock):
+        self.metablock = metablock
+
+    def __getitem__(self, key):
+        return self.metablock[key]
+    
+    def __hash__(self):
+        return id(self)
+    
+    def __eq__(self, other):
+        return self is other
+        
+
 class DataBlock:
     def __init__(self, datablock: dict, keys: dict):
         self.datablock = frozendict(datablock)
@@ -232,7 +246,7 @@ class Data:
         meta_keys = {}
 
         index_span = np.arange(0, len(data), dtype=int)
-        datablock["meta"] = {"index": index_span}
+        metablock = {"index": index_span}
         for key in data.metadata:
             if key in data.metakeys:
                 epoch_indices = np.zeros(index_span.shape)
@@ -245,9 +259,9 @@ class Data:
                 )
             
             meta_keys[key] = epoch_uniques
-            datablock["meta"][key] = epoch_indices.astype(int)
+            metablock[key] = epoch_indices.astype(int)
 
-        return DataBlock(datablock, meta_keys)
+        return DataBlock(datablock, {}), DataBlock(metablock,meta_keys)
 
 
 class DataFrame:

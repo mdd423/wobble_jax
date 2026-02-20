@@ -177,7 +177,7 @@ class Model:
             return np.array(val, dtype="f8"), np.array(grad, dtype="f8")
 
         # blockify dataset
-        datablock = data.blockify(device_store)
+        datablock,metablock = data.blockify(device_store)
 
         ##########################################################
         loss.ready_indices(self)
@@ -185,7 +185,7 @@ class Model:
             val_gradient_function,
             self.get_parameters(),
             None,
-            (datablock, self, device_op, batch_size),
+            (datablock,metablock, self, device_op, batch_size),
             **options,
         )
 
