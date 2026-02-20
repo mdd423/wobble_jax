@@ -47,7 +47,7 @@ class LossFunc:
         # not the one specified, whats the better way to do multiple epoch fitting without indices
 
         def _internal(datarow,metarow):
-            return self(p, datarow, model, margs).sum()
+            return self(p, datarow, metarow, model, margs).sum()
 
         rounds = int(np.ceil(len(datablock) / batch_size))
         out = 0.0
