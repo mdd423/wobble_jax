@@ -88,7 +88,7 @@ class Model:
         self.metadata = {}
 
     @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def __call__(self, p, x, meta, margs):
+    def __call__(self, p, x, meta, margs=()):
         """
         Call wrapper function. Checks if there are incoming parameters, if not uses fixed parameters.
         Then sends to self.call.
@@ -449,7 +449,7 @@ class ContainerModel(Model):
         self.create_param_bool()
 
     @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def __call__(self, p, x, meta, margs):
+    def __call__(self, p, x, meta, margs=()):
 
         if len(p) == 0:
             return self.call(jnp.array([]), x, meta, margs)
@@ -681,7 +681,7 @@ class CompositeModel(ContainerModel):
         f  = g_n(g_{n-1}(...g_1(g_0(x))))
     """
     @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def call(self, p, x, meta, margs):
+    def call(self, p, x, meta, margs=()):
         for k, model in enumerate(self.models):
             indices = self.get_indices(k)
             x = model(p[indices], x, meta, margs)
@@ -701,7 +701,7 @@ class AdditiveModel(ContainerModel):
         f  = g_n(x) + g_{n-1}(x) + ...g_1(x) + g_0(x)
     """
     @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def call(self, p, x, meta, margs):
+    def call(self, p, x, meta, margs=()):
         output = 0.0
         # PARALLELIZABLE
         for k, model in enumerate(self.models):
@@ -731,7 +731,7 @@ class EnvelopModel(Model):
         super(EnvelopModel, self).__init__()
         self.model = model
     @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def __call__(self,  p, x, meta, margs):
+    def __call__(self,  p, x, meta, margs=()):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
             return self.call(np.array([]), x, meta, margs)
@@ -808,7 +808,7 @@ class ConvolutionalModel(Model):
         else:
             self.p = p
     @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def call(self, p, x, meta, marg):
+    def call(self, p, x, meta, margs=()):
         y = jnp.convolve(x, p, mode="same")
         return y
 
@@ -828,12 +828,12 @@ class EpochSpecificModel(Model):
         self.n = n
         self._epoches = slice(0, n)
     @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def __call__(self, p, x, meta, marg):
+    def __call__(self, p, x, meta, margs=()):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
-            return self.call(self.p, x, meta, marg)
+            return self.call(self.p, x, meta, margs)
         else:
-            return self.call(p, x, meta, marg)
+            return self.call(p, x, meta, margs)
 
     def grid_search(self, grid, loss, model, data, device, epoches=None):
         """
@@ -1021,7 +1021,7 @@ class ShiftingModel(EpochSpecificModel):
         self.which_key = which_key
         super(ShiftingModel, self).__init__(epoches)
     @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def call(self, p, x, meta, marg):
+    def call(self, p, x, meta, margs=()):
 
         return x - p[meta[self.which_key]]
 
@@ -1047,7 +1047,7 @@ class StretchingModel(EpochSpecificModel):
         epoches = len(p)
         super(StretchingModel, self).__init__(epoches)
     @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def call(self, p, x, meta, margs):
+    def call(self, p, x, meta, margs=()):
 
         return p[meta[self.which_key]] * x
     
@@ -1127,7 +1127,7 @@ class CardinalSplineMixture(Model):
         else:
             self.p = jnp.zeros(xs.shape)
     @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def call(self, p, x, meta, margs):
+    def call(self, p, x, meta, margs=()):
 
         a = (self.p_val + 1) / 2
         y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
@@ -1208,7 +1208,7 @@ class FullCardinalSplineMixture(CardinalSplineMixture):
         else:
             self.p = jnp.zeros(xs.shape)
     @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def call(self, p, x, meta, margs):
+    def call(self, p, x, meta, margs=()):
 
         a = (self.p_val + 1) / 2
         y = p @ cardinal_vmap_matrix(x, self.xs, self.spline, a)
@@ -1251,7 +1251,7 @@ class NormalizationModel(Model):
         self.model_p_size = len(model.p)
         self.size = size
     @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def call(self, p, x, meta, margs):
+    def call(self, p, x, meta, margs=()):
 
         x = self.model.call(
             (p.reshape(self.size, self.model_p_size)[meta[self.which_key]]).flatten(),
