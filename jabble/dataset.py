@@ -130,10 +130,10 @@ class DataBlock:
         self.meta_keys = frozendict(keys)
 
     def ele(self, i, device):
-        return dict_ele(self.datablock, i, device)
+        return frozendict(dict_ele(self.datablock, i, device))
 
     def slice(self, i, j, device):
-        return dict_slice(self.datablock, i, j, device)
+        return frozendict(dict_slice(self.datablock, i, j, device))
     
     def __len__(self):
         return self.datablock["xs"].shape[0]
