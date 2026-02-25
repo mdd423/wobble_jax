@@ -10,7 +10,6 @@ import jax.scipy.optimize
 import scipy.signal as signal
 import scipy.constants
 from functools import partial
-from jax import jit
 import h5py
 
 import copy
