@@ -272,12 +272,12 @@ def train_norm(model, dataset, loss, device_store, device_op, batch_size,\
         res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)
         print(res1)
         model.fix()
-        datablock = dataset.blockify(device_op)
+        _,metablock = dataset.blockify(device_op)
         for data_epoch in range(len(dataset)):
 
             mask    = dataset[data_epoch].mask
-            datarow = datablock.ele(data_epoch,device_op)
-            resid = dataset[data_epoch].ys - model([],dataset[data_epoch].xs,datarow['meta'])
+            metarow = metablock.index(data_epoch).to_device(device_op)
+            resid = dataset[data_epoch].ys - model([],dataset[data_epoch].xs,metarow)
             sigma = np.sqrt(np.nanmedian(resid**2))
             m_new = (resid < -nsigma[0]*sigma) | (resid > nsigma[1]*sigma)
             dataset[data_epoch].mask = mask | m_new[:len(mask)]
