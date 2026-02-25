@@ -440,7 +440,7 @@ class ContainerModel(Model):
         )
         self.create_param_indices()
 
-    # @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    @partial(jax.jit, static_argnums=(0, 4))
     def __call__(self, p, x, meta, margs=()):
 
         if len(p) == 0:
@@ -655,7 +655,7 @@ class CompositeModel(ContainerModel):
     .. math::
         f  = g_n(g_{n-1}(...g_1(g_0(x))))
     """
-    # @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    @partial(jax.jit, static_argnums=(0, 4))
     def call(self, p, x, meta, margs=()):
         for k, model in enumerate(self.models):
             indices = self.get_indices(k)
@@ -675,7 +675,7 @@ class AdditiveModel(ContainerModel):
     .. math::
         f  = g_n(x) + g_{n-1}(x) + ...g_1(x) + g_0(x)
     """
-    # @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    @partial(jax.jit, static_argnums=(0, 4))
     def call(self, p, x, meta, margs=()):
         output = 0.0
         # PARALLELIZABLE
@@ -1029,7 +1029,7 @@ class StretchingModel(EpochSpecificModel):
 
 import jabble.cardinalspline
 
-@partial(jit, static_argnums=[3, 4])
+@partial(jax.jit, static_argnums=[3, 4])
 def cardinal_vmap_model(x, xp, ap, basis, a):
     """
     Evaluates cardinal basis using vmap design matrix.
