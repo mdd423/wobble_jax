@@ -6,7 +6,7 @@ import jax.experimental.sparse
 
 # import jaxopt
 
-import scipy.optimize
+import jax.scipy.optimize
 import scipy.signal as signal
 import scipy.constants
 from functools import partial
