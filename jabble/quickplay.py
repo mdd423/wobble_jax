@@ -236,7 +236,7 @@ def get_normalization_model(dataset, norm_p_val, norm_pts):
     return jabble.model.ShiftingModel(shifts).composite(norm_model)
 
 def train_norm(model, dataset, loss, device_store, device_op, batch_size,\
-               nsigma = [0.5,2], maxiter=3,options={"maxiter": 64,"factr": 1e4},norm_model_index=[2,1]):
+               nsigma = [0.5,2], maxiter=3,options={"maxiter": 64},norm_model_index=[2,1]):
     '''
     Train Normalization Model with Sigma Clipping
     Parameters
@@ -285,7 +285,7 @@ def train_norm(model, dataset, loss, device_store, device_op, batch_size,\
     return model
 
 def train_cycle(model, dataset, loss, device_store, device_op, \
-                batch_size, options = {"maxiter": 100_000,"factr": 1.0e-1},parabola_fit=False):
+                batch_size, options = {"maxiter": 100_000},parabola_fit=False):
     '''
     Full Training Cycle for Wobble Model
     1) Fit Stellar and Telluric Templates
