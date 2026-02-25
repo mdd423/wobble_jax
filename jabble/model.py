@@ -87,7 +87,7 @@ class Model:
 
         self.metadata = {}
 
-    # @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    @partial(jax.jit, static_argnums=(0, 4))
     def __call__(self, p, x, meta, margs=()):
         """
         Call wrapper function. Checks if there are incoming parameters, if not uses fixed parameters.
