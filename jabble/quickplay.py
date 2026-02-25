@@ -316,6 +316,14 @@ def train_cycle(model, dataset, loss, device_store, device_op, \
     model : `jabble.Model`
         Trained model
     '''
+    # Fit Stellar Template
+    model.fix()
+    model.fit(0,1)
+    model.display()
+
+    res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)#model.optimize(loss, dataset)
+    print(res1)
+
     # Fit Stellar & Telluric Template
     model.fix()
     model.fit(0,1)
