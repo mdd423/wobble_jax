@@ -82,8 +82,8 @@ class Model:
     def __init__(self, *args, **kwargs):
         self._fit = False
 
-        self.results = np.empty(shape=(0),dtype=[('task', 'U64'), ('nit', int), ('funcalls',int),('warnflag',int),\
-                                                ('value',np.double),('loss','U64')])
+        self.results = np.empty(shape=(0),dtype=[('success', bool), ('status', int),\
+                                                ('fun',np.double), ('nfev',int), ('njev',int), ('nit',int),('loss','U64')])
 
         self.metadata = {}
 
@@ -146,7 +146,7 @@ class Model:
 
     def optimize(self, loss, data, device_store, device_op, batch_size, options={}):
         """
-        Choosen optimizer for jabble is scipy.fmin_l_bfgs_b.
+        Choosen optimizer for jabble is jax.scipy.optimize.minimize 'bfgs'.
         optimizes all parameters in fit mode with respect to the loss function using jabble.Dataset
 
         Parameters
@@ -169,31 +169,24 @@ class Model:
             Results from scipy.fmin_l_bgs_b call
         """
 
-        func_grad = jax.value_and_grad(loss.loss_all, argnums=0)
-
-        def val_gradient_function(p, *args):
-            val, grad = func_grad(p, *args)
-
-            return np.array(val, dtype="f8"), np.array(grad, dtype="f8")
-
         # blockify dataset
-        datablock = data.blockify(device_store)
+        datablock,metablock = data.blockify(device_store)
 
         ##########################################################
         loss.ready_indices(self)
-        x, f, d = scipy.optimize.fmin_l_bfgs_b(
-            val_gradient_function,
-            self.get_parameters(),
-            None,
-            (datablock, self, device_op, batch_size),
-            **options,
+        result = jax.scipy.optimize.minimize(
+            loss.loss_all,
+            x0=self.get_parameters(),
+            method='BFGS',
+            args=(datablock, metablock, self, device_op, batch_size),
+            options=options,
         )
-
-        self.results = np.append(self.results, np.array([(d['task'],d['nit'],d['funcalls'],d['warnflag'],f,repr(loss)),],\
-                                                        dtype=[('task', 'U64'), ('nit', int), ('funcalls',int),('warnflag',int),\
-                                                               ('value',np.double),('loss','U64')]), axis=0) 
-        self._unpack(jax.device_put(jnp.array(x), device_op))
-        return d
+        # print(result)
+        self.results = np.append(self.results, np.array([(result.success,result.status,result.fun,result.nfev,result.njev,result.nit,repr(loss)),],\
+                                                        dtype=[('success', bool), ('status', int),\
+                                                               ('fun',np.double), ('nfev',int), ('njev',int), ('nit',int),('loss','U64')]), axis=0) 
+        self._unpack(jax.device_put(jnp.array(result.x), device_op))
+        return result
 
     def __add__(self, x):
         if isinstance(x, AdditiveModel):
@@ -431,7 +424,7 @@ class ContainerModel(Model):
             self._parameters_per_model = self._parameters_per_model.at[i].set(
                 len(self.models[i].get_parameters())
             )
-        self.create_param_bool()
+        self.create_param_indices()
 
     def append(self, model):
         """
@@ -446,7 +439,7 @@ class ContainerModel(Model):
         self._parameters_per_model = jnp.concatenate(
             (self._parameters_per_model, len(model.get_parameters()))
         )
-        self.create_param_bool()
+        self.create_param_indices()
 
     # @partial(jax.jit, static_argnums=(0, 2, 3, 4))
     def __call__(self, p, x, meta, margs=()):
@@ -486,25 +479,23 @@ class ContainerModel(Model):
                 params.shape[0]
             )
             x = jnp.concatenate((x, params))
-        self.create_param_bool()
+        self.create_param_indices()
         return x
 
-    def create_param_bool(self):
-        self._param_bool = np.zeros((self.size, int(np.sum(self._parameters_per_model))))
+    def create_param_indices(self):
+        self._param_indices = []
         for i in range(self.size):
-            self._param_bool[
-                i,
-                int(jnp.sum(self._parameters_per_model[:i])) : int(
-                    jnp.sum(self._parameters_per_model[: i + 1])
-                ),
-            ] = jnp.ones(
-                (
-                    int(jnp.sum(self._parameters_per_model[: i + 1]))
-                    - int(jnp.sum(self._parameters_per_model[:i]))
-                ),
-                dtype=bool,
-            )
-        self._param_bool = jnp.array(self._param_bool, dtype=bool)
+            start = int(jnp.sum(self._parameters_per_model[:i]))
+            stop = int(jnp.sum(self._parameters_per_model[:i+1]))
+            self._param_indices.append(jnp.arange(start, stop))
+
+    def get_indices(self, i):
+        return self._param_indices[i]
+
+    def split_p(self, p):
+        p_list = [p[self.get_indices(k)] for k in range(len(self._parameters_per_model))]
+
+        return p_list
 
     def fit(self, i=None, *args):
         """
@@ -526,7 +517,7 @@ class ContainerModel(Model):
             self._parameters_per_model = self._parameters_per_model.at[i].set(
                 self[i].get_parameters().shape[0]
             )
-        self.create_param_bool()
+        self.create_param_indices()
 
     def fix(self, i=None, *args):
         """
@@ -544,7 +535,7 @@ class ContainerModel(Model):
         else:
             self[i].fix(*args)
             self._parameters_per_model = self._parameters_per_model.at[i].set(0)
-        self.create_param_bool()
+        self.create_param_indices()
 
     def to_device(self, device):
         """
@@ -563,27 +554,12 @@ class ContainerModel(Model):
             model.display(string)
             string = string[: -len(tab)]
 
-    def split_p(self, p):
-        p_list = [p[self.get_indices(k)] for k in range(len(self._parameters_per_model))]
-
-        return p_list
-
     def copy(self):
         return self.__class__(models=copy.deepcopy(self.models))
 
     def save_history(self, p):
         for i, model in enumerate(self.models):
             model.save_history(p[self.get_indices(i)])
-
-    def get_indices(self, i):
-        """
-        Get array of ints for the ith submodel, in models list using parameters_per_model
-        Returns
-        -------
-        indices : 'np.ndarray(int)`
-            Array of indices for the parameters in the ith model that is in fitting mode
-        """
-        return self._param_bool[i]
 
     def save_hdf(self,file,index=[]):
         
@@ -827,7 +803,7 @@ class EpochSpecificModel(Model):
         super(EpochSpecificModel, self).__init__()
         self.n = n
         self._epoches = slice(0, n)
-    # @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    @partial(jax.jit, static_argnums=(0, 4))
     def __call__(self, p, x, meta, margs=()):
         # if there are no parameters coming in, then use the stored parameters
         if len(p) == 0:
@@ -1020,7 +996,7 @@ class ShiftingModel(EpochSpecificModel):
         epoches = len(p)
         self.which_key = which_key
         super(ShiftingModel, self).__init__(epoches)
-    # @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    @partial(jax.jit, static_argnums=(0, 4))
     def call(self, p, x, meta, margs=()):
 
         return x - p[meta[self.which_key]]
@@ -1046,7 +1022,7 @@ class StretchingModel(EpochSpecificModel):
         self.which_key = which_key
         epoches = len(p)
         super(StretchingModel, self).__init__(epoches)
-    # @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    @partial(jax.jit, static_argnums=(0, 4))
     def call(self, p, x, meta, margs=()):
 
         return p[meta[self.which_key]] * x
@@ -1126,7 +1102,7 @@ class CardinalSplineMixture(Model):
                 )
         else:
             self.p = jnp.zeros(xs.shape)
-    # @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    @partial(jax.jit, static_argnums=(0, 4))
     def call(self, p, x, meta, margs=()):
 
         a = (self.p_val + 1) / 2
@@ -1207,7 +1183,7 @@ class FullCardinalSplineMixture(CardinalSplineMixture):
                 )
         else:
             self.p = jnp.zeros(xs.shape)
-    # @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    @partial(jax.jit, static_argnums=(0, 4))
     def call(self, p, x, meta, margs=()):
 
         a = (self.p_val + 1) / 2
@@ -1250,7 +1226,7 @@ class NormalizationModel(Model):
         self.which_key = which_key
         self.model_p_size = len(model.p)
         self.size = size
-    # @partial(jax.jit, static_argnums=(0, 2, 3, 4))
+    @partial(jax.jit, static_argnums=(0, 4))
     def call(self, p, x, meta, margs=()):
 
         x = self.model.call(

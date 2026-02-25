@@ -12,7 +12,7 @@ import jax
 import jabble.loss
 import jabble.model
 
-from frozendict import frozendict
+# from frozendict import frozendict
 
 def fit_continuum_jabble(x, y, ivars, device_store, device_op, norm_p_val, norm_res, nsigma=[0.8,3.0], maxniter=50,options={}):
     """Fit the continuum using sigma clipping
@@ -105,42 +105,42 @@ def fit_continuum(x, y, ivars, order=6, nsigma=[0.3,3.0], maxniter=50):
             break
         m = m_new
     return mu
-
-def dict_slice(dictionary, slice_i, slice_j, device):
-    out = {}
-    for key in dictionary:
-        if isinstance(dictionary[key], dict):
-            out[key] = dict_slice(dictionary[key], slice_i, slice_j, device)
-        else:
-            out[key] = jax.device_put(dictionary[key][slice_i:slice_j], device)
-    return out
-
-def dict_ele(dictionary, slice_i, device):
-    out = {}
-    for key in dictionary:
-        if isinstance(dictionary[key], dict):
-            out[key] = dict_ele(dictionary[key], slice_i, device)
-        else:
-            out[key] = jax.device_put(dictionary[key][slice_i], device)
-    return out
         
-
 class DataBlock:
-    def __init__(self, datablock: dict, keys: dict):
-        self.datablock = datablock
-        self.meta_keys = keys
-
-    def ele(self, i, device):
-        return dict_ele(self.datablock, i, device)
-
-    def slice(self, i, j, device):
-        return dict_slice(self.datablock, i, j, device)
+    def __init__(self,**kwargs):
+        self.__dict__.update(kwargs)
     
+    def __hash__(self):
+        return id(self)
+    
+    def __eq__(self, other):
+        return self is other
+
+    def __getitem__(self, key):
+        return self.__dict__[key]
+
     def __len__(self):
-        return self.datablock["xs"].shape[0]
+        return self.__dict__[list(self.__dict__.keys())[0]].shape[0]
     
-    # def __getattribute__(self, name):
-    #     return self.datablock[name]
+    def slice(self, start, stop):
+        return DataBlock(**{k: v[start:stop] for k, v in self.__dict__.items()})
+    
+    def index(self, i):
+        return DataBlock(**{k: v[i] for k, v in self.__dict__.items()})
+
+    def to_device(self,device):
+        for key in self.__dict__.keys():
+            self.__dict__[key]  = jax.device_put(self.__dict__[key], device)
+        return self
+            
+
+# register so JAX can vmap over it
+jax.tree_util.register_pytree_node(
+    DataBlock,
+    lambda x: (list(x.__dict__.values()), list(x.__dict__.keys())),  # flatten
+    lambda keys, vals: DataBlock(**dict(zip(keys, vals)))               # unflatten
+)
+
 
 @dataclass
 class Data:
@@ -187,7 +187,7 @@ class Data:
         for dataframe in self.dataframes:
             dataframe.to_device(device)
 
-    def blockify(data, device=None, return_keys=False):
+    def blockify(data, device=None):
         if device is None:
             device = data[0].xs.device
         max_ind = np.max([len(dataframe.xs) for dataframe in data])
@@ -214,17 +214,10 @@ class Data:
         datablock["yivar"] = yivar
         datablock["mask"] = mask
 
-        # datablock = np.array([*zip(xs,ys,yivar,mask)],\
-        #                      dtype=[("xs",np.double,(xs.shape[1])),("ys",np.double,(xs.shape[1])),\
-        #                             ("yivar",np.double,(xs.shape[1])),("mask",np.double,(xs.shape[1]))])
-        # rv_array = np.array([*zip(comb_rv,comb_err,comb_time)],dtype=[("RV_comb",np.double),("RV_err_comb",np.double),("Time_comb",np.double)])
-    
         ###########################################################
 
-        meta_keys = {}
-
         index_span = np.arange(0, len(data), dtype=int)
-        datablock['meta'] = {"index": index_span}
+        metablock = {"index": index_span}
         for key in data.metadata:
             if key in data.metakeys:
                 epoch_indices = np.zeros(index_span.shape)
@@ -236,11 +229,10 @@ class Data:
                     data.metadata[key], return_inverse=True
                 )
             
-            meta_keys[key] = epoch_uniques
-            datablock['meta'][key] = epoch_indices.astype(int)
+            data.metakeys[key] = epoch_uniques
+            metablock[key] = epoch_indices.astype(int)
 
-        return DataBlock(datablock, meta_keys)
-
+        return DataBlock(**datablock), DataBlock(**metablock)
 
 class DataFrame:
     def __init__(self, xs: jnp.array, ys: jnp.array, yivar: jnp.array, mask: jnp.array):
