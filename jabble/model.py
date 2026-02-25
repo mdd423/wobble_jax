@@ -164,8 +164,8 @@ class Model:
             Options to pass to the optimizer
         Returns
         ----------
-        d : `dict`
-            Results from scipy.fmin_l_bgs_b call
+        result : `OptimizeResult`
+            Results from jaxscipy.optimize.minimize call using the BFGS method
         """
 
         # blockify dataset
