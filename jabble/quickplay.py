@@ -276,7 +276,7 @@ def train_norm(model, dataset, loss, device_store, device_op, batch_size,\
         for data_epoch in range(len(dataset)):
 
             mask    = dataset[data_epoch].mask
-            metarow = metablock.index(data_epoch).to_device(device_op)
+            metarow = metablock.ele(data_epoch).to_device(device_op)
             resid = dataset[data_epoch].ys - model([],dataset[data_epoch].xs,metarow)
             sigma = np.sqrt(np.nanmedian(resid**2))
             m_new = (resid < -nsigma[0]*sigma) | (resid > nsigma[1]*sigma)

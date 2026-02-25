@@ -125,7 +125,7 @@ class DataBlock:
     def slice(self, start, stop):
         return DataBlock(**{k: v[start:stop] for k, v in self.__dict__.items()})
     
-    def index(self, i):
+    def ele(self, i):
         return DataBlock(**{k: v[i] for k, v in self.__dict__.items()})
 
     def to_device(self,device):
