@@ -394,7 +394,7 @@ def get_RV_sigmas(model, dataset, device=None, rv_ind = [0,0]):
 
 def get_loss_array(model,datablock,metablock,loss,device):
     loss.ready_indices(model)
-    loss_array = np.zeros((datablock.datablock['xs'].shape))
+    loss_array = np.zeros((datablock['xs'].shape))
     for jjj in range(datablock.datablock['xs'].shape[0]):
         datarow = datablock.ele(jjj).to_device(device)
         metarow = metablock.ele(jjj).to_device(device)
