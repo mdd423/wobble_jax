@@ -396,9 +396,9 @@ def get_loss_array(model,datablock,metablock,loss,device):
     loss.ready_indices(model)
     loss_array = np.zeros((datablock.datablock['xs'].shape))
     for jjj in range(datablock.datablock['xs'].shape[0]):
-        datarow = datablock.ele(jjj,device)
-        # metarow = jabble.loss.dict_ele(metablock,jjj,device)
-        loss_array[jjj,:] = loss(model.get_parameters(),datarow,model)
+        datarow = datablock.ele(jjj).to_device(device)
+        metarow = metablock.ele(jjj).to_device(device)
+        loss_array[jjj,:] = loss(model.get_parameters(),datarow,model,meta=metarow)
     return loss_array
     
 def save(self, filename: str, dataname: str, data, shifts, loss, device, rv_ind) -> None:
