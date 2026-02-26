@@ -359,7 +359,7 @@ class Model:
         model.fit()
         model.display()
 
-        datablock = data.blockify(device)
+        datablock,metablock = data.blockify(device)
         # def _internal(self, p, datarow, metarow, model, *args)
         #     return loss(self, p, datarow, metarow, model, *args)
         dfdt = jax.jacfwd(model, argnums=0)
@@ -367,17 +367,18 @@ class Model:
         curvature_all = np.zeros((len(data),datablock.datablock['xs'].shape[1], len(model.get_parameters())))
 
         for i in range(len(data)):
-            datarow = datablock.ele(i,device)
+            datarow = datablock.ele(i).to_device(device)
+            metarow = metablock.ele(i).to_device(device)
         
             curvature_all[i,:,:] = jnp.where(~datarow["mask"][:, None]*\
                                     np.ones(len(model.get_parameters()))[None, :],
-                (dfdt(model.get_parameters(), datarow["xs"], datarow['meta'])),
+                (dfdt(model.get_parameters(), datarow["xs"], metarow)),
                 0.0
             )
 
         f_info = np.zeros((len(model.get_parameters()),len(model.get_parameters())))
         for i in range(len(data)):
-            datarow = datablock.ele(i, device)
+            datarow = datablock.ele(i).to_device(device)
             
             f_info += np.einsum('j,jn,jm->nm',datarow['yivar'][:],curvature_all[i,:,:],\
                         curvature_all[i,:,:])
@@ -851,21 +852,21 @@ class EpochSpecificModel(Model):
         if isinstance(model, jabble.model.ContainerModel):
             model.get_parameters()
 
-        datablock = data.blockify(device,return_keys=True)
+        datablock,metablock = data.blockify(device)
         def _internal(grid):
             Q = jnp.zeros((len(data)))
 
             for iii in range(len(Q)):
-                datarow = datablock.ele(iii,device)
-                # metarow = jabble.loss.dict_ele(metablock,iii,device)
+                datarow = datablock.ele(iii).to_device(device)
+                metarow = metablock.ele(iii).to_device(device)
                 
-                Q = Q.at[iii].set(loss(grid, datarow, model).sum().astype(np.double))
+                Q = Q.at[iii].set(loss(grid, datarow, model, meta=metarow).sum().astype(np.double))
 
-            uniques = np.unique(datablock.datablock['meta'][self.which_key])
+            uniques = np.unique(metablock[self.which_key])
 
             out = jnp.zeros(self.p.shape)
             for iii,unq in enumerate(uniques):
-                out = out.at[unq].set(Q[np.where(datablock.datablock['meta'][self.which_key] == unq)].sum())
+                out = out.at[unq].set(Q[np.where(metablock[self.which_key] == unq)].sum())
             return out
 
         loss_arr = jax.vmap(_internal, in_axes=(1), out_axes=1)(
@@ -965,7 +966,7 @@ class EpochSpecificModel(Model):
         self.fit()
         model.display()
 
-        datablock = data.blockify(device)
+        datablock,metablock = data.blockify(device)
         # def _internal(self, p, datarow, metarow, model, *args)
         #     return loss(self, p, datarow, metarow, model, *args)
         duddx = jax.jacfwd(model, argnums=0)
@@ -973,11 +974,12 @@ class EpochSpecificModel(Model):
 
         f_info = np.zeros((len(data), len(model.get_parameters())))
         for i in range(len(data)):
-            datarow = datablock.ele(i,device)
+            datarow = datablock.ele(i).to_device(device)
+            metarow = metablock.ele(i).to_device(device)
             # sum over pixels
             # assumes diagonal variance in pixel, and time
             f_info[i, :] += jnp.where(~datarow["mask"][:, None]*np.ones(len(model.get_parameters()))[None, :],
-                (duddx(model.get_parameters(), datarow["xs"], datarow['meta']) ** 2)
+                (duddx(model.get_parameters(), datarow["xs"], metarow) ** 2)
                 * datarow["yivar"][:, None],
                 0.0
             ).sum(axis=0)
