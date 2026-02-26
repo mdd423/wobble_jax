@@ -392,7 +392,7 @@ def get_RV_sigmas(model, dataset, device=None, rv_ind = [0,0]):
         )
         return np.sqrt(1 / f_info) * dvddx
 
-def get_loss_array(model,datablock,loss,device):
+def get_loss_array(model,datablock,metablock,loss,device):
     loss.ready_indices(model)
     loss_array = np.zeros((datablock.datablock['xs'].shape))
     for jjj in range(datablock.datablock['xs'].shape[0]):
@@ -422,7 +422,7 @@ def save(self, filename: str, dataname: str, data, shifts, loss, device, rv_ind)
             head, tail = os.path.split(filename)
             file.attrs['model'] = filename
 
-            loss_array = get_loss_array(self,datablock,loss,device)
+            loss_array = get_loss_array(self,datablock,metablock,loss,device)
             file.create_dataset("Loss",data=loss_array)
 
             head,tail = os.path.split(dataname)
