@@ -398,7 +398,7 @@ def get_loss_array(model,datablock,metablock,loss,device):
     for jjj in range(datablock['xs'].shape[0]):
         datarow = datablock.ele(jjj).to_device(device)
         metarow = metablock.ele(jjj).to_device(device)
-        loss_array[jjj,:] = loss(model.get_parameters(),datarow,model,meta=metarow)
+        loss_array[jjj,:] = loss(model.get_parameters(),datarow,model,metarow=metarow)
     return loss_array
     
 def save(self, filename: str, dataname: str, data, shifts, loss, device, rv_ind) -> None:
