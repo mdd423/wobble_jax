@@ -81,8 +81,8 @@ class Model:
     def __init__(self, *args, **kwargs):
         self._fit = False
 
-        self.results = np.empty(shape=(0),dtype=[('success', bool), ('status', int),\
-                                                ('fun',np.double), ('nfev',int), ('njev',int), ('nit',int),('loss','U64')])
+        self.results = np.empty(shape=(0),dtype=[('task', 'U64'), ('funcalls', int),\
+                                                            ('nit',int), ('warnflag',int),('f',np.double),('loss','U64')])
 
         self.metadata = {}
 
@@ -164,8 +164,8 @@ class Model:
             Options to pass to the optimizer
         Returns
         ----------
-        result : `OptimizeResult`
-            Results from jaxscipy.optimize.minimize call using the BFGS method
+        d : `dict`
+            Results from scipy.fmin_l_bgs_b call
         """
 
         # blockify dataset
@@ -173,20 +173,21 @@ class Model:
 
         ##########################################################
         loss.ready_indices(self)
-        result = jax.scipy.optimize.minimize(
-            loss.loss_all,
+        
+        x,f,d = scipy.optimize.fmin_l_bfgs_b(
+            func=loss.loss_all,
+            fprime=jax.grad(loss.loss_all),
             x0=self.get_parameters(),
-            method='BFGS',
             args=(datablock, metablock, self, device_op, batch_size),
-            options=options,
+            **options,
         )
         # print(result)
-        self.results = np.append(self.results, np.array([(result.success,result.status,result.fun,result.nfev,result.njev,result.nit,repr(loss)),],\
-                                                        dtype=[('success', bool), ('status', int),\
-                                                               ('fun',np.double), ('nfev',int), ('njev',int), ('nit',int),('loss','U64')]), axis=0) 
-        self._unpack(jax.device_put(jnp.array(result.x), device_op))
-        return result
-
+        self.results = np.append(self.results, np.array([(d['task'],d['funcalls'],d['nit'],d['warnflag'],f,repr(loss)),],\
+                                                        dtype=[('task', 'U64'), ('funcalls', int),\
+                                                            ('nit',int), ('warnflag',int),('f',np.double),('loss','U64')]), axis=0) 
+        self._unpack(jax.device_put(jnp.array(x), device_op))
+        return x,f,d
+    
     def __add__(self, x):
         if isinstance(x, AdditiveModel):
             return AdditiveModel(models=[self, *x.models])
