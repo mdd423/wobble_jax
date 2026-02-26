@@ -21,6 +21,17 @@ import pickle  # 5 as pickle
 import jabble.dataset
 import jabble.physics
 
+def get_submodel_indices(self, i, j=None, *args):
+    # this recurses through submodels when given a set of indices to that submodel
+    # then returns of a bool array of the length of the total number of parameters
+    # of whole model
+    # with 1's at the parameters of the specific submodel, 0's elsewhere
+    s_temp = self.get_indices(i)
+    if j is not None:
+        temp = get_submodel_indices(self,j,*args)
+        s_inds = s_temp[temp]
+        return s_inds
+    return s_temp
 
 def save(filename, model):
     with open(filename, "wb") as output:  # Overwrites any existing file.

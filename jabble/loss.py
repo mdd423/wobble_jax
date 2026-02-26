@@ -1,4 +1,4 @@
-# import jabble.model as wobble_model
+import jabble.model
 import numpy as np
 import jax.numpy as jnp
 import jax
@@ -136,20 +136,6 @@ class L2Loss(LossFunc):
             0.0,
         )
 
-def get_submodel_indices(self, i, j=None, *args):
-    # this recurses through submodels when given a set of indices to that submodel
-    # then returns of a bool array of the length of the total number of parameters
-    # of whole model
-    # with 1's at the parameters of the specific submodel, 0's elsewhere
-    s_temp = self.get_indices(i)
-    if j is None:
-        return s_temp
-
-    s_inds = jnp.zeros(self.get_parameters().shape, dtype=bool)
-    temp = get_submodel_indices(self[i], j, *args)
-    s_inds = s_inds.at[s_temp].set(temp)
-    return s_inds
-
 
 class L2Reg(LossFunc):
     def __init__(self, submodel_inds=True, coefficient=1.0, constant=0.0):
@@ -159,7 +145,7 @@ class L2Reg(LossFunc):
         # self.indices       = get_submodel_indices(model,*self.submodel_inds)
 
     def ready_indices(self, model):
-        self.indices = get_submodel_indices(model, *self.submodel_inds)
+        self.indices = jabble.model.get_submodel_indices(model, *self.submodel_inds)
     @partial(jax.jit,static_argnums=(0,3,4,5))
     def __call__(self, p, datarow, metarow, model, margs=()):
         err = self.coefficient * 0.5 * ((p[self.indices] - self.constant) ** 2)
