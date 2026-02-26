@@ -860,7 +860,7 @@ class EpochSpecificModel(Model):
                 datarow = datablock.ele(iii).to_device(device)
                 metarow = metablock.ele(iii).to_device(device)
                 
-                Q = Q.at[iii].set(loss(grid, datarow, model, metarow=metarow).sum().astype(np.double))
+                Q = Q.at[iii].set(loss(grid, datarow, metarow, model).sum().astype(np.double))
 
             uniques = np.unique(metablock[self.which_key])
 
