@@ -367,30 +367,40 @@ def train_cycle(model, dataset, loss, device_store, device_op, \
     res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)#model.optimize(loss, dataset)
     print(res1)
 
+    # Fit Everything
+    model.fix()
+    model.fit(0,0)
+    model.fit(0,1)
+    model.fit(1,1)
+    model.display()
+
+    res1 = model.optimize(loss, dataset, device_store, device_op, batch_size, options=options)#model.optimize(loss, dataset)
+    print(res1)
+
     return model
 
 def get_RV_sigmas(model, dataset, device=None, rv_ind = [0,0]):
-        """
-        Return errorbar on radial velocities using fischer information
+    """
+    Return errorbar on radial velocities using fischer information
 
-        Parameters
-        ----------
-        dataset : `jabble.Dataset`
-            Data to be evaluated against
-        model : `jabble.Model`
-            Full model of data. If None, then just the stellar model(self) is used.
-        """
-        if device is None:
-            device = dataset[0].xs.device()
-        
-        rv_model = model
-        for xx in rv_ind:
-            rv_model = rv_model[xx] 
-        f_info = rv_model.f_info(model, dataset, device)
-        dvddx = jnp.array(
-            [jax.grad(jabble.physics.velocities)(x) for x in rv_model.p]
-        )
-        return np.sqrt(1 / f_info) * dvddx
+    Parameters
+    ----------
+    dataset : `jabble.Dataset`
+        Data to be evaluated against
+    model : `jabble.Model`
+        Full model of data. If None, then just the stellar model(self) is used.
+    """
+    if device is None:
+        device = dataset[0].xs.device()
+    
+    rv_model = model
+    for xx in rv_ind:
+        rv_model = rv_model[xx] 
+    f_info = rv_model.f_info(model, dataset, device)
+    dvddx = jnp.array(
+        [jax.grad(jabble.physics.velocities)(x) for x in rv_model.p]
+    )
+    return np.sqrt(1 / f_info) * dvddx
 
 def get_loss_array(model,datablock,metablock,loss,device):
     loss.ready_indices(model)

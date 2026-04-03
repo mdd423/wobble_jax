@@ -121,7 +121,7 @@ class ChiSquare(LossFunc):
 
         return self.coefficient * jnp.where(
             ~datarow.mask,
-            datarow.yivar
+            0.5 * datarow.yivar
             * (((datarow.ys - model(p, datarow.xs, metarow, margs)) ** 2)),
             0.0,
         )
