@@ -116,7 +116,7 @@ class LossSequential(LossFunc):
 
 
 class ChiSquare(LossFunc):
-    @partial(jax.jit,static_argnums=(0,3,4,5))
+    @partial(jax.jit,static_argnums=(0,4,5))
     def __call__(self, p, datarow, metarow, model, margs=()):
 
         return self.coefficient * jnp.where(
@@ -127,7 +127,7 @@ class ChiSquare(LossFunc):
         )
 
 class L2Loss(LossFunc):
-    @partial(jax.jit,static_argnums=(0,3,4,5))
+    @partial(jax.jit,static_argnums=(0,4,5))
     def __call__(self, p, datarow, metarow, model, margs=()):
 
         return self.coefficient * jnp.where(
@@ -146,7 +146,7 @@ class L2Reg(LossFunc):
 
     def ready_indices(self, model):
         self.indices = jabble.model.get_submodel_indices(model, *self.submodel_inds)
-    @partial(jax.jit,static_argnums=(0,3,4,5))
+    @partial(jax.jit,static_argnums=(0,4,5))
     def __call__(self, p, datarow, metarow, model, margs=()):
         err = self.coefficient * 0.5 * ((p[self.indices] - self.constant) ** 2)
         return err
@@ -160,7 +160,7 @@ class L2Reg(LossFunc):
         )
     
 class L1Reg(L2Reg):
-    @partial(jax.jit,static_argnums=(0,3,4,5))
+    @partial(jax.jit,static_argnums=(0,4,5))
     def __call__(self, p, datarow, metarow, model, margs=()):
         err = self.coefficient * jnp.abs(p[self.indices] - self.constant)
         return err
