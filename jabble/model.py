@@ -28,7 +28,7 @@ def get_submodel_indices(self, i, j=None, *args):
     # with 1's at the parameters of the specific submodel, 0's elsewhere
     s_temp = self.get_indices(i)
     if j is not None:
-        temp = get_submodel_indices(self,j,*args)
+        temp = get_submodel_indices(self[i],j,*args)
         s_inds = s_temp[temp]
         return s_inds
     return s_temp
@@ -496,7 +496,7 @@ class ContainerModel(Model):
 
     def create_param_indices(self):
         self._param_indices = []
-        for i in range(self.size):
+        for i in range(len(self.models)):
             start = int(jnp.sum(self._parameters_per_model[:i]))
             stop = int(jnp.sum(self._parameters_per_model[:i+1]))
             self._param_indices.append(jnp.arange(start, stop))
