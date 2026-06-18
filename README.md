@@ -8,9 +8,6 @@ To install a dev version, run...
 Then run,
 `cd wobble_jax`
 `pip install .`
-Or to install a stable release, run
-`pip install jabble`
-
 
 ## Quickplay
 For quick use, the quickplay module is made to create the models necessary for spectral template fitting and RV extraction. Use 'WobbleModel' for generating a model with stellar and telluric components. Or use 'PseudoNormalModel' to generate a model with stellar, telluric, and pseudo-normalizing components. 
@@ -21,11 +18,14 @@ Then use 'model.save' function to save the object parameters to hdf5 files. The 
 The primary application of this software is for RV extraction from 1d time-series spectra. The underlying models are more general, but using the functions in model.py you can get models specifically for this purpose. These functions will create models with three components if pseudo-normalization is needed and two components if no normalization is needed. The other two components 
 
 
+# Models in model.py
+There are basic 'Model's that do operations on incoming data, x, using parameters, p, and ContainerModels that don't have any parameters themselves but contain lists of other submodels. These operate in tree like structures where the ContainerModel plays the node and the submodels play the leaves. Each submodel has a '_fit' parameter that determines if the parameters will be passed to it when it is called. If 'False', then the model will use the saved model.p parameters. This means that differenet optimization schedules can be designed by setting a select group of submodels to fit mode then optimizing. To get all the parameters currently in '_fit' just call 'get_parameters'. This is exactly whats done in .optimize as the first step. The ContainerModel's will then split these parameters into those only necessary for each submodel.
+
 ## ContainerModels
 In the models.py, you will find two types of ContainerModels: Additive, and Composite.
 Additive runs each of its submodels on the input, then adds the results. Composite
-runs the input from each of its submodels in series.
+runs the input from each of its submodels in series. 
 
 ## SubModels
 In models.py, you will also find SubModels that can be used to compose some large model: Shifting,
-Stretching, Convolutional, and JaxLinear. The Shifting model takes the input and adds the same value to all the elements at a given epoch. This can be used to fit for the redshift in the wavelength. Stretching multiplies all values in the input by the same number at a given epoch. And JaxLinear uses linear interpolation between the input and its control points.
+Stretching, and CardinalMixtureModel. The Shifting model takes the input and adds the same value to all the elements at a given epoch. This can be used to fit for the redshift in the wavelength. Stretching multiplies all values in the input by the same number at a given epoch. And JaxLinear uses linear interpolation between the input and its control points.

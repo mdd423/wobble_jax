@@ -1,24 +1,23 @@
+from tokenize import group
+
 import numpy as np
 import math
 import jax
 import jax.numpy as jnp
+from datetime import datetime
 import jax.experimental.sparse
 
 # import jaxopt
 
 import jax.scipy.optimize
-import scipy.signal as signal
 import scipy.constants
 from functools import partial
 import h5py
 
 import copy
-
-import astropy.constants as const
 import logging
 
 import pickle  # 5 as pickle
-import jabble.dataset
 import jabble.physics
 
 def get_submodel_indices(self, i, j=None, *args):
@@ -33,17 +32,44 @@ def get_submodel_indices(self, i, j=None, *args):
         return s_inds
     return s_temp
 
-def save(filename, model):
-    with open(filename, "wb") as output:  # Overwrites any existing file.
-        pickle.dump(model, output, pickle.HIGHEST_PROTOCOL)
-
-
 def load(filename):
-    with open(filename, "rb") as input:  # Overwrites any existing file.
-        model = pickle.load(input)
-        return model
+    with h5py.File(filename, 'r') as hf:
+        for key in hf.keys():
+            if key == 'metadata':
+                metadata = {}
+                metagroup = hf['metadata']
+                for key in metagroup.keys():
+                    # print(h5py.check_string_dtype(metagroup[key].dtype))
+                    if h5py.check_string_dtype(metagroup[key].dtype) is not None:
+                        metadata[key] = np.array(metagroup[key].asstr()[:], dtype=str)
+                    else:   
+                        metadata[key] = np.array(metagroup[key][:])
+                    
+            obj_name = key.split('/')[-1]
+            obj_name = obj_name.split('_')[0]
+            # print(obj_name,dir('__file__'))
+            if obj_name in dir(jabble.model):
+                model = eval(obj_name).load(hf[key])
+        model.metadata = metadata
+    return model
 
-
+def save(filename,model,header={}):
+    with h5py.File(filename, 'w') as hf:
+        obj_name = model.__class__.__name__
+        group = hf.create_group(obj_name)
+        model.save(group)
+        
+        hf.attrs['date_created'] = datetime.now().isoformat()
+        for key in header.keys():
+            hf.attrs[key] = header[key]
+            
+        metagroup = hf.create_group('metadata')
+        for key in model.metadata.keys():
+            if model.metadata[key].dtype.kind in {'U', 'S'}:
+                metagroup.create_dataset(key,data=np.char.encode(model.metadata[key], 'utf-8'))
+            else:
+                metagroup.create_dataset(key,data=model.metadata[key])
+            
 def create_x_grid(xs, vel_padding, resolution):
     """
     Get grid in log wavelength space with equally spaced steps at speed of light over the resolution,
@@ -293,51 +319,6 @@ class Model:
     def copy(self):
         return copy.deepcopy(self)
 
-    def save(self,filename: str, mode: str) -> None:
-        
-        if mode == "hdf":
-            with h5py.File(filename + "." + mode,'w') as file:
-                self.save_hdf(file)
-        elif mode == "pkl":
-            with open(filename + "." + mode, "wb") as output:  # Overwrites any existing file.
-                pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
-
-    def save_hdf(self,file,index=[]):
-        ind_str = ""
-        for x in index:
-            ind_str += '[{}]'.format(x)
-        # print(ind_str + self.__class__.__name__)
-        group = file.create_group(ind_str + self.__class__.__name__)
-        # for key in self.__dict__:
-        #     if key[0] != "_":
-                # print(key)
-        if len(self.results) > 0:
-            res_group = file.create_group('results')
-            for item in self.results.dtype.names:
-                if self.results[item].dtype == '<U64':
-                    res_group.attrs[item] = np.array(self.results[item], dtype=h5py.string_dtype(encoding='utf-8'))
-                else:
-                    res_group.create_dataset(item,data=self.results[item])
-        if len(self.metadata) > 0:
-            meta_group = file.create_group('metadata')
-            for key in self.metadata.keys():
-                meta_group.create_dataset(key,data=self.metadata[key])
-        try:
-            group.create_dataset("p",data=self.p)
-        except AttributeError:
-            pass
-        # for key in self.__dict__:
-        #     if key != "models":
-        #         print(key)
-        #         if self.__dict__[key]:
-                    
-        #             group.create_dataset(key, data=self.__dict__[key])
-        return group
-    
-    def load_hdf(cls,group):
-
-        return cls(p=group["p"])
-
     def fisher_full(model, data, device):
         """
         Get full fischer information on parameters of the model.
@@ -414,6 +395,13 @@ class Model:
         model.fix()
         return dypdt @ covar @ dyqdt.transpose()
 
+    def save(self,hf):
+        pass
+
+    def load(hf):
+        obj_name = hf.name.split('/')[-1].split('_')[0]
+        model = eval(obj_name)()
+        return model
 
 class ContainerModel(Model):
     """
@@ -573,26 +561,25 @@ class ContainerModel(Model):
         for i, model in enumerate(self.models):
             model.save_history(p[self.get_indices(i)])
 
-    def save_hdf(self,file,index=[]):
+    def save(self,hf):
         
-        # group = file.create_group(self.__class__.__name__)
-        group = super().save_hdf(file,index)
-        for i,model in enumerate(self.models):
-            model.save_hdf(group,index=index+[i])
-        return group
-    
-    def load_hdf(cls,group):
-        model_list = []
-        for key in group.keys():
-            cls_sub = eval(key.split(']')[-1])
-            # print(group[key].keys())
-            model_list.append(cls_sub.load_hdf(cls_sub,group[key]))
-        return cls(model_list)
+        iteration = 0
+        for model in self.models:
+            while model.__class__.__name__ + f'_{iteration}' in hf.keys():
+                iteration += 1
+            subgroup = hf.create_group(model.__class__.__name__ + f'_{iteration}',track_order=True)
+            model.save(subgroup)
 
-    
+    def load(hf):
+        models = []
+        for group_key in hf.keys():
+            obj_name = hf[group_key].name.split('/')[-1]
+            obj_name = obj_name.split('_')[0]
+            models.append(eval(obj_name).load(hf[group_key]))
+            
+        obj_name = hf.name.split('/')[-1].split('_')[0]
+        return eval(obj_name)(models)
 
-        # model that have submodels can be defined by nested lists, split_p will split a length A+N array into A and N
-    
     def tree_sum(model,p_list,reduce_index):
         '''where A and N are the length of the parameters, theta of submodels. If a submodel is container of containers 
         like fs(g(x|theta_a)|theta_n) + ft(g(x|theta_b)|theta_m)
@@ -710,97 +697,6 @@ class AdditiveModel(ContainerModel):
             return AdditiveModel(models=[*self.models, x])
 
 
-class EnvelopModel(Model):
-    """
-    EnvelopModel similar to ContainerModel but only containers one submodel.
-    """
-
-    def __init__(self, model):
-        super(EnvelopModel, self).__init__()
-        self.model = model
-    # @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def __call__(self,  p, x, meta, margs=()):
-        # if there are no parameters coming in, then use the stored parameters
-        if len(p) == 0:
-            return self.call(np.array([]), x, meta, margs)
-        else:
-            return self.call(p, x, meta, margs)
-
-    def __getitem__(self, i):
-        return self.model[i]
-
-    def fit(self, *args):
-        self.model.fit(*args)
-
-    def fix(self, *args):
-        self.model.fix(*args)
-
-    def to_device(self, device):
-        """
-        Move all parameters to given device
-        """
-        self.p = jax.device_put(self.model.p, device)
-
-    def _unpack(self, p):
-        self.model._unpack(p)
-
-    def get_parameters(self):
-        return self.model.get_parameters()
-
-    def display(self, string=""):
-        super(EnvelopModel, self).display(string)
-        tab = "  "
-        string += tab
-        self.model.display(string)
-        string = string[: -len(tab)]
-
-    def split_p(self, p):
-        return self.model.split_p(p)
-
-
-class JaxEnvLinearModel(EnvelopModel):
-    """
-    Applies jax interpolation to the incoming parameters, then hands them to the submodel.
-    .. math::
-        f = g(j(p),x)
-    """
-
-    def __init__(self, xs, model, p=None):
-        super(JaxEnvLinearModel, self).__init__(model)
-        self.xs = xs
-        if p is not None:
-            if p.shape == self.xs.shape:
-                self.p = p
-            else:
-                logging.error(
-                    "p {} must be the same shape as x_grid {}".format(p.shape, xs.shape)
-                )
-        else:
-            self.p = jnp.zeros(xs.shape)
-
-    def call(self, p, x, i, *args):
-        ys = self.model(p, self.xs, i, *args)
-        y = jax.numpy.interp(x, self.xs, ys)
-        return y
-
-
-class ConvolutionalModel(Model):
-    """
-    Model that convolves the input, x, with parameters, p, using jax function.
-    """
-
-    def __init__(self, p=None, *args, **kwargs):
-        super(ConvolutionalModel, self).__init__()
-        if p is None:
-            self.p = jnp.array([0, 1, 0])
-        else:
-            self.p = p
-    # @partial(jax.jit, static_argnums=(0, 2, 3, 4))
-    def call(self, p, x, meta, margs=()):
-        y = jnp.convolve(x, p, mode="same")
-        return y
-
-
 class EpochSpecificModel(Model):
     """
     Subset of Models that have only have one parameter associated with each epoch, i.
@@ -811,10 +707,14 @@ class EpochSpecificModel(Model):
         Number of epochs
     """
 
-    def __init__(self, n, *args, **kwargs):
+    def __init__(self, p, which_key='index', *args, **kwargs):
         super(EpochSpecificModel, self).__init__()
-        self.n = n
-        self._epoches = slice(0, n)
+        self.n = len(p)
+        self._epoches = slice(0, self.n)
+        self.p = jnp.array(p)
+        
+        self.which_key = which_key
+
     @partial(jax.jit, static_argnums=(0, 4))
     def __call__(self, p, x, meta, margs=()):
         # if there are no parameters coming in, then use the stored parameters
@@ -988,6 +888,13 @@ class EpochSpecificModel(Model):
         # sum over datarows
         return f_info.sum(axis=0)
 
+    def save(self, group):
+        group.create_dataset('p', data=self.p)
+        group.create_dataset('which_key', data=self.which_key, dtype=h5py.string_dtype(encoding='utf-8'))
+
+    def load(hf):
+        obj_name = hf.name.split('/')[-1].split('_')[0]
+        return eval(obj_name)(p=jnp.array(hf['p']), which_key=str(hf['which_key'][()].decode('utf-8'))) 
 
 class ShiftingModel(EpochSpecificModel):
     """
@@ -1002,13 +909,6 @@ class ShiftingModel(EpochSpecificModel):
     which_key : `str`
         Key in the metadata dictionary to use for epoch indexing.
     """
-
-    def __init__(self, p,which_key='index' ,*args, **kwargs):
-    
-        self.p = jnp.array(p)
-        epoches = len(p)
-        self.which_key = which_key
-        super(ShiftingModel, self).__init__(epoches)
     @partial(jax.jit, static_argnums=(0, 4))
     def call(self, p, x, meta, margs=()):
 
@@ -1028,13 +928,6 @@ class StretchingModel(EpochSpecificModel):
     which_key : `str`
         Key in the metadata dictionary to use for epoch indexing.
     """
-
-    def __init__(self, p, which_key='index',*args, **kwargs):
-        
-        self.p = jnp.array(p)
-        self.which_key = which_key
-        epoches = len(p)
-        super(StretchingModel, self).__init__(epoches)
     @partial(jax.jit, static_argnums=(0, 4))
     def call(self, p, x, meta, margs=()):
 
@@ -1122,16 +1015,14 @@ class CardinalSplineMixture(Model):
         y = cardinal_vmap_model(x, self.xs, p, self.spline, a)
         return y
     
-    def save_hdf(self,file,index):
-        group = super(CardinalSplineMixture,self).save_hdf(file,index)
-        group.create_dataset("xs",data = self.xs)
-        group.create_dataset("alphas", data = self.spline.alphas)
-        group.create_dataset("p_val",data= self.p_val)
-        return group
-    
-    def load_hdf(cls,group):
+    def save(self,group):
+        group.create_dataset('p',data=self.p)
+        group.create_dataset('xs',data=self.xs)
+        group.create_dataset('p_val',data=self.p_val)
+        group.create_dataset('alpha',data=self.spline.alphas)
 
-        return cls(xs=np.array(group["xs"]), p_val=int(np.array(group["p_val"])), p=np.array(group["p"]))
+    def load(group):
+        return CardinalSplineMixture(p=jnp.array(group['p']),p_val=int(group['p_val'][()]),xs=jnp.array(group['xs']))
     
 
 def cardinal_vmap_matrix(x, xp, basis, a):
@@ -1203,17 +1094,6 @@ class FullCardinalSplineMixture(CardinalSplineMixture):
         y = p @ cardinal_vmap_matrix(x, self.xs, self.spline, a)
         return y
 
-    def save_hdf(self,file,index):
-        group = super(CardinalSplineMixture,self).save_hdf(file,index)
-        group.create_dataset("xs",data = self.xs)
-        group.create_dataset("alphas", data = self.spline.alphas)
-        group.create_dataset("p_val",data= self.p_val)
-        return group
-    
-    def load_hdf(cls,group):
-
-        return cls(xs=np.array(group["xs"]), p_val=int(np.array(group["p_val"])), p=np.array(group["p"]))
-    
 
 class NormalizationModel(Model):
     '''
@@ -1250,21 +1130,16 @@ class NormalizationModel(Model):
         )
         return x
 
-    def save_hdf(self,file,index=[]):
-        # group = file.create_group(self.model.__class__.__name__)
-        group = super(NormalizationModel, self).save_hdf(file,index)
-        model_group = self.model.save_hdf(group,index)
-        # del model_group["p"]
-        
-        # file = super(NormalizationModel, self).save_hdf(file,index)
-        group.create_dataset("size",data = self.size)
-        # group.create_dataset("p",data = self.p)
-        return file
-    
-    def load_hdf(cls,group):
+    def save(self,group):
+            modelgroup = group.create_group('model_' + self.model.__class__.__name__)
+            self.model.save(modelgroup)
+            group.create_dataset('p',data=self.p)
+            group.create_dataset('which_key',data=self.which_key,dtype=h5py.string_dtype('utf-8'))
+            group.create_dataset('size',data=self.size)
+
+    def load(group):
         for key in group.keys():
-            if key != "size":
-                if key != "p":
-                    cls_sub = eval(key.split(']')[-1])
-                    temp_model = cls_sub.load_hdf(cls_sub,group[key])
-        return cls(p=group["p"], model=temp_model, size=group["size"])
+            if key.startswith('model_'):
+                obj_name = key.split('_')[-1]
+                model = eval(obj_name).load(group[key])
+        return NormalizationModel(p=jnp.array(group['p'][:]),model=model,which_key=str(group['which_key'][()].decode('utf-8')),size=int(group['size'][()]))

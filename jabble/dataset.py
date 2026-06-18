@@ -12,6 +12,8 @@ import jax
 import jabble.loss
 import jabble.model
 
+import h5py
+
 # from frozendict import frozendict
 
 def fit_continuum_jabble(x, y, ivars, device_store, device_op, norm_p_val, norm_res, nsigma=[0.8,3.0], maxniter=50,options={}):
@@ -233,6 +235,47 @@ class Data:
             metablock[key] = epoch_indices.astype(int)
 
         return DataBlock(**datablock), DataBlock(**metablock)
+
+    def save(self,filename):
+        with h5py.File(filename, 'w') as hf:
+            group = hf.create_group('data')
+            for i, dataframe in enumerate(self.dataframes):
+                subgroup = group.create_group(f'dataframe_{i}',track_order=True)
+                subgroup.create_dataset('xs', data=dataframe.xs)
+                subgroup.create_dataset('ys', data=dataframe.ys)
+                subgroup.create_dataset('yivar', data=dataframe.yivar)
+                subgroup.create_dataset('mask', data=dataframe.mask)
+            
+            metagroup = hf.create_group('metadata')
+            for key in self.metadata.keys():
+                if self.metadata[key].dtype.kind in {'U', 'S'}:
+                    metagroup.create_dataset(key,data=np.char.encode(self.metadata[key], 'utf-8'))
+                else:
+                    metagroup.create_dataset(key,data=self.metadata[key])
+
+    def load(filename):
+        with h5py.File(filename, 'r') as hf:
+            group = hf['data']
+            dataframes = []
+            for key in group.keys():
+                if key.startswith('dataframe_'):
+                    xs = group[key]['xs'][:]
+                    ys = group[key]['ys'][:]
+                    yivar = group[key]['yivar'][:]
+                    mask = group[key]['mask'][:]
+                    dataframes.append(DataFrame(xs, ys, yivar, mask))
+            
+            data = Data(dataframes)
+
+            metagroup = hf['metadata']
+            for key in metagroup.keys():
+                # print(h5py.check_string_dtype(metagroup[key].dtype))
+                if h5py.check_string_dtype(metagroup[key].dtype) is not None:
+                    data.metadata[key] = np.array(metagroup[key].asstr()[:], dtype=str)
+                else:   
+                    data.metadata[key] = np.array(metagroup[key][:])
+        return data
+            
 
 class DataFrame:
     def __init__(self, xs: jnp.array, ys: jnp.array, yivar: jnp.array, mask: jnp.array):
