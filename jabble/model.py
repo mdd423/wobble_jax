@@ -69,7 +69,19 @@ def save(filename,model,header={}):
                 metagroup.create_dataset(key,data=np.char.encode(model.metadata[key], 'utf-8'))
             else:
                 metagroup.create_dataset(key,data=model.metadata[key])
-            
+
+def save_rvs(filename,rv_inds,model,dataset,loss,time,device):
+    with h5py.File(filename, 'w') as hf:
+        rvs_model = model
+        for ind in rv_inds:
+            rvs_model = rvs_model[ind]
+        hf.create_dataset('rvs', data=jabble.physics.velocities(rvs_model.p))
+        hf.create_dataset('time', data=time)
+        hf.create_dataset('rv_error_fisher', data=jabble.quickplay.get_RV_error_fisher(model, dataset, device, rv_inds))
+        hf.create_dataset('rv_error_2d_est', data=jabble.quickplay.get_RV_error_2d_est(model, dataset, loss, rv_inds, device))
+        hf.create_dataset('rv_error_2d_full', data=jabble.quickplay.get_RV_error_2d(model, dataset, loss, rv_inds, device))
+
+
 def create_x_grid(xs, vel_padding, resolution):
     """
     Get grid in log wavelength space with equally spaced steps at speed of light over the resolution,

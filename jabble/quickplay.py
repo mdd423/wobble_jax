@@ -379,7 +379,7 @@ def train_cycle(model, dataset, loss, device_store, device_op, \
 
     return model
 
-def get_RV_sigmas(model, dataset, device=None, rv_ind = [0,0]):
+def get_RV_error_fisher(model, dataset, device=None, rv_ind = [0,0]):
     """
     Return errorbar on radial velocities using fischer information
 
@@ -401,6 +401,85 @@ def get_RV_sigmas(model, dataset, device=None, rv_ind = [0,0]):
         [jax.grad(jabble.physics.velocities)(x) for x in rv_model.p]
     )
     return np.sqrt(1 / f_info) * dvddx
+
+def get_RV_error_2d_est(model, dataset, loss, rv_ind, device, epsilon = jabble.physics.shifts(10)):
+    # Enable NaN debugging during development
+    
+    def loss_sum(*args):
+        return loss(*args).sum()
+    model.to_device(device)
+        
+    gradI = jax.grad(loss_sum)
+    model.fix()
+    model.fit(*rv_ind)
+    rv_model = model
+    for ind in rv_ind:
+        rv_model = rv_model[ind]
+
+    data, meta = dataset.blockify(device)
+    
+    p_space = jnp.linspace(-epsilon, epsilon, 20)  # tighter range
+    parameters = model.get_parameters()[None, :] + p_space[:, None]
+
+    int_information = jnp.zeros((*rv_model.p.shape, *p_space.shape))
+
+    def _loop_dataset(datarow, metarow):
+        def _loop_param(param_row):
+            g = gradI(param_row, datarow, metarow, model)
+            rv_key = metarow[rv_model.which_key]
+            return g[rv_key]
+        return jax.vmap(_loop_param, in_axes=(0))(parameters)
+
+    int_information_row = jax.vmap(_loop_dataset, in_axes=(0, 0))(data, meta)
+
+    for iii in range(len(dataset)):
+        metarow = meta.ele(iii).to_device(device)
+        key = metarow[rv_model.which_key]
+        int_information = int_information.at[key].add(int_information_row[iii, :])
+
+    def _linear_fit(grad_vec):
+        
+        numerator = jnp.dot(p_space, grad_vec)
+        denominator = jnp.dot(p_space, p_space)
+        # Guard against near-zero denominator
+        safe = jnp.abs(denominator) > 1e-22 * numerator
+        # print(jnp.sum(safe),numerator , denominator)
+        return jnp.where(safe, numerator / denominator, jnp.nan)
+
+    information = jax.vmap(_linear_fit, in_axes=(0))(int_information)
+    
+    drvddx = jax.grad(jabble.physics.velocities)
+
+    return np.array([1/np.sqrt(ivar) * drvddx(dx) for ivar,dx in zip(information,model[0][0].p)])
+
+def get_RV_error_2d(model,dataset,loss,rv_ind,device):
+    def loss_sum(*args):
+        return loss(*args).sum()
+    model.to_device(device)
+    
+    curvature = jax.jacrev(jax.grad(loss_sum))
+    model.fix()
+    model.fit(*rv_ind)
+    rv_model = model
+    for ind in rv_ind:
+        rv_model = rv_model[ind]
+    data,meta = dataset.blockify(device)
+
+    information = np.zeros(rv_model.p.shape)
+
+    # VMAP SECTION
+    def _loop_dataset(datarow,metarow):
+        return curvature(model.get_parameters(),datarow,metarow,model)[metarow[rv_model.which_key],metarow[rv_model.which_key]]
+    information_row = jax.vmap(_loop_dataset,in_axes=(0,0))(data,meta)
+    for iii in range(len(dataset)):
+        metarow = meta.ele(iii).to_device(device)
+        information[metarow[rv_model.which_key]] += information_row[iii]
+
+    # END VMAP
+    
+    drvddx = jax.grad(jabble.physics.velocities)
+
+    return np.array([1/np.sqrt(ivar) * drvddx(dx) for ivar,dx in zip(information,model[0][0].p)])
 
 def get_loss_array(model,datablock,metablock,loss,device):
     loss.ready_indices(model)
